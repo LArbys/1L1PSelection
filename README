@@ -1,0 +1,8 @@
+Hey there! Welcome to my selection.
+This should work pretty simply and I think I commented everything quite nicely, but here's some added help:
+
+
+1) fist thing you're gonna want to run is the MakeFinalVertexVariables-prime script for each of your samples to combine all of the separate variable files into one very convenient package. This is also where I define and store all of the reco variables we use, so take a look in here if you want to play with variables.
+2) next, you'll want to use my PickleFiles notebook to take all of the constituent parts used for preselection (which should be outlined fairly clearly in the notebook) and line everything up in convenient dataframes!
+3) The BDTTraining notebooks load these pickles up and can train BDTs on whatever variables you'd like! It'll output the weights for you.
+4) The Selection notebooks load these pickles and your BDT weights and can perform selection for you!
