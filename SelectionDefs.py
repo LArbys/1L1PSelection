@@ -163,13 +163,12 @@ def alphaT(El,Ep,Thl,Thp,Phl,Php,pid='electron'):
 
     return alphat
 
-def ECCQE(KE,theta,pid="muon"):
+def ECCQE(KE,theta,pid="muon",B=40):
 
     Mn  = 939.5654
     Mp  = 938.2721
     Mmu = 105.66
     Me  = 0.511
-    B   = 40.0
 
     try:
         if pid == "muon":
@@ -191,13 +190,12 @@ def ECCQE(KE,theta,pid="muon"):
 
     return EnuQE
 
-def ECal(KEp,KEmu,pid="electron"):
+def ECal(KEp,KEmu,pid="electron",B=40):
 
     Mn  = 939.5654
     Mmu = 105.66
     Me  = 0.511
     Mp  = 938.2721
-    B   = 40
 
     if pid == "electron":
         EnuCal = KEp+KEmu+B+Me+(Mn-Mp)
@@ -207,7 +205,6 @@ def ECal(KEp,KEmu,pid="electron"):
     return EnuCal
 
 def Q2(Enu,El,theta,pid='muon'):
-    # Feed in MeV, which is what is usually in the trees
 
     EMass = 0.511
     MuMass = 105.6584
@@ -219,8 +216,6 @@ def Q2(Enu,El,theta,pid='muon'):
     elif pid == 'muon':
         Pl  = sqrt((El+MuMass)**2  - MuMass**2)
         return -1.0*MuMass**2 + 2*Enu*(El + MuMass - Pl*cos(theta))
-
-
 
 def OpenAngle(th1,th2,phi1,phi2):
 
@@ -289,12 +284,11 @@ def ECCQE_mom(px,py,pz,pid="muon",B = 40,n=[0,0,1]):
 
     return EnuQE
 
-def GetCCQEDiff(lE,pE,lTh,pTh,lPh,pPh,pid='electron'):
+def GetCCQEDiff(lE,pE,lTh,pTh,lPh,pPh,pid='electron',B=40):
 
     Mn  = 939.5654
     Mp  = 938.2721
     Ml  = 0.511
-    B   = 40
 
     pP = sqrt((pE+Mp)**2 - Mp**2)
     lP = sqrt((lE+Ml)**2 - Ml**2)
@@ -308,11 +302,11 @@ def GetCCQEDiff(lE,pE,lTh,pTh,lPh,pPh,pid='electron'):
     lPz = lP*cos(lTh)
 
     ecal = pE + Mp + lE + Ml - (Mn - B)
-    elqe = ECCQE_mom(lPx,lPy,lPz,pid,n=[0,0,1])
+    elqe = ECCQE_mom(lPx,lPy,lPz,pid,B,[0,0,1])
 
     return abs(ecal - elqe)/(ecal+elqe)
 
-def SensibleMinimize(lE,pE,lTh,pTh,lPh,pPh,pid):
+def SensibleMinimize(lE,pE,lTh,pTh,lPh,pPh,pid,B=25.9):
 
     vars = [0.05*i for i in range(100)]
     bestEDiff = 99999999
@@ -320,7 +314,7 @@ def SensibleMinimize(lE,pE,lTh,pTh,lPh,pPh,pid):
     for x in vars:
 
         var_lE = lE*x
-        thisEDiff = GetCCQEDiff(var_lE,pE,lTh,pTh,lPh,pPh,pid)
+        thisEDiff = GetCCQEDiff(var_lE,pE,lTh,pTh,lPh,pPh,pid,B)
 
         if thisEDiff < bestEDiff:
             bestVar = x
@@ -329,27 +323,30 @@ def SensibleMinimize(lE,pE,lTh,pTh,lPh,pPh,pid):
     return bestVar
 
 
-def Boost(Pfx,Pfy,Pfz,w,x,y,z):
+def Boost(Pfx,Pfy,Pfz,w,x,y,z,B=25.9):
 
-    Mn  = 939.5654
-    p   = sqrt(Pfx**2+Pfy**2+Pfz**2)
-    E   = sqrt(p**2+Mn**2)
-    g   = E/Mn
-    b   = p/(Mn*g)+0.00001 #apparently one event will have beta = 0... fudge it so it doesn't die
-    bx  = Pfx/(Mn*g)
-    by  = Pfy/(Mn*g)
-    bz  = Pfz/(Mn*g)
-    k   = (g-1)/b**2
+    # okay. let's get in the weeds with this
+    _pn = sqrt(Pfx**2+Pfy**2+Pfz**2)
+    _MAr = 37211.0 #MeV
+    _Mn  = 939.5654
+    _KEf = sqrt(pow(MAr-Mn+B,2)-pow(_pf,2)) - MAr-Mn+B
+    _En = Mn-B-_KEf
+    _beta = _pn / _En
+    _betax = Pfx/_En
+    _betay = Pfy/_En
+    _betaz = Pfz/_En
+    _gamma = 1.0/sqrt(1.0-pow(_beta,2))
+    _k = (_gamma - 1.0)/pow(_beta,2)
 
     lorMat = [
 
-      [  g      , -g*bx      , -g*by     , -g*bz     ],
+      [  gamma      , -gamma*_betax      , -gamma*_betay     , -gamma*_betaz     ],
 
-      [  -g*bx  , 1+k*bx**2  , k*bx*by   , k*bx*bz   ],
+      [  -gamma*_betax  , 1+_k*_betax**2  , _k*_betax*_betay   , _k*_betax*_betaz   ],
 
-      [  -g*by  , k*bx*by    , 1+k*by**2 , k*by*bz   ],
+      [  -gamma*_betay  , _k*_betax*_betay    , 1+_k*_betay**2 , _k*_betay*_betaz   ],
 
-      [  -g*bz  , k*bx*bz    , k*by*bz   , 1+k*bz**2 ]
+      [  -gamma*_betaz  , _k*_betax*_betaz    , _k*_betay*_betaz   , 1+_k*_betaz**2 ]
     ]
 
     bV = matmul(lorMat,[w,x,y,z])
@@ -357,13 +354,12 @@ def Boost(Pfx,Pfy,Pfz,w,x,y,z):
     return bV[0],bV[1],bV[2],bV[3]
 
 
-def BoostTracks(lE,pE,lTh,pTh,lPh,pPh,pid='muon'):
+def BoostTracks(lE,pE,lTh,pTh,lPh,pPh,pid='muon',B=40):
 
     Mn  = 939.5654
     Mp  = 938.2721
     Mm  = 105.6584
     Me  = 0.511
-    B   = 40
     Ml  = -999
 
     if pid == 'muon':
@@ -391,8 +387,8 @@ def BoostTracks(lE,pE,lTh,pTh,lPh,pPh,pid='muon'):
     nE0,nPx0,nPy0,nPz0 = Boost(pPx+lPx,pPy+lPy,0,1,0,0,1)
 
     ecal = pE0 + Mp + lE0 + Ml - (Mn - B)
-    epqe = ECCQE_mom(pPx0,pPy0,pPz0,pid="proton",n=[nPx0,nPy0,nPz0])
-    elqe = ECCQE_mom(lPx0,lPy0,lPz0,pid="muon",n=[nPx0,nPy0,nPz0])
+    epqe = ECCQE_mom(pPx0,pPy0,pPz0,"proton",B,n=[nPx0,nPy0,nPz0])
+    elqe = ECCQE_mom(lPx0,lPy0,lPz0,"muon",B,n=[nPx0,nPy0,nPz0])
 
     thisSph = sqrt((ecal-epqe)**2+(ecal-elqe)**2+(elqe-epqe)**2)
     ####
@@ -426,8 +422,8 @@ def BoostTracks(lE,pE,lTh,pTh,lPh,pPh,pid='muon'):
     newLE  = lE - Ml
 
     ecal = pE + lE - (Mn - B)
-    epqe = ECCQE_mom(pPx,pPy,pPz,"proton",n=[nPx,nPy,nPz])
-    elqe = ECCQE_mom(lPx,lPy,lPz,pid,n=[nPx,nPy,nPz])
+    epqe = ECCQE_mom(pPx,pPy,pPz,"proton",B,n=[nPx,nPy,nPz])
+    elqe = ECCQE_mom(lPx,lPy,lPz,pid,B,n=[nPx,nPy,nPz])
 
     return newPE,newLE,newPTh,newLTh,newPPh,newLPh,ecal,epqe,elqe,thisSph
 
@@ -449,3 +445,36 @@ def Getpz(El,Ep,lTh,pTh,pid='electron'):
     pz  = Ppz + Plz
 
     return pz
+
+def Getq3q0(Ep,El,pTh,lTh,pPh,lPh,pid='electron',B=40):
+
+    NMass = 939.5654
+    PMass  = 938.673
+    EMass = 0.511
+    MuMass = 105.6584
+
+    if pid == 'electron':
+        Pl  = sqrt((El+EMass)**2  - EMass**2)
+        Ml = EMass
+    elif pid == 'muon':
+        Pl  = sqrt((El+MuMass)**2  - MuMass**2)
+        Ml = MuMass
+    Pp  = sqrt((Ep+PMass)**2 - PMass**2)
+
+    Ppx = Pp*sin(pTh)*cos(pPh)
+    Ppy = Pp*sin(pTh)*sin(pPh)
+    Ppz = Pp*cos(pTh)
+
+    Plx = Pl*sin(lTh)*cos(lPh)
+    Ply = Pl*sin(lTh)*sin(lPh)
+    Plz = Pl*cos(lTh)
+
+    ecal = Ep + PMass + El + Ml - (NMass - B)
+
+    q0 = ecal - (El+Ml)
+
+    pnu = Plz + Ppz
+
+    q3 = sqrt( (-Plx)**2 + (-Ply)**2 + (pnu - Plz)**2 )
+
+    return q3,q0
