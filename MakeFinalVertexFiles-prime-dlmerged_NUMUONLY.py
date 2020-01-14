@@ -16,6 +16,76 @@ if len(argv) != 3:
     print('argv[1]: dlmerged.root')
     print('argv[2]: destination (.)')
 
+_tag = argv[1][-27:-5]
+_dest = argv[2]
+
+# ---------------------------------------------- #
+
+print()
+print('<EVID: %s> -- First, we will figure out the PMT Precut info.'%_tag)  #gotta do this first for io reasons
+
+PMTPrecut_Dict = {}
+
+PP_WINDOW_LENGTH = 130
+PP_COINC_WINDOW = 6
+PP_PE_THRESH = 20
+PP_PMT_MAX_FRAC_CUTOFF = 0.60
+PP_WIN_START = 190
+PP_WIN_END = 320
+PP_PORCH_WIN_START = PP_WIN_START - 130
+PP_PORCH_WIN_END = PP_WIN_END - 130
+PP_TICK_SIZE = 0.015625		# 15.625 ns per tick
+
+# Load up larlite
+ll_manager = larlite.storage_manager()
+ll_manager.set_io_mode(ll_manager.kREAD)
+ll_manager.add_in_filename(argv[1])
+ll_manager.set_in_rootdir("")
+ll_manager.open()
+
+while ll_manager.next_event():
+
+    id_rse = tuple((ll_manager.run_id(),ll_manager.subrun_id(),ll_manager.event_id()))
+
+    # ---------- Grab vectors containing particle info --------- #
+    ophits   = ll_manager.get_data(larlite.data.kOpHit,"ophitBeam")
+    # ---------------------------------------------------------- #
+
+    # Torch cut and PE cut
+    porchClusters = [0]*((PP_WIN_END-PP_WIN_START)/PP_COINC_WINDOW+1)
+    Clusters = [0]*((PP_WIN_END-PP_WIN_START)/PP_COINC_WINDOW+1)
+    for ophit in ophits:
+        if PP_PORCH_WIN_START <= ophit.PeakTime()/PP_TICK_SIZE <= PP_PORCH_WIN_END:
+            porchClusters[int((ophit.PeakTime()/PP_TICK_SIZE-PP_PORCH_WIN_START)/PP_COINC_WINDOW)]+=ophit.PE()
+        if PP_WIN_START <= ophit.PeakTime()/PP_TICK_SIZE <= PP_WIN_END:
+            Clusters[int((ophit.PeakTime()/PP_TICK_SIZE-PP_WIN_START)/PP_COINC_WINDOW)]+=ophit.PE()
+
+    porchTotPE,porchFlashBins = GetTotPE(PP_PE_THRESH,porchClusters)
+    TotPE,FlashBins = GetTotPE(PP_PE_THRESH,Clusters)
+
+    # PMT Frac Cut
+    PEbyPMT  = [0]*32
+    FracDict = {}
+    for ophit in ophits:
+        if (int(ophit.PeakTime()/PP_TICK_SIZE - PP_WIN_START)/PP_COINC_WINDOW) in FlashBins:
+            PEbyPMT[ophit.OpChannel()]+=ophit.PE()
+            if ophit.OpChannel() in FracDict:
+                FracDict[ophit.OpChannel()]+=ophit.PE()/TotPE
+            else:
+                FracDict[ophit.OpChannel()] = ophit.PE()/TotPE
+
+    PMTfrac = [x / TotPE for x in PEbyPMT]
+    if len(PMTfrac) == 0:
+        MaxPEFrac = -1
+    else:
+        MaxPEFrac = max(PMTfrac)
+
+    PassPMTPrecut = porchTotPE < PP_PE_THRESH and TotPE > PP_PE_THRESH and 0 < MaxPEFrac < PP_PMT_MAX_FRAC_CUTOFF
+
+    PMTPrecut_Dict[id_rse] = {TotPE,porchTotPE,MaxPEFrac,PassPMTPrecut}
+
+ll_manager.close()
+
 # --- Open Ana File (hadd vertexana.root + tracker_anaout.root)
 DLMergedFile = TFile(argv[1])
 
@@ -27,7 +97,6 @@ except:
     sys.exit()
 
 # ---------------------------------------------------------------------- #
-
 
 def MakeTreeBranch(ttree,s_name,s_type):
     if s_type == 'int':
@@ -47,8 +116,6 @@ def MakeTreeBranch(ttree,s_name,s_type):
 
 
 # --- Create output ROOT file and initialize variables ----------------- #
-_tag = argv[1][-27:-5]
-_dest = argv[2]
 
 outFileName = 'FinalVertexVariables-prime_'+_tag+'_NUMU.root'
 outFileName = os.path.join(_dest,outFileName)
@@ -130,6 +197,12 @@ _length_v = MakeTreeBranch(outTree,'length_v','tvector')
 _dqdx_v = MakeTreeBranch(outTree,'dqdx_v','tvector')
 _EifP_v = MakeTreeBranch(outTree,'EifP_v','tvector')
 _EifMu_v = MakeTreeBranch(outTree,'EifMu_v','tvector')
+
+# Precut stuff
+_totPE = MakeTreeBranch(outTree,'TotPE','float')
+_porchTotPE = MakeTreeBranch(outTree,'PorchTotPE','float')
+_maxPEFrac = MakeTreeBranch(outTree,'MaxPEFrac','float')
+_passPMTPrecut = MakeTreeBranch(outTree,'PassPMTPrecut','int')
 
 def clear_vertex():
     _lepton_id        = int(-9999)
@@ -323,6 +396,10 @@ for indo,ev in enumerate(TrkTree):
     _q2B_1m1p[0]          = Q2calB_1m1p    if NumTracks == 2 else -99999
     _bjYB_1m1p[0]         = yB_1m1p        if NumTracks == 2 else -99999
 
+    _totPE[0] = TotPE if NumTracks == 2 else -99999
+    _porchTotPE[0] = porchTotPE if NumTracks == 2 else -99999
+    _maxPEFrac[0] = MaxPEFrac if NumTracks == 2 else -99999
+    _passPMTPrecut[0] = PassPMTPrecut if NumTracks == 2 else -99999
 
     _phi_v.clear()
     _theta_v.clear()

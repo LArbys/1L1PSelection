@@ -163,7 +163,7 @@ def alphaT(El,Ep,Thl,Thp,Phl,Php,pid='electron'):
 
     return alphat
 
-def ECCQE(KE,theta,pid="muon",B=40):
+def ECCQE(KE,theta,pid="muon",B=29.5):
 
     Mn  = 939.5654
     Mp  = 938.2721
@@ -190,7 +190,7 @@ def ECCQE(KE,theta,pid="muon",B=40):
 
     return EnuQE
 
-def ECal(KEp,KEmu,pid="electron",B=40):
+def ECal(KEp,KEmu,pid="electron",B=29.5):
 
     Mn  = 939.5654
     Mmu = 105.66
@@ -248,7 +248,7 @@ def edgeCut(wallDistVec):
             return False
 
 
-def ECCQE_mom(px,py,pz,pid="muon",B = 40,n=[0,0,1]):
+def ECCQE_mom(px,py,pz,pid="muon",B = 29.5,n=[0,0,1]):
 
     Mn  = 939.5654
     Mp  = 938.272
@@ -284,7 +284,7 @@ def ECCQE_mom(px,py,pz,pid="muon",B = 40,n=[0,0,1]):
 
     return EnuQE
 
-def GetCCQEDiff(lE,pE,lTh,pTh,lPh,pPh,pid='electron',B=40):
+def GetCCQEDiff(lE,pE,lTh,pTh,lPh,pPh,pid='electron',B=29.5):
 
     Mn  = 939.5654
     Mp  = 938.2721
@@ -329,8 +329,8 @@ def Boost(Pfx,Pfy,Pfz,w,x,y,z,B=25.9):
     _pn = sqrt(Pfx**2+Pfy**2+Pfz**2)
     _MAr = 37211.0 #MeV
     _Mn  = 939.5654
-    _KEf = sqrt(pow(MAr-Mn+B,2)-pow(_pf,2)) - MAr-Mn+B
-    _En = Mn-B-_KEf
+    _KEf = sqrt(pow(_MAr-_Mn+B,2)-pow(_pn,2)) - _MAr-_Mn+B
+    _En = _Mn-B-_KEf
     _beta = _pn / _En
     _betax = Pfx/_En
     _betay = Pfy/_En
@@ -340,13 +340,13 @@ def Boost(Pfx,Pfy,Pfz,w,x,y,z,B=25.9):
 
     lorMat = [
 
-      [  gamma      , -gamma*_betax      , -gamma*_betay     , -gamma*_betaz     ],
+      [  _gamma      , -_gamma*_betax      , -_gamma*_betay     , -_gamma*_betaz     ],
 
-      [  -gamma*_betax  , 1+_k*_betax**2  , _k*_betax*_betay   , _k*_betax*_betaz   ],
+      [  -_gamma*_betax  , 1+_k*_betax**2  , _k*_betax*_betay   , _k*_betax*_betaz   ],
 
-      [  -gamma*_betay  , _k*_betax*_betay    , 1+_k*_betay**2 , _k*_betay*_betaz   ],
+      [  -_gamma*_betay  , _k*_betax*_betay    , 1+_k*_betay**2 , _k*_betay*_betaz   ],
 
-      [  -gamma*_betaz  , _k*_betax*_betaz    , _k*_betay*_betaz   , 1+_k*_betaz**2 ]
+      [  -_gamma*_betaz  , _k*_betax*_betaz    , _k*_betay*_betaz   , 1+_k*_betaz**2 ]
     ]
 
     bV = matmul(lorMat,[w,x,y,z])
@@ -354,7 +354,7 @@ def Boost(Pfx,Pfy,Pfz,w,x,y,z,B=25.9):
     return bV[0],bV[1],bV[2],bV[3]
 
 
-def BoostTracks(lE,pE,lTh,pTh,lPh,pPh,pid='muon',B=40):
+def BoostTracks(lE,pE,lTh,pTh,lPh,pPh,pid='muon',B=29.5):
 
     Mn  = 939.5654
     Mp  = 938.2721
@@ -446,7 +446,7 @@ def Getpz(El,Ep,lTh,pTh,pid='electron'):
 
     return pz
 
-def Getq3q0(Ep,El,pTh,lTh,pPh,lPh,pid='electron',B=40):
+def Getq3q0(Ep,El,pTh,lTh,pPh,lPh,pid='electron',B=29.5):
 
     NMass = 939.5654
     PMass  = 938.673
@@ -478,3 +478,26 @@ def Getq3q0(Ep,El,pTh,lTh,pPh,lPh,pid='electron',B=40):
     q3 = sqrt( (-Plx)**2 + (-Ply)**2 + (pnu - Plz)**2 )
 
     return q3,q0
+
+
+def GetTotPE(coincidenceThresh, flashes):
+
+    totPE       = 0
+    flash_found = 0
+    flash_bins  = []
+    for x in xrange(len(flashes)):
+
+        if flashes[x] > coincidenceThresh and flash_found == 1:
+            flash_bins.append(x)
+            totPE+= flashes[x]
+
+        if flashes[x] < coincidenceThresh and flash_found == 1:
+            break
+
+        if flashes[x] > coincidenceThresh and flash_found == 0:
+            totPE+= flashes[x]
+            flash_bins.append(x)
+            flash_found = 1
+
+    return totPE,flash_bins
+
