@@ -1,3 +1,7 @@
+#v0: numu only so we can run on the dlmerged files without having to deal with shower energy for the moment
+#v1: added pmt precut stuff
+
+
 import ROOT
 from ROOT import TFile,TTree
 import matplotlib.pyplot as plt
