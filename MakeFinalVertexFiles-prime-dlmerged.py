@@ -6,6 +6,9 @@
 ## # TODO:
 # 1) various fixes for 1e1p (why use 2 tracks when we're looking for 1trk1sh -- could increase efficiency)
 
+print()
+print('Welcome Friends')
+
 import ROOT
 from ROOT import TFile,TTree
 import matplotlib.pyplot as plt
@@ -15,9 +18,10 @@ from numpy import mean,asarray,matmul
 from math import sqrt,acos,cos,sin,pi,exp,log,isnan,atan2
 from sys import argv
 from array import array
+from larlite import larlite
 import os,sys
 
-from SelectionDefs import NewAng, VtxInSimpleFid, VtxInFid, GetPhiT, pTrans,pTransRat, alphaT, ECCQE, ECal, Q2, OpenAngle, PhiDiff, edgeCut, ECCQE_mom, Boost, BoostTracks, Getpz, GetCCQEDiff, SensibleMinimize, Getq3q0
+from SelectionDefs import NewAng, VtxInSimpleFid, VtxInFid, GetPhiT, pTrans,pTransRat, alphaT, ECCQE, ECal, Q2, OpenAngle, PhiDiff, edgeCut, ECCQE_mom, Boost, BoostTracks, Getpz, GetCCQEDiff, SensibleMinimize, Getq3q0, GetTotPE
 
 if len(argv) != 4:
     print('Fuck off')
@@ -28,76 +32,11 @@ if len(argv) != 4:
 _tag = argv[1][-27:-5]
 _dest = argv[3]
 
-# ---------------------------------------------- #
-
-print()
-print('<EVID: %s> -- First, we will figure out the PMT Precut info.'%_tag)  #gotta do this first for io reasons
-
-PMTPrecut_Dict = {}
-
-PP_WINDOW_LENGTH = 130
-PP_COINC_WINDOW = 6
-PP_PE_THRESH = 20
-PP_PMT_MAX_FRAC_CUTOFF = 0.60
-PP_WIN_START = 190
-PP_WIN_END = 320
-PP_PORCH_WIN_START = PP_WIN_START - 130
-PP_PORCH_WIN_END = PP_WIN_END - 130
-PP_TICK_SIZE = 0.015625		# 15.625 ns per tick
-
-# Load up larlite
-ll_manager = larlite.storage_manager()
-ll_manager.set_io_mode(ll_manager.kREAD)
-ll_manager.add_in_filename(argv[1])
-ll_manager.set_in_rootdir("")
-ll_manager.open()
-
-while ll_manager.next_event():
-
-    id_rse = tuple((ll_manager.run_id(),ll_manager.subrun_id(),ll_manager.event_id()))
-
-    # ---------- Grab vectors containing particle info --------- #
-    ophits   = ll_manager.get_data(larlite.data.kOpHit,"ophitBeam")
-    # ---------------------------------------------------------- #
-
-    # Torch cut and PE cut
-    porchClusters = [0]*((PP_WIN_END-PP_WIN_START)/PP_COINC_WINDOW+1)
-    Clusters = [0]*((PP_WIN_END-PP_WIN_START)/PP_COINC_WINDOW+1)
-    for ophit in ophits:
-        if PP_PORCH_WIN_START <= ophit.PeakTime()/PP_TICK_SIZE <= PP_PORCH_WIN_END:
-            porchClusters[int((ophit.PeakTime()/PP_TICK_SIZE-PP_PORCH_WIN_START)/PP_COINC_WINDOW)]+=ophit.PE()
-        if PP_WIN_START <= ophit.PeakTime()/PP_TICK_SIZE <= PP_WIN_END:
-            Clusters[int((ophit.PeakTime()/PP_TICK_SIZE-PP_WIN_START)/PP_COINC_WINDOW)]+=ophit.PE()
-
-    porchTotPE,porchFlashBins = GetTotPE(PP_PE_THRESH,porchClusters)
-    TotPE,FlashBins = GetTotPE(PP_PE_THRESH,Clusters)
-
-    # PMT Frac Cut
-    PEbyPMT  = [0]*32
-    FracDict = {}
-    for ophit in ophits:
-        if (int(ophit.PeakTime()/PP_TICK_SIZE - PP_WIN_START)/PP_COINC_WINDOW) in FlashBins:
-            PEbyPMT[ophit.OpChannel()]+=ophit.PE()
-            if ophit.OpChannel() in FracDict:
-                FracDict[ophit.OpChannel()]+=ophit.PE()/TotPE
-            else:
-                FracDict[ophit.OpChannel()] = ophit.PE()/TotPE
-
-    PMTfrac = [x / TotPE for x in PEbyPMT]
-    if len(PMTfrac) == 0:
-        MaxPEFrac = -1
-    else:
-        MaxPEFrac = max(PMTfrac)
-
-    PassPMTPrecut = porchTotPE < PP_PE_THRESH and TotPE > PP_PE_THRESH and 0 < MaxPEFrac < PP_PMT_MAX_FRAC_CUTOFF
-
-    PMTPrecut_Dict[id_rse] = {TotPE,porchTotPE,MaxPEFrac,PassPMTPrecut}
-
-ll_manager.close()
-
 # --- Open pickle file and take out the good stuff
-with open(argv[2],"rb") as handle:
-    [sh_theta_par1, sh_theta_par2, sh_phi_par1, sh_phi_par2, sh_energy_par1, sh_energy_par2] = pickle.load(handle,encoding="latin1")
+
+picklename = '/cluster/tufts/wongjiradlab/moon/BnbOverlayShowerPickles/BnbOverlay_%s_showerReco.pickle'%_tag
+with open(picklename,"rb") as handle:
+    sh_dict = pickle.load(handle)
 
 # --- Open Ana File (hadd vertexana.root + tracker_anaout.root)
 DLMergedFile = TFile(argv[1])
@@ -136,7 +75,7 @@ def MakeTreeBranch(ttree,s_name,s_type):
 
 # --- Create output ROOT file and initialize variables ----------------- #
 
-outFileName = 'FinalVertexVariables-prime_'+_tag+'_NUMU.root'
+outFileName = 'FinalVertexVariables-prime_'+_tag+'.root'
 outFileName = os.path.join(_dest,outFileName)
 outFile = TFile(outFileName,'RECREATE')
 outTree = TTree('FinalVertexVariables','Final Vertex Variable Tree')
@@ -154,6 +93,7 @@ _anyReco = MakeTreeBranch(outTree,'AnyReco','int')
 _ntracks = MakeTreeBranch(outTree,'NTracks','int')
 _n5tracks = MakeTreeBranch(outTree,'N5cmTracks','int')
 _passCuts = MakeTreeBranch(outTree,'PassCuts','int')
+_passShowerReco = MakeTreeBranch(outTree,'PassShowerReco','int')
 _passSecShr = MakeTreeBranch(outTree,'PassSecShr','int')
 _good3DReco = MakeTreeBranch(outTree,'Good3DReco','float')
 _eta = MakeTreeBranch(outTree,'Eta','float')
@@ -332,11 +272,11 @@ for indo,ev in enumerate(TrkTree):
     sh_foundClusV = [i for i in ev.shower_frac_V_v]
 
     if 0.0 < max(sh_foundClusY) < 1.0:
-        shrFrac    = max(foundClusY)
-        shrFracPart = foundClus1
+        shrFrac    = max(sh_foundClusY)
+        shrFracPart = sh_foundClusY
     else:
-        shrFrac     = max(foundClusV)
-        shrFracPart = foundClus2
+        shrFrac     = max(sh_foundClusV)
+        shrFracPart = sh_foundClusV
 
     if NumTracks == 2:
         lid            = int(np.argmin(ev.Avg_Ion_v))
@@ -355,22 +295,17 @@ for indo,ev in enumerate(TrkTree):
         pdq = ev.IonY_5cm_v[pid]
 
         # Gotta find which particle is the proton in shower reco
-        test_proton_openang_par1 = OpenAngle(pTh,sh_theta_par1[IDvtx],pPh,sh_phi_par1[IDvtx])
-        test_proton_openang_par2 = OpenAngle(pTh,sh_theta_par2[IDvtx],pPh,sh_phi_par2[IDvtx])
-        if test_proton_openang_par1 < test_proton_openang_par2:         # then par2 corresponds to the lepton
-            try:
-                eE = sh_energy_par2[IDvtx]
-                if eE < 0: passShowerReco = False
-            except:
-                eE = -9999
-                passShowerReco = False
-        else:
-            try:
-                eE = sh_energy_par1[IDvtx]
-                if eE < 0: passShowerReco = False
-            except:
-                eE = -9999
-                passShowerReco = False
+        try:       
+            test_proton_openang_par1 = OpenAngle(pTh,sh_dict[IDvtx]["theta1"],pPh,sh_dict[IDvtx]["phi1"])
+            test_proton_openang_par2 = OpenAngle(pTh,sh_dict[IDvtx]["theta2"],pPh,sh_dict[IDvtx]["phi2"])
+            if test_proton_openang_par1 < test_proton_openang_par2:         # then par2 corresponds to the lepton
+                eE = sh_dict[IDvtx]["E2"]
+            else:
+                eE = sh_dict[IDvtx]["E1"]
+            if eE < 0: passShowerReco = False
+        except:
+            eE = -9999
+            passShowerReco = False
 
         thetas         = lTh+pTh
         phis           = PhiDiff(lPh,pPh)
@@ -425,7 +360,7 @@ for indo,ev in enumerate(TrkTree):
 
             # Second Shower Cut
             if ev.secondshower == 1:
-                secsh_OpenAng = OpenAngle(ev.shr_theta,lTh,ev.shr_phi,lPhi)
+                secsh_OpenAng = OpenAngle(ev.shr_theta,lTh,ev.shr_phi,lPh)
                 if ev.shr_rad_pts > 15 and secsh_OpenAng < 0.866:
                     passSecShr = False
 
@@ -557,10 +492,10 @@ for indo,ev in enumerate(TrkTree):
     _q2B_1e1p[0]          = Q2calB_1e1p    if (NumTracks==2 and passShowerReco) else -99999
     _bjYB_1e1p[0]         = yB_1e1p        if (NumTracks==2 and passShowerReco) else -99999
 
-    _totPE[0] = TotPE if NumTracks == 2 else -99999
-    _porchTotPE[0] = porchTotPE if NumTracks == 2 else -99999
-    _maxPEFrac[0] = MaxPEFrac if NumTracks == 2 else -99999
-    _passPMTPrecut[0] = PassPMTPrecut if NumTracks == 2 else -99999
+    _totPE[0] =  -99999
+    _porchTotPE[0] = -99999
+    _maxPEFrac[0] = -99999
+    _passPMTPrecut[0] = -999999
 
     _phi_v.clear()
     _theta_v.clear()
@@ -578,301 +513,10 @@ for indo,ev in enumerate(TrkTree):
     outTree.Fill()
     clear_vertex()
 
+DLMergedFile.Close()
+
 print()
 print('<EVID: %s> -- Excellent! Now just write it up and we are done. Thanks for being patient'%_tag)
 outTree.Write()
 outFile.Close()
 sys.exit(0)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#print('Grab Info From Vtx Tree')
-#for j,ev in enumerate(VtxTree):
-#    print(str(j)+"/"+str(VtxTree.GetEntries())+"\r",end='')
-#    idx = tuple((ev.run,ev.subrun,ev.event,ev.vtxid))
-#    idxv = tuple((ev.run,ev.subrun,ev.event,ev.vtxid))
-
- #    if abs(ev.muon_int_score[2] - 0.24659) > 0.001:
-#        muonPID[idxv] = ev.muon_int_score[2]
-#    else:
-#        muonPID[idxv] = ev.muon_int_score[1]
-#
-#    if abs(ev.proton_int_score[2] - 0.9999992) > 0.0001:
-#        protPID[idxv] = ev.proton_int_score[2]
-#    else:
-#        protPID[idxv] = ev.proton_int_score[1]
-
-#    if abs(ev.gamma_int_score[2] - 0.9506025) > 0.0001:
-#        shwrPID[idxv] = max([ev.eminus_int_score[2],ev.gamma_int_score[2]])
-#        gammaPID[idxv] = ev.gamma_int_score[2]
-#        elecPID[idxv] = ev.eminus_int_score[2]
-#    else:
-#        shwrPID[idxv] = max([ev.eminus_int_score[1],ev.gamma_int_score[1]])
-#        gammaPID[idxv] = ev.gamma_int_score[1]
-#        elecPID[idxv] = ev.eminus_int_score[1]
-
-#    secShr[idxv] = [ev.secondshower,ev.shr_min_dist,ev.shr_theta,ev.shr_phi,ev.shr_rad_pts]
-#    VtxType[idxv] = ev.vertex_type
-
-#    foundClus1 = [i for i in ev.shower_frac_Y_v]
-#    foundClus2 = [i for i in ev.shower_frac_V_v]
-
-#    if max(foundClus1) < 1.0 and max(foundClus1) > 0:
-#        shrFrac[idxv]     = max(foundClus1)
-#        shrFracPart[idxv] = foundClus1
-#    else:
-#        shrFrac[idxv]     = max(foundClus2)
-#        shrFracPart[idxv] = foundClus2
-
-#    foundClus = [i for i in ev.shower_frac_Y_v if i >=0]
-
-#print()
-#print('Okay. Now open up the trimmed pickle files')
-
-
-#with open(argv[3],"rb") as handle:
-#    [showerReco,showerRecoDir,vicsBDTScore] = pickle.load(handle,encoding="latin1")
-
-print()
-print('Great. Now loop through track events and go wild')
-
-for indo,vtx in enumerate(TrkTree):
-    print(str(indo)+'/'+str(TrkTree.GetEntries())+'\r',end='')
-
-    BE = 29.5
-
-    run            = vtx.run
-    subrun         = vtx.subrun
-    event          = vtx.event
-    vtxid          = vtx.vtx_id
-    IDvtx          = tuple((run,subrun,event,vtxid))
-    vtxX           = vtx.vtx_x
-    vtxY           = vtx.vtx_y
-    vtxZ           = vtx.vtx_z
-
-    # These are for passing simple precuts
-    length_v            = vtx.Length_v
-    InFiducialSimple    = VtxInSimpleFid(vtxX,vtxY,vtxZ)
-    InFiducialTight     = VtxInFid(vtxX,vtxY,vtxZ)
-    NumTracks           = len(length_v)
-    Num5cmTracks        = sum(1 for x in length_v if x > 5)
-    NothingRecod        = vtx.nothingReconstructed
-    EdgeDistance        = vtx.closestWall
-
-    PassCuts1m1p    = True
-    PassCuts1e1p    = True
-    PassShowerReco  = True
-    PassSecShr      = True
-
-    PassCuts1m1p = InFiducialSimple and (NumTracks == 2) and (Num5cmTracks == 2) and edgecut(EdgeDistance)
-
-    NumShowers = vtx.nshowers
-
-    PassCuts1e1p = InFiducialSimple and (NumShowers > 0 and NumShowers < 3) and (Num5cmTracks > 0 and Num5cmTracks <= 3) and edgecut(EdgeDistance)
-
-    vtxPhi_v       = vtx.vertexPhi
-    vtxTheta_v     = vtx.vertexTheta
-    dqdx_v         = vtx.Avg_Ion_v
-    iondlen_v      = vtx.IondivLength_v
-    Good3DReco     = vtx.GoodVertex
-
-    EifP_v         = vtx.E_proton_v
-    EifMu_v        = vtx.E_muon_v
-
-    if NumTracks == 2:
-        mid            = int(np.argmin(vtx.Avg_Ion_v))
-        pid            = int(np.argmax(vtx.Avg_Ion_v))
-        mTh            = vtx.vertexTheta[mid]
-        pTh            = vtx.vertexTheta[pid]
-        mPh            = vtx.vertexPhi[mid]
-        pPh            = vtx.vertexPhi[pid]
-        # Add detector rotation fix
-        mTh,mPh        = NewAng(mTh,mPh)
-        pTh,pPh        = NewAng(pTh,pPh)
-        # ----
-        mE             = vtx.E_muon_v[mid]
-        pE             = vtx.E_proton_v[pid]
-        mdq = vtx.IonY_5cm_v[mid]
-        pdq = vtx.IonY_5cm_v[pid]
-
-        thetas         = mTh+pTh
-        phis           = PhiDiff(mPh,pPh)
-        EpCCQE         = ECCQE(pE,pTh,pid="proton",B=BE)
-        EmCCQE         = ECCQE(mE,mTh,pid="muon",B=BE)
-
-        wallProton     = EdgeDistance[pid]
-        wallMuon     = EdgeDistance[mid]
-
-        openAng        = OpenAngle(pTh,mTh,pPh,mPh)
-        shwFrac        = shrFrac[IDvtx]
-        eta            = abs(vtx.Avg_Ion_v[pid]-vtx.Avg_Ion_v[mid])/(vtx.Avg_Ion_v[pid]+vtx.Avg_Ion_v[mid])
-
-        longtracklen   = max(vtx.Length_v)
-        shorttracklen  = min(vtx.Length_v)
-
-        # for 1mu1p (only difference is energy used)
-        Ecal_1m1p              = ECal(mE,pE,'muon',B=BE)
-        dEp_1m1p               = EpCCQE - Ecal_1m1p
-        dEm_1m1p               = EmCCQE - Ecal_1m1p
-        dEmp_1m1p              = EpCCQE-EmCCQE
-        pTRat_1m1p             = pTransRat(mE,pE,mTh,pTh,mPh,pPh,'muon')
-        Q2cal_1m1p             = Q2(Ecal_1m1p,mE,mTh,'muon')
-        Q3_1m1p,Q0_1m1p      = Getq3q0(pE,mE,pTh,mTh,pPh,mPh,'muon',B=BE)
-        EHad_1m1p              = (Ecal_1m1p - mE - 105.66)
-        y_1m1p                 = EHad_1m1p/Ecal_1m1p
-        x_1m1p                 = Q2cal_1m1p/(2*939.5654*EHad_1m1p)
-        sph_1m1p               = sqrt(dEp_1m1p**2+dEm_1m1p**2+dEmp_1m1p**2)
-        phiT_1m1p              = GetPhiT(mE,pE,mTh,pTh,mPh,pPh,'muon')
-        pzenu_1m1p             = Getpz(mE,pE,mTh,pTh,'muon') - Ecal_1m1p
-        pT_1m1p                = pTrans(mE,pE,mTh,pTh,mPh,pPh,'muon')
-        alphT_1m1p             = alphaT(mE,pE,mTh,pTh,mPh,pPh,'muon')
-        CCQE_energy_shift_1m1p = SensibleMinimize(mE,pE,mTh,pTh,mPh,pPh,'muon',B=BE)
-
-        # Now boost these badbois
-        pEB_1m1p,mEB_1m1p,pThB_1m1p,mThB_1m1p,pPhB_1m1p,mPhB_1m1p,EcalB_1m1p,EpCCQEB_1m1p,EmCCQEB_1m1p,sphB_1m1p = BoostTracks(mE,pE,mTh,pTh,mPh,pPh,'muon',B=BE)
-        Q2calB_1m1p          = Q2(EcalB_1m1p,mEB_1m1p,mThB_1m1p)
-        openAngB_1m1p        = OpenAngle(pThB_1m1p,mThB_1m1p,pPhB_1m1p,mPhB_1m1p)
-        thetasB_1m1p         = mThB_1m1p+pThB_1m1p
-        phisB_1m1p           = PhiDiff(mPhB_1m1p,pPhB_1m1p)
-        EHadB_1m1p           = (EcalB_1m1p - mEB_1m1p - 105.66)
-        yB_1m1p              = EHadB_1m1p/EcalB_1m1p
-        xB_1m1p              = Q2calB_1m1p/(2*939.5654*EHadB_1m1p)
-        phiTB_1m1p           = GetPhiT(mEB_1m1p,pEB_1m1p,mThB_1m1p,pThB_1m1p,mPhB_1m1p,pPhB_1m1p,'muon')
-        pTB_1m1p             = pTrans(mEB_1m1p,pEB_1m1p,mThB_1m1p,pThB_1m1p,mPhB_1m1p,pPhB_1m1p,'muon')
-        alphTB_1m1p          = alphaT(mEB_1m1p,pEB_1m1p,mThB_1m1p,pThB_1m1p,mPhB_1m1p,pPhB_1m1p,'muon')
-
-
-
-
-
-
-if(passShowerReco): EeCCQE = ECCQE(eE,lTh,pid="electron",B=BE)
-    maxshrFrac     = max(shrFracPart[IDvtx])
-    minshrFrac     = min(shrFracPart[IDvtx])
-
-
-#    if passShowerReco == 1:
-#
-#        if secShr[idxv][0] ==1:
-#            shTheta = secShr[idxv][2]
-#            shPhi   = secShr[idxv][3]
-#            shOpen  = OpenAngle(shTheta,lTh,shPhi,lPh)
-#            shDist  = secShr[idxv][1]
-#            shSize  = secShr[idxv][4]
-#
-#            if shSize > 15 and shOpen < 0.866: passSecShr = False
-#
-#        try:
-#            AngleDiffMu = acos(OpenAngle(lTh,acos(showerRecoDir[idxv][2]),lPh,atan2(showerRecoDir[idxv][1],showerRecoDir[idxv][0])))
-#            AngleDiffP  = acos(OpenAngle(pTh,acos(showerRecoDir[idxv][2]),pPh,atan2(showerRecoDir[idxv][1],showerRecoDir[idxv][0])))
-#        except:
-#            AngleDiffMu = -5
-#            AngleDiffP  = -5
-#        if min(AngleDiffMu,AngleDiffP) > 0.5: passShowerReco = False
-#
-#        Ecal_1e1p              = ECal(eE,pE,'electron',B=BE)
-#        dEp_1e1p               = EpCCQE - Ecal_1e1p
-#        dEe_1e1p               = EeCCQE - Ecal_1e1p
-#        dEep_1e1p              = EpCCQE-EeCCQE
-#        pTRat_1e1p             = pTransRat(eE,pE,lTh,pTh,lPh,pPh,'electron')
-#        Q2cal_1e1p             = Q2(Ecal_1e1p,eE,lTh,'electron')
-#        Q3_1e1p,Q0_1e1p      = Getq3q0(pE,eE,pTh,lTh,pPh,lPh,'electron',B=BE)
-#        EHad_1e1p              = (Ecal_1e1p - eE - .511)
-#        y_1e1p                 = EHad_1e1p/Ecal_1e1p
-#        x_1e1p                 = Q2cal_1e1p/(2*939.5654*EHad_1e1p)
-#        sph_1e1p               = sqrt(dEp_1e1p**2+dEe_1e1p**2+dEep_1e1p**2)
-#        phiT_1e1p              = GetPhiT(eE,pE,lTh,pTh,lPh,pPh,'electron')
-#        pT_1e1p                = pTrans(eE,pE,lTh,pTh,lPh,pPh,'electron')
-#        pzenu_1e1p             = Getpz(eE,pE,lTh,pTh,'electron') - Ecal_1e1p
-#        alphT_1e1p             = alphaT(eE,pE,lTh,pTh,lPh,pPh,'electron')
-#        CCQE_energy_shift_1e1p = SensibleMinimize(eE,pE,lTh,pTh,lPh,pPh,'electron',B=BE)
-#
-#        # now booost!
-#        pEB_1e1p,eEB_1e1p,pThB_1e1p,eThB_1e1p,pPhB_1e1p,ePhB_1e1p,EcalB_1e1p,EpCCQEB_1e1p,EeCCQEB_1e1p,sphB_1e1p = BoostTracks(eE,pE,lTh,pTh,lPh,pPh,'electron',B=BE)
-#        Q2calB_1e1p          = Q2(EcalB_1e1p,eEB_1e1p,eThB_1e1p)
-#        openAngB_1e1p        = OpenAngle(pThB_1e1p,eThB_1e1p,pPhB_1e1p,ePhB_1e1p)
-#        thetasB_1e1p         = eThB_1e1p+pThB_1e1p
-#        phisB_1e1p           = PhiDiff(ePhB_1e1p,pPhB_1e1p)
-#        EHadB_1e1p           = (EcalB_1e1p - eEB_1e1p - .511)
-#        yB_1e1p              = EHadB_1e1p/EcalB_1e1p
-#        xB_1e1p              = Q2calB_1e1p/(2*939.5654*EHadB_1e1p)
-#        phiTB_1e1p           = GetPhiT(eEB_1e1p,pEB_1e1p,eThB_1e1p,pThB_1e1p,ePhB_1e1p,pPhB_1e1p,'electron')
-#        pTB_1e1p             = pTrans(eEB_1e1p,pEB_1e1p,eThB_1e1p,pThB_1e1p,ePhB_1e1p,pPhB_1e1p,'electron')
-#        alphTB_1e1p          = alphaT(eEB_1e1p,pEB_1e1p,eThB_1e1p,pThB_1e1p,ePhB_1e1p,pPhB_1e1p,'electron')
-
-    _run[0]          = run
-    _subrun[0]       = subrun
-    _event[0]        = event
-    _vtxid[0]        = vtxid
-    _x[0]            = vtxX
-    _y[0]            = vtxY
-    _z[0]            = vtxZ
-    _anyReco[0]      = not(NothingRecod)
-    _infiducialsimple[0]   = InFiducialSimple
-    _infiducialtight[0] = InFiducialTight
-    _ntracks[0]      = NumTracks
-    _n5tracks[0]     = Num5cmTracks
-
-    _passCuts1e1p[0]     = PassCuts1e1p
-    _passCuts1m1p[0]     = PassCuts1m1p

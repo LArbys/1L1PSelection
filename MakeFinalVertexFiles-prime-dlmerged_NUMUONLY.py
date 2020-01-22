@@ -1,5 +1,5 @@
-#v0: numu only so we can run on the dlmerged files without having to deal with shower energy for the moment
 #v1: added pmt precut stuff
+#v2: added mctruth info (where applicable, obvi)
 
 
 import ROOT
@@ -11,9 +11,10 @@ from numpy import mean,asarray,matmul
 from math import sqrt,acos,cos,sin,pi,exp,log,isnan,atan2
 from sys import argv
 from array import array
+from larlite import larlite
 import os,sys
 
-from SelectionDefs import NewAng, VtxInSimpleFid, VtxInFid, GetPhiT, pTrans,pTransRat, alphaT, ECCQE, ECal, Q2, OpenAngle, PhiDiff, edgeCut, ECCQE_mom, Boost, BoostTracks, Getpz, GetCCQEDiff, SensibleMinimize, Getq3q0
+from SelectionDefs import NewAng, VtxInSimpleFid, VtxInFid, GetPhiT, pTrans,pTransRat, alphaT, ECCQE, ECal, Q2, OpenAngle, PhiDiff, edgeCut, ECCQE_mom, Boost, BoostTracks, Getpz, GetCCQEDiff, SensibleMinimize, Getq3q0,GetTotPE
 
 if len(argv) != 3:
     print('Fuck off')
@@ -78,7 +79,11 @@ while ll_manager.next_event():
             else:
                 FracDict[ophit.OpChannel()] = ophit.PE()/TotPE
 
-    PMTfrac = [x / TotPE for x in PEbyPMT]
+    if TotPE >= PP_PE_THRESH:
+        PMTfrac = [x / TotPE for x in PEbyPMT]
+    else:
+        PMTfrac = []
+    
     if len(PMTfrac) == 0:
         MaxPEFrac = -1
     else:
@@ -86,7 +91,7 @@ while ll_manager.next_event():
 
     PassPMTPrecut = porchTotPE < PP_PE_THRESH and TotPE > PP_PE_THRESH and 0 < MaxPEFrac < PP_PMT_MAX_FRAC_CUTOFF
 
-    PMTPrecut_Dict[id_rse] = {TotPE,porchTotPE,MaxPEFrac,PassPMTPrecut}
+    PMTPrecut_Dict[id_rse] = dict(_totpe=TotPE,_porchtotpe=porchTotPE,_maxpefrac=MaxPEFrac,_passpmtprecut=PassPMTPrecut)
 
 ll_manager.close()
 
@@ -94,11 +99,25 @@ ll_manager.close()
 DLMergedFile = TFile(argv[1])
 
 # --- Load relevant analysis trees from track and vertex ana files ----- #
+
 try:
     TrkTree  = DLMergedFile.Get("_recoTree")
+    MCTree = DLMergedFile.Get("MCTree")
 except:
     print "FUCKED: %s"%argv[1]
     sys.exit()
+
+# --- Create a dict with truth info
+
+MC_dict = {}
+
+for ev in MCTree:
+    run            = ev.run
+    subrun         = ev.subrun
+    event          = ev.event
+    IDev           = tuple((run,subrun,event))
+    
+    MC_dict[IDev] = dict(parentPDG=ev.parentPDG,energyInit=ev.energyInit,parentX=ev.parentX,parentY=ev.parentY,parentZ=ev.parentZ,parentT=ev.parentT,interactionType=ev.interactionType,nproton=ev.nproton,nlepton=ev.nlepton)
 
 # ---------------------------------------------------------------------- #
 
@@ -208,6 +227,17 @@ _porchTotPE = MakeTreeBranch(outTree,'PorchTotPE','float')
 _maxPEFrac = MakeTreeBranch(outTree,'MaxPEFrac','float')
 _passPMTPrecut = MakeTreeBranch(outTree,'PassPMTPrecut','int')
 
+# MC stuff
+_parentPDG = MakeTreeBranch(outTree,'MC_parentPDG','int')
+_energyInit = MakeTreeBranch(outTree,'MC_energyInit','float')
+_parentX = MakeTreeBranch(outTree,'MC_parentX','float')
+_parentY = MakeTreeBranch(outTree,'MC_parentY','float')
+_parentZ = MakeTreeBranch(outTree,'MC_parentZ','float')
+_parentT = MakeTreeBranch(outTree,'MC_parentT','float')
+_interactionType = MakeTreeBranch(outTree,'MC_interactionType','int')
+_nproton = MakeTreeBranch(outTree,'MC_nproton','int')
+_nlepton = MakeTreeBranch(outTree,'MC_nlepton','int')
+
 def clear_vertex():
     _lepton_id        = int(-9999)
     _lepton_phi       = float(-9999)
@@ -240,6 +270,7 @@ for indo,ev in enumerate(TrkTree):
     run            = ev.run
     subrun         = ev.subrun
     event          = ev.event
+    IDev           = tuple((run,subrun,event))
     vtxid          = ev.vtx_id
     IDvtx          = tuple((run,subrun,event,vtxid))
     vtxX           = ev.vtx_x
@@ -400,10 +431,20 @@ for indo,ev in enumerate(TrkTree):
     _q2B_1m1p[0]          = Q2calB_1m1p    if NumTracks == 2 else -99999
     _bjYB_1m1p[0]         = yB_1m1p        if NumTracks == 2 else -99999
 
-    _totPE[0] = TotPE if NumTracks == 2 else -99999
-    _porchTotPE[0] = porchTotPE if NumTracks == 2 else -99999
-    _maxPEFrac[0] = MaxPEFrac if NumTracks == 2 else -99999
-    _passPMTPrecut[0] = PassPMTPrecut if NumTracks == 2 else -99999
+    _totPE[0] = PMTPrecut_Dict[IDev]['_totpe'] 
+    _porchTotPE[0] = PMTPrecut_Dict[IDev]['_porchtotpe']
+    _maxPEFrac[0] = PMTPrecut_Dict[IDev]['_maxpefrac']
+    _passPMTPrecut[0] = PMTPrecut_Dict[IDev]['_passpmtprecut']
+
+    _parentPDG[0] = MC_dict[IDev]['parentPDG']
+    _energyInit[0] = MC_dict[IDev]['energyInit']
+    _parentX[0] = MC_dict[IDev]['parentX']
+    _parentY[0] = MC_dict[IDev]['parentY']
+    _parentZ[0] = MC_dict[IDev]['parentZ']
+    _parentY[0] = MC_dict[IDev]['parentT']
+    _interactionType[0] = MC_dict[IDev]['interactionType']
+    _nproton[0] = MC_dict[IDev]['nproton']
+    _nlepton[0] = MC_dict[IDev]['nlepton']
 
     _phi_v.clear()
     _theta_v.clear()
@@ -420,6 +461,8 @@ for indo,ev in enumerate(TrkTree):
 
     outTree.Fill()
     clear_vertex()
+
+DLMergedFile.Close()
 
 print()
 print('<EVID: %s> -- Excellent! Now just write it up and we are done. Thanks for being patient'%_tag)
