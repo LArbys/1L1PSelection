@@ -2,6 +2,12 @@
 #v2: added mctruth info (where applicable, obvi)
 
 
+# TODO:
+#       - make sure we're being EXTRA CAREFUL with exceptions
+#       - make sure we're being EXTRA CAREFUL with passCuts (since we're seeing a strange bug)
+#       - apply energy calibration to dqdx
+#       - add those variables janet wants
+
 import ROOT
 from ROOT import TFile,TTree
 import matplotlib.pyplot as plt
@@ -14,15 +20,16 @@ from array import array
 from larlite import larlite
 import os,sys
 
-from SelectionDefs import NewAng, VtxInSimpleFid, VtxInFid, GetPhiT, pTrans,pTransRat, alphaT, ECCQE, ECal, Q2, OpenAngle, PhiDiff, edgeCut, ECCQE_mom, Boost, BoostTracks, Getpz, GetCCQEDiff, SensibleMinimize, Getq3q0,GetTotPE
+from SelectionDefs import NewAng, VtxInSimpleFid, VtxInFid, GetPhiT, pTrans,pTransRat, alphaT, ECCQE, ECal, Q2, OpenAngle, PhiDiff, edgeCut, ECCQE_mom, Boost, BoostTracks, Getpz, GetCCQEDiff, SensibleMinimize, Getq3q0,GetTotPE, CorrectionFactor
 
 if len(argv) != 3:
     print('Fuck off')
     print('argv[1]: dlmerged.root')
-    print('argv[2]: destination (.)')
+    print('argv[2]: calibration map'
+    print('argv[3]: destination (.)')
 
 _tag = argv[1][-27:-5]
-_dest = argv[2]
+_dest = argv[3]
 
 # ---------------------------------------------- #
 
@@ -83,7 +90,7 @@ while ll_manager.next_event():
         PMTfrac = [x / TotPE for x in PEbyPMT]
     else:
         PMTfrac = []
-    
+
     if len(PMTfrac) == 0:
         MaxPEFrac = -1
     else:
@@ -96,7 +103,7 @@ while ll_manager.next_event():
 ll_manager.close()
 
 # --- Open Ana File (hadd vertexana.root + tracker_anaout.root)
-DLMergedFile = TFile(argv[1])
+DLMergedFile = TFile(argv[1],'read')
 
 # --- Load relevant analysis trees from track and vertex ana files ----- #
 
@@ -110,16 +117,28 @@ except:
 # --- Create a dict with truth info
 
 MC_dict = {}
+IsMC = False
 
 for ev in MCTree:
     run            = ev.run
     subrun         = ev.subrun
     event          = ev.event
     IDev           = tuple((run,subrun,event))
-    
-    MC_dict[IDev] = dict(parentPDG=ev.parentPDG,energyInit=ev.energyInit,parentX=ev.parentX,parentY=ev.parentY,parentZ=ev.parentZ,parentT=ev.parentT,interactionType=ev.interactionType,nproton=ev.nproton,nlepton=ev.nlepton)
 
-# ---------------------------------------------------------------------- #
+    MC_dict[IDev] = dict(parentPDG=ev.parentPDG,energyInit=ev.energyInit,parentX=ev.parentX,parentY=ev.parentY,parentZ=ev.parentZ,parentT=ev.parentT,nproton=ev.nproton,nlepton=ev.nlepton)
+    if !np.isnan(ev.energyInit):
+        IsMC = True
+
+# --- Load calibration file
+
+calibfile = TFile.Open(argv[2],'read')
+calibMap0 = calibfile.Get("hImageCalibrationMap_00")
+calibMap1 = calibfile.Get("hImageCalibrationMap_01")
+calibMap2 = calibfile.Get("hImageCalibrationMap_02")
+
+# ----------------------------------------------------------------------- #
+
+
 
 def MakeTreeBranch(ttree,s_name,s_type):
     if s_type == 'int':
@@ -197,7 +216,8 @@ _lepton_id = MakeTreeBranch(outTree,'Lepton_ID','int')
 _lepton_phi = MakeTreeBranch(outTree,'Lepton_PhiReco','float')
 _lepton_theta = MakeTreeBranch(outTree,'Lepton_ThetaReco','float')
 _lepton_length = MakeTreeBranch(outTree,'Lepton_TrackLength','float')
-_lepton_dqdx = MakeTreeBranch(outTree,'Lepton_dQdx','float')
+_lepton_dqdx = MakeTreeBranch(outTree,'Lepton_dQdx_uncalibrated','float')
+_lepton_dqdx_calibrated = MakeTreeBranch(outTree,'Lepton_dQdx','float')
 _muon_E = MakeTreeBranch(outTree,'Muon_Edep','float')
 _lepton_edge_dist = MakeTreeBranch(outTree,'Lepton_EdgeDist','float')
 _muon_phiB_1m1p = MakeTreeBranch(outTree,'Muon_PhiRecoB_1m1p','float')
@@ -207,7 +227,8 @@ _proton_id = MakeTreeBranch(outTree,'Proton_ID','float')
 _proton_phi = MakeTreeBranch(outTree,'Proton_PhiReco','float')
 _proton_theta = MakeTreeBranch(outTree,'Proton_ThetaReco','float')
 _proton_length = MakeTreeBranch(outTree,'Proton_TrackLength','float')
-_proton_dqdx = MakeTreeBranch(outTree,'Proton_dQdx','float')
+_proton_dqdx = MakeTreeBranch(outTree,'Proton_dQdx_uncalibrated','float')
+_proton_dqdx_calibrated = MakeTreeBranch(outTree,'Proton_dQdx','float')
 _proton_E = MakeTreeBranch(outTree,'Proton_Edep','float')
 _proton_edge_dist = MakeTreeBranch(outTree,'Proton_EdgeDist','float')
 _proton_phiB_1m1p = MakeTreeBranch(outTree,'Proton_PhiRecoB_1m1p','float')
@@ -217,7 +238,8 @@ _proton_EB_1m1p = MakeTreeBranch(outTree,'Proton_EdepB_1m1p','float')
 _phi_v = MakeTreeBranch(outTree,'phi_v','tvector')
 _theta_v = MakeTreeBranch(outTree,'theta_v','tvector')
 _length_v = MakeTreeBranch(outTree,'length_v','tvector')
-_dqdx_v = MakeTreeBranch(outTree,'dqdx_v','tvector')
+_dqdx_v_calibrated = MakeTreeBranch(outTree,'dqdx_v','tvector')
+_dqdx_v = MakeTreeBranch(outTree,'dqdx_v_uncalibrated','tvector')
 _EifP_v = MakeTreeBranch(outTree,'EifP_v','tvector')
 _EifMu_v = MakeTreeBranch(outTree,'EifMu_v','tvector')
 
@@ -234,7 +256,6 @@ _parentX = MakeTreeBranch(outTree,'MC_parentX','float')
 _parentY = MakeTreeBranch(outTree,'MC_parentY','float')
 _parentZ = MakeTreeBranch(outTree,'MC_parentZ','float')
 _parentT = MakeTreeBranch(outTree,'MC_parentT','float')
-_interactionType = MakeTreeBranch(outTree,'MC_interactionType','int')
 _nproton = MakeTreeBranch(outTree,'MC_nproton','int')
 _nlepton = MakeTreeBranch(outTree,'MC_nlepton','int')
 
@@ -244,6 +265,7 @@ def clear_vertex():
     _lepton_theta     = float(-9999)
     _lepton_length    = float(-9999)
     _lepton_dqdx      = float(-9999)
+    _lepton_dqdx_calibrated      = float(-9999)
     _lepton_edge_dist = float(-9999)
     _muon_E         = float(-9999)
     _muon_phiB_1m1p      = float(-9999)
@@ -255,6 +277,7 @@ def clear_vertex():
     _proton_theta     = float(-9999)
     _proton_length    = float(-9999)
     _proton_dqdx      = float(-9999)
+    _proton_dqdx_calibrated      = float(-9999)
     _proton_E         = float(-9999)
     _proton_edge_dist = float(-9999)
     _proton_phiB_1m1p      = float(-9999)
@@ -295,7 +318,13 @@ for indo,ev in enumerate(TrkTree):
 
     vtxPhi_v       = ev.vertexPhi
     vtxTheta_v     = ev.vertexTheta
-    dqdx_v         = ev.Avg_Ion_v
+
+    dqdx_v_uncalibrated         = ev.Avg_Ion_v
+    dqdx_v_calibrated = dqdx_v_uncalibrated
+    if IsMC:
+        for i in xrange(0,len(dqdx_v_calibrated)):
+            dqdx_v_calibrated[i] = dqdx_v_uncalibrated * CorrectionFactor(vtxX,vtxY,vtxZ,vtxTheta_v[i],vtxPhi_v[i],Length_v[i])
+
     iondlen_v      = ev.IondivLength_v
     Good3DReco     = ev.GoodVertex
 
@@ -363,7 +392,6 @@ for indo,ev in enumerate(TrkTree):
         pTB_1m1p             = pTrans(mEB_1m1p,pEB_1m1p,mThB_1m1p,pThB_1m1p,mPhB_1m1p,pPhB_1m1p,'muon')
         alphTB_1m1p          = alphaT(mEB_1m1p,pEB_1m1p,mThB_1m1p,pThB_1m1p,mPhB_1m1p,pPhB_1m1p,'muon')
 
-
     _run[0]          = run
     _subrun[0]       = subrun
     _event[0]        = event
@@ -390,6 +418,7 @@ for indo,ev in enumerate(TrkTree):
     _lepton_phi[0] = float(vtxPhi_v[lid]) if NumTracks == 2 else -99999
     _lepton_theta[0] = float(vtxTheta_v[lid]) if NumTracks == 2 else -99999
     _lepton_length[0] = float(length_v[lid]) if NumTracks == 2 else -99999
+    _lepton_dqdx_calibrated[0] = float(dqdx_v_calibrated[lid]) if NumTracks == 2 else -99999
     _lepton_dqdx[0] = float(dqdx_v[lid]) if NumTracks == 2 else -99999
     _lepton_edge_dist[0] = float(wallLepton) if NumTracks == 2 else -99999
     _muon_E[0] = float(EifMu_v.at(lid)) if NumTracks == 2 else -99999
@@ -400,7 +429,8 @@ for indo,ev in enumerate(TrkTree):
     _proton_phi[0] = float(vtxPhi_v[pid]) if NumTracks == 2 else -99999
     _proton_theta[0] = float(vtxTheta_v[pid]) if NumTracks == 2 else -99999
     _proton_length[0] = float(length_v[pid]) if NumTracks == 2 else -99999
-    _proton_dqdx[0] = float(dqdx_v[pid]) if NumTracks == 2 else -99999
+    _proton_dqdx_calibrated[0] = float(dqdx_v_calibrated[pid]) if NumTracks == 2 else -99999
+    _proton_dqdx[0] = float(dqdx_v_uncalibrated[pid]) if NumTracks == 2 else -99999
     _proton_edge_dist[0] = float(wallProton) if NumTracks == 2 else -99999
     _proton_E[0] = float(EifP_v.at(pid)) if NumTracks == 2 else -99999
     _proton_phiB_1m1p[0] = float(pPhB_1m1p) if NumTracks == 2 else -99999
@@ -431,31 +461,32 @@ for indo,ev in enumerate(TrkTree):
     _q2B_1m1p[0]          = Q2calB_1m1p    if NumTracks == 2 else -99999
     _bjYB_1m1p[0]         = yB_1m1p        if NumTracks == 2 else -99999
 
-    _totPE[0] = PMTPrecut_Dict[IDev]['_totpe'] 
+    _totPE[0] = PMTPrecut_Dict[IDev]['_totpe']
     _porchTotPE[0] = PMTPrecut_Dict[IDev]['_porchtotpe']
     _maxPEFrac[0] = PMTPrecut_Dict[IDev]['_maxpefrac']
     _passPMTPrecut[0] = PMTPrecut_Dict[IDev]['_passpmtprecut']
 
-    _parentPDG[0] = MC_dict[IDev]['parentPDG']
-    _energyInit[0] = MC_dict[IDev]['energyInit']
-    _parentX[0] = MC_dict[IDev]['parentX']
-    _parentY[0] = MC_dict[IDev]['parentY']
-    _parentZ[0] = MC_dict[IDev]['parentZ']
-    _parentY[0] = MC_dict[IDev]['parentT']
-    _interactionType[0] = MC_dict[IDev]['interactionType']
-    _nproton[0] = MC_dict[IDev]['nproton']
-    _nlepton[0] = MC_dict[IDev]['nlepton']
+    _parentPDG[0] = MC_dict[IDev]['parentPDG']   if IsMC == 1 else -99998
+    _energyInit[0] = MC_dict[IDev]['energyInit']   if IsMC == 1 else -99998
+    _parentX[0] = MC_dict[IDev]['parentX']   if IsMC == 1 else -99998
+    _parentY[0] = MC_dict[IDev]['parentY']   if IsMC == 1 else -99998
+    _parentZ[0] = MC_dict[IDev]['parentZ']   if IsMC == 1 else -99998
+    _parentY[0] = MC_dict[IDev]['parentT']   if IsMC == 1 else -99998
+    _nproton[0] = MC_dict[IDev]['nproton']   if IsMC == 1 else -99998
+    _nlepton[0] = MC_dict[IDev]['nlepton']   if IsMC == 1 else -99998
 
     _phi_v.clear()
     _theta_v.clear()
     _length_v.clear()
+    _dqdx_v_calibrated.clear()
     _dqdx_v.clear()
     _EifP_v.clear()
     _EifMu_v.clear()
     for i in vtxPhi_v:      _phi_v.push_back(i)
     for i in vtxTheta_v:    _theta_v.push_back(i)
     for i in length_v:      _length_v.push_back(i)
-    for i in dqdx_v:        _dqdx_v.push_back(i)
+    for i in dqdx_v_calibrated:        _dqdx_v_calibrated.push_back(i)
+    for i in dqdx_v_uncalibrated:        _dqdx_v.push_back(i)
     for i in EifP_v:        _EifP_v.push_back(i)
     for i in EifMu_v:       _EifMu_v.push_back(i)
 
