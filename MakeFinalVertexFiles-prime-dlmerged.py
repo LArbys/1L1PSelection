@@ -1,19 +1,20 @@
-#v0: numu only so we can run on the dlmerged files without having to deal with shower energy for the moment
 #v1: added pmt precut stuff
-#v2: added 1e1p stuff back in with hack for shower energies
+#v2: added mctruth info (where applicable, obvi)
+#v3: added energy calibration to dqdx
+#v4: added mpidtree
+#v5: added new shower reco from nick
 
-
-## # TODO:
-# 1) various fixes for 1e1p (why use 2 tracks when we're looking for 1trk1sh -- could increase efficiency)
-
-print()
-print('Welcome Friends')
+# TODO:
+#       - make sure we're being EXTRA CAREFUL with passCuts (since we're seeing a strange bug)
+#       - add those variables janet wants
+#       - add 1e1p stuff
 
 import ROOT
 from ROOT import TFile,TTree
 import matplotlib.pyplot as plt
 import pickle
 import numpy as np
+import pandas as pd
 from numpy import mean,asarray,matmul
 from math import sqrt,acos,cos,sin,pi,exp,log,isnan,atan2
 from sys import argv
@@ -21,41 +22,7 @@ from array import array
 from larlite import larlite
 import os,sys
 
-from SelectionDefs import NewAng, VtxInSimpleFid, VtxInFid, GetPhiT, pTrans,pTransRat, alphaT, ECCQE, ECal, Q2, OpenAngle, PhiDiff, edgeCut, ECCQE_mom, Boost, BoostTracks, Getpz, GetCCQEDiff, SensibleMinimize, Getq3q0, GetTotPE
-
-if len(argv) != 4:
-    print('Fuck off')
-    print('argv[1]: dlmerged.root')
-    print('argv[2]: showerreco pickle')
-    print('argv[3]: destination (.)')
-
-_tag = argv[1][-27:-5]
-_dest = argv[3]
-
-# --- Open pickle file and take out the good stuff
-
-picklename = '/cluster/tufts/wongjiradlab/moon/BnbOverlayShowerPickles/BnbOverlay_%s_showerReco.pickle'%_tag
-with open(picklename,"rb") as handle:
-    sh_dict = pickle.load(handle)
-
-# --- Open Ana File (hadd vertexana.root + tracker_anaout.root)
-DLMergedFile = TFile(argv[1])
-
-# --- Load relevant analysis trees from track and vertex ana files ----- #
-try:
-    TrkTree  = DLMergedFile.Get("_recoTree")
-    vtxTree  = DLMergedFile.Get("VertexTree")
-    shpTree  = DLMergedFile.Get("ShapeAnalysis")
-    shrTree  = DLMergedFile.Get("SecondShowerAnalysis")
-
-    TrkTree.AddFriend(vtxTree)
-    TrkTree.AddFriend(shpTree)
-    TrkTree.AddFriend(shrTree)
-except:
-    print "FUCKED: %s"%argv[1]
-    sys.exit()
-
-# ---------------------------------------------------------------------- #
+from SelectionDefs import NewAng, VtxInSimpleFid, VtxInFid, GetPhiT, pTrans,pTransRat, alphaT, ECCQE, ECal, Q2, OpenAngle, PhiDiff, edgeCut, ECCQE_mom, Boost, BoostTracks, Getpz, GetCCQEDiff, SensibleMinimize, Getq3q0,GetTotPE, CorrectionFactor
 
 def MakeTreeBranch(ttree,s_name,s_type):
     if s_type == 'int':
@@ -72,6 +39,143 @@ def MakeTreeBranch(ttree,s_name,s_type):
         _myvar = ROOT.vector('double')()
         ttree.Branch(s_name,_myvar)
         return _myvar
+
+# ---------------------------------------------- #
+
+if len(argv) != 6:
+    print('Fuck off')
+    print('argv[1]: dlmerged.root')
+    print('argv[2]: calibration map')
+    print('argv[3]: mpid')
+    print('argv[4]: showerreco')
+    print('argv[5]: destination (.)')
+    sys.exit()
+
+_tag = argv[1][-27:-5]
+_dest = argv[5]
+
+# ---------------------------------------------- #
+
+print()
+print('<EVID: %s> -- First, we will figure out the PMT Precut info.'%_tag)  #gotta do this first for io reasons
+
+PMTPrecut_Dict = {}
+
+PP_WINDOW_LENGTH = 130
+PP_COINC_WINDOW = 6
+PP_PE_THRESH = 20
+PP_PMT_MAX_FRAC_CUTOFF = 0.60
+PP_WIN_START = 190
+PP_WIN_END = 320
+PP_PORCH_WIN_START = PP_WIN_START - 130
+PP_PORCH_WIN_END = PP_WIN_END - 130
+PP_TICK_SIZE = 0.015625		# 15.625 ns per tick
+
+# Load up larlite
+ll_manager = larlite.storage_manager()
+ll_manager.set_io_mode(ll_manager.kREAD)
+ll_manager.add_in_filename(argv[1])
+ll_manager.set_in_rootdir("")
+ll_manager.open()
+
+while ll_manager.next_event():
+
+    id_rse = tuple((ll_manager.run_id(),ll_manager.subrun_id(),ll_manager.event_id()))
+
+    # ---------- Grab vectors containing particle info --------- #
+    ophits   = ll_manager.get_data(larlite.data.kOpHit,"ophitBeam")
+    # ---------------------------------------------------------- #
+
+    # Torch cut and PE cut
+    porchClusters = [0]*((PP_WIN_END-PP_WIN_START)/PP_COINC_WINDOW+1)
+    Clusters = [0]*((PP_WIN_END-PP_WIN_START)/PP_COINC_WINDOW+1)
+    for ophit in ophits:
+        if PP_PORCH_WIN_START <= ophit.PeakTime()/PP_TICK_SIZE <= PP_PORCH_WIN_END:
+            porchClusters[int((ophit.PeakTime()/PP_TICK_SIZE-PP_PORCH_WIN_START)/PP_COINC_WINDOW)]+=ophit.PE()
+        if PP_WIN_START <= ophit.PeakTime()/PP_TICK_SIZE <= PP_WIN_END:
+            Clusters[int((ophit.PeakTime()/PP_TICK_SIZE-PP_WIN_START)/PP_COINC_WINDOW)]+=ophit.PE()
+
+    porchTotPE,porchFlashBins = GetTotPE(PP_PE_THRESH,porchClusters)
+    TotPE,FlashBins = GetTotPE(PP_PE_THRESH,Clusters)
+
+    # PMT Frac Cut
+    PEbyPMT  = [0]*32
+    FracDict = {}
+    for ophit in ophits:
+        if (int(ophit.PeakTime()/PP_TICK_SIZE - PP_WIN_START)/PP_COINC_WINDOW) in FlashBins:
+            PEbyPMT[ophit.OpChannel()]+=ophit.PE()
+            if ophit.OpChannel() in FracDict:
+                FracDict[ophit.OpChannel()]+=ophit.PE()/TotPE
+            else:
+                FracDict[ophit.OpChannel()] = ophit.PE()/TotPE
+
+    if TotPE >= PP_PE_THRESH:
+        PMTfrac = [x / TotPE for x in PEbyPMT]
+    else:
+        PMTfrac = []
+
+    if len(PMTfrac) == 0:
+        MaxPEFrac = -1
+    else:
+        MaxPEFrac = max(PMTfrac)
+
+    PassPMTPrecut = porchTotPE < PP_PE_THRESH and TotPE > PP_PE_THRESH and 0 < MaxPEFrac < PP_PMT_MAX_FRAC_CUTOFF
+
+    PMTPrecut_Dict[id_rse] = dict(_totpe=TotPE,_porchtotpe=porchTotPE,_maxpefrac=MaxPEFrac,_passpmtprecut=PassPMTPrecut)
+
+ll_manager.close()
+
+# -----------------------------------------------------------------------#
+
+df_ShowerReco = pd.read_table(argv[4])
+df_ShowerReco.set_index(['run','subrun','event','vtxid'],inplace=True)
+
+# --- Open Ana File (hadd vertexana.root + tracker_anaout.root)
+DLMergedFile = TFile(argv[1],'read')
+MPIDFile = TFile(argv[3],'read')
+
+# --- Load relevant analysis trees from track and vertex ana files ----- #
+
+try:
+    TrkTree  = DLMergedFile.Get("_recoTree")
+    VtxTree  = DLMergedFile.Get("VertexTree")
+    ShpTree  = DLMergedFile.Get("ShapeAnalysis")
+    ShrTree  = DLMergedFile.Get("SecondShowerAnalysis")
+    MCTree   = DLMergedFile.Get("MCTree")
+    MPIDTree = MPIDFile.Get("multipid_tree")
+
+    TrkTree.AddFriend(VtxTree)
+    TrkTree.AddFriend(ShpTree)
+    TrkTree.AddFriend(ShrTree)
+    MPIDTree.AddFriend(mpidTree)
+except:
+    print "FUCKED: %s"%argv[1]
+    sys.exit()
+
+# --- Create a dict with truth info
+
+MC_dict = {}
+IsMC = False
+
+for ev in MCTree:
+    run            = ev.run
+    subrun         = ev.subrun
+    event          = ev.event
+    IDev           = tuple((run,subrun,event))
+
+    MC_dict[IDev] = dict(parentPDG=ev.parentPDG,energyInit=ev.energyInit,parentX=ev.parentX,parentY=ev.parentY,parentZ=ev.parentZ,parentT=ev.parentT,nproton=ev.nproton,nlepton=ev.nlepton)
+    if not np.isnan(ev.energyInit):
+        IsMC = True
+
+# --- Load calibration file
+
+calibfile = TFile.Open(argv[2],'read')
+calibMap0 = calibfile.Get("hImageCalibrationMap_00")
+calibMap1 = calibfile.Get("hImageCalibrationMap_01")
+calibMap2 = calibfile.Get("hImageCalibrationMap_02")
+calibMap_v = [calibMap0,calibMap1,calibMap2]
+
+# ----------------------------------------------------------------------- #
 
 # --- Create output ROOT file and initialize variables ----------------- #
 
@@ -160,7 +264,8 @@ _lepton_id = MakeTreeBranch(outTree,'Lepton_ID','int')
 _lepton_phi = MakeTreeBranch(outTree,'Lepton_PhiReco','float')
 _lepton_theta = MakeTreeBranch(outTree,'Lepton_ThetaReco','float')
 _lepton_length = MakeTreeBranch(outTree,'Lepton_TrackLength','float')
-_lepton_dqdx = MakeTreeBranch(outTree,'Lepton_dQdx','float')
+_lepton_dqdx = MakeTreeBranch(outTree,'Lepton_dQdx_uncalibrated','float')
+_lepton_dqdx_calibrated = MakeTreeBranch(outTree,'Lepton_dQdx','float')
 _muon_E = MakeTreeBranch(outTree,'Muon_Edep','float')
 _electron_E = MakeTreeBranch(outTree,'Electron_Edep','float')
 _lepton_edge_dist = MakeTreeBranch(outTree,'Lepton_EdgeDist','float')
@@ -174,7 +279,8 @@ _proton_id = MakeTreeBranch(outTree,'Proton_ID','float')
 _proton_phi = MakeTreeBranch(outTree,'Proton_PhiReco','float')
 _proton_theta = MakeTreeBranch(outTree,'Proton_ThetaReco','float')
 _proton_length = MakeTreeBranch(outTree,'Proton_TrackLength','float')
-_proton_dqdx = MakeTreeBranch(outTree,'Proton_dQdx','float')
+_proton_dqdx = MakeTreeBranch(outTree,'Proton_dQdx_uncalibrated','float')
+_proton_dqdx_calibrated = MakeTreeBranch(outTree,'Proton_dQdx','float')
 _proton_E = MakeTreeBranch(outTree,'Proton_Edep','float')
 _proton_edge_dist = MakeTreeBranch(outTree,'Proton_EdgeDist','float')
 _proton_phiB_1m1p = MakeTreeBranch(outTree,'Proton_PhiRecoB_1m1p','float')
@@ -187,7 +293,8 @@ _proton_EB_1e1p = MakeTreeBranch(outTree,'Proton_EdepB_1e1p','float')
 _phi_v = MakeTreeBranch(outTree,'phi_v','tvector')
 _theta_v = MakeTreeBranch(outTree,'theta_v','tvector')
 _length_v = MakeTreeBranch(outTree,'length_v','tvector')
-_dqdx_v = MakeTreeBranch(outTree,'dqdx_v','tvector')
+_dqdx_v_calibrated = MakeTreeBranch(outTree,'dqdx_v','tvector')
+_dqdx_v = MakeTreeBranch(outTree,'dqdx_v_uncalibrated','tvector')
 _EifP_v = MakeTreeBranch(outTree,'EifP_v','tvector')
 _EifMu_v = MakeTreeBranch(outTree,'EifMu_v','tvector')
 
@@ -197,12 +304,35 @@ _porchTotPE = MakeTreeBranch(outTree,'PorchTotPE','float')
 _maxPEFrac = MakeTreeBranch(outTree,'MaxPEFrac','float')
 _passPMTPrecut = MakeTreeBranch(outTree,'PassPMTPrecut','int')
 
+# MC stuff
+_parentPDG = MakeTreeBranch(outTree,'MC_parentPDG','int')
+_energyInit = MakeTreeBranch(outTree,'MC_energyInit','float')
+_parentX = MakeTreeBranch(outTree,'MC_parentX','float')
+_parentY = MakeTreeBranch(outTree,'MC_parentY','float')
+_parentZ = MakeTreeBranch(outTree,'MC_parentZ','float')
+_parentT = MakeTreeBranch(outTree,'MC_parentT','float')
+_nproton = MakeTreeBranch(outTree,'MC_nproton','int')
+_nlepton = MakeTreeBranch(outTree,'MC_nlepton','int')
+
+# MPID stuff
+_eminusPID_int_v = MakeTreeBranch(outTree,'EminusPID_int_v','tvector')
+_muonPID_int_v = MakeTreeBranch(outTree,'MuonPID_int_v','tvector')
+_protonPID_int_v = MakeTreeBranch(outTree,'ProtonPID_int_v','tvector')
+_gammaPID_int_v = MakeTreeBranch(outTree,'GammaPID_int_v','tvector')
+_pionPID_int_v = MakeTreeBranch(outTree,'PionPID_int_v','tvector')
+_eminusPID_pix_v = MakeTreeBranch(outTree,'EminusPID_pix_v','tvector')
+_muonPID_pix_v = MakeTreeBranch(outTree,'MuonPID_pix_v','tvector')
+_protonPID_pix_v = MakeTreeBranch(outTree,'ProtonPID_pix_v','tvector')
+_gammaPID_pix_v = MakeTreeBranch(outTree,'GammaPID_pix_v','tvector')
+_pionPID_pix_v = MakeTreeBranch(outTree,'PionPID_pix_v','tvector')
+
 def clear_vertex():
     _lepton_id        = int(-9999)
     _lepton_phi       = float(-9999)
     _lepton_theta     = float(-9999)
     _lepton_length    = float(-9999)
     _lepton_dqdx      = float(-9999)
+    _lepton_dqdx_calibrated      = float(-9999)
     _lepton_edge_dist = float(-9999)
     _muon_E         = float(-9999)
     _muon_phiB_1m1p      = float(-9999)
@@ -218,6 +348,7 @@ def clear_vertex():
     _proton_theta     = float(-9999)
     _proton_length    = float(-9999)
     _proton_dqdx      = float(-9999)
+    _proton_dqdx_calibrated      = float(-9999)
     _proton_E         = float(-9999)
     _proton_edge_dist = float(-9999)
     _proton_phiB_1m1p      = float(-9999)
@@ -226,6 +357,7 @@ def clear_vertex():
     _proton_phiB_1e1p      = float(-9999)
     _proton_thetaB_1e1p    = float(-9999)
     _proton_EB_1e1p        = float(-9999)
+
 
 print()
 print('<EVID: %s> -- Great. Now loop through track events and go wild'%_tag)
@@ -236,6 +368,7 @@ for indo,ev in enumerate(TrkTree):
     run            = ev.run
     subrun         = ev.subrun
     event          = ev.event
+    IDev           = tuple((run,subrun,event))
     vtxid          = ev.vtx_id
     IDvtx          = tuple((run,subrun,event,vtxid))
     vtxX           = ev.vtx_x
@@ -255,12 +388,15 @@ for indo,ev in enumerate(TrkTree):
     passSecShr = True
 
     if not InFiducial: passCuts = False
-    elif (NumTracks != 2 and Num5cmTracks != 2): passCuts = False
+    elif (NumTracks != 2): passCuts = False
     elif edgeCut(EdgeDistance): passCuts = False
 
     vtxPhi_v       = ev.vertexPhi
     vtxTheta_v     = ev.vertexTheta
-    dqdx_v         = ev.Avg_Ion_v
+
+    dqdx_v_uncalibrated         = ev.Avg_Ion_v
+    dqdx_v_calibrated = ev.Avg_Ion_v
+
     iondlen_v      = ev.IondivLength_v
     Good3DReco     = ev.GoodVertex
 
@@ -278,7 +414,7 @@ for indo,ev in enumerate(TrkTree):
         shrFrac     = max(sh_foundClusV)
         shrFracPart = sh_foundClusV
 
-    if NumTracks == 2:
+    if NumTracks == 2 and InFiducial:
         lid            = int(np.argmin(ev.Avg_Ion_v))
         pid            = int(np.argmax(ev.Avg_Ion_v))
         lTh            = ev.vertexTheta[lid]
@@ -295,14 +431,11 @@ for indo,ev in enumerate(TrkTree):
         pdq = ev.IonY_5cm_v[pid]
 
         # Gotta find which particle is the proton in shower reco
-        try:       
-            test_proton_openang_par1 = OpenAngle(pTh,sh_dict[IDvtx]["theta1"],pPh,sh_dict[IDvtx]["phi1"])
-            test_proton_openang_par2 = OpenAngle(pTh,sh_dict[IDvtx]["theta2"],pPh,sh_dict[IDvtx]["phi2"])
-            if test_proton_openang_par1 < test_proton_openang_par2:         # then par2 corresponds to the lepton
-                eE = sh_dict[IDvtx]["E2"]
-            else:
-                eE = sh_dict[IDvtx]["E1"]
-            if eE < 0: passShowerReco = False
+        try:
+            eE = df_ShowerReco['e_reco']
+            if eE < 0:
+                eE = -99999
+                passShowerReco = False
         except:
             eE = -9999
             passShowerReco = False
@@ -311,18 +444,20 @@ for indo,ev in enumerate(TrkTree):
         phis           = PhiDiff(lPh,pPh)
         EpCCQE         = ECCQE(pE,pTh,pid="proton",B=BE)
         EmCCQE         = ECCQE(mE,lTh,pid="muon",B=BE)
-        if(passShowerReco): EeCCQE = ECCQE(eE,lTh,pid="electron",B=BE)
 
         wallProton     = EdgeDistance[pid]
         wallLepton     = EdgeDistance[lid]
 
         openAng        = OpenAngle(pTh,lTh,pPh,lPh)
-        eta            = abs(ev.Avg_Ion_v[pid]-ev.Avg_Ion_v[lid])/(ev.Avg_Ion_v[pid]+ev.Avg_Ion_v[lid])
+
+        if IsMC:
+            for i in xrange(0,len(dqdx_v_calibrated)):
+                dqdx_v_calibrated[i] = dqdx_v_uncalibrated[i] * CorrectionFactor(calibMap_v,vtxX,vtxY,vtxZ,vtxTheta_v[i],vtxPhi_v[i],length_v[i])
+
+        eta = abs(dqdx_v_calibrated[pid]-dqdx_v_calibrated[lid])/(dqdx_v_calibrated[pid]+dqdx_v_calibrated[lid])
 
         longtracklen   = max(ev.Length_v)
         shorttracklen  = min(ev.Length_v)
-        maxshrFrac     = max(shrFracPart)
-        minshrFrac     = min(shrFracPart)
 
         # for 1mu1p (only difference is energy used)
         Ecal_1m1p              = ECal(mE,pE,'muon',B=BE)
@@ -423,7 +558,8 @@ for indo,ev in enumerate(TrkTree):
     _lepton_phi[0] = float(vtxPhi_v[lid]) if NumTracks == 2 else -99999
     _lepton_theta[0] = float(vtxTheta_v[lid]) if NumTracks == 2 else -99999
     _lepton_length[0] = float(length_v[lid]) if NumTracks == 2 else -99999
-    _lepton_dqdx[0] = float(dqdx_v[lid]) if NumTracks == 2 else -99999
+    _lepton_dqdx_calibrated[0] = float(dqdx_v_calibrated[lid]) if NumTracks == 2 else -99999
+    _lepton_dqdx[0] = float(dqdx_v_uncalibrated[lid]) if NumTracks == 2 else -99999
     _lepton_edge_dist[0] = float(wallLepton) if NumTracks == 2 else -99999
     _muon_E[0] = float(EifMu_v.at(lid)) if NumTracks == 2 else -99999
     _electron_E[0] = float(eE) if NumTracks==2 else -99999
@@ -434,7 +570,8 @@ for indo,ev in enumerate(TrkTree):
     _proton_phi[0] = float(vtxPhi_v[pid]) if NumTracks == 2 else -99999
     _proton_theta[0] = float(vtxTheta_v[pid]) if NumTracks == 2 else -99999
     _proton_length[0] = float(length_v[pid]) if NumTracks == 2 else -99999
-    _proton_dqdx[0] = float(dqdx_v[pid]) if NumTracks == 2 else -99999
+    _proton_dqdx_calibrated[0] = float(dqdx_v_calibrated[pid]) if NumTracks == 2 else -99999
+    _proton_dqdx[0] = float(dqdx_v_uncalibrated[pid]) if NumTracks == 2 else -99999
     _proton_edge_dist[0] = float(wallProton) if NumTracks == 2 else -99999
     _proton_E[0] = float(EifP_v.at(pid)) if NumTracks == 2 else -99999
     _proton_phiB_1m1p[0] = float(pPhB_1m1p) if NumTracks == 2 else -99999
@@ -492,23 +629,54 @@ for indo,ev in enumerate(TrkTree):
     _q2B_1e1p[0]          = Q2calB_1e1p    if (NumTracks==2 and passShowerReco) else -99999
     _bjYB_1e1p[0]         = yB_1e1p        if (NumTracks==2 and passShowerReco) else -99999
 
-    _totPE[0] =  -99999
-    _porchTotPE[0] = -99999
-    _maxPEFrac[0] = -99999
-    _passPMTPrecut[0] = -999999
+    _totPE[0] = PMTPrecut_Dict[IDev]['_totpe']
+    _porchTotPE[0] = PMTPrecut_Dict[IDev]['_porchtotpe']
+    _maxPEFrac[0] = PMTPrecut_Dict[IDev]['_maxpefrac']
+    _passPMTPrecut[0] = PMTPrecut_Dict[IDev]['_passpmtprecut']
+
+    _parentPDG[0] = MC_dict[IDev]['parentPDG']   if IsMC == 1 else -99998
+    _energyInit[0] = MC_dict[IDev]['energyInit']   if IsMC == 1 else -99998
+    _parentX[0] = MC_dict[IDev]['parentX']   if IsMC == 1 else -99998
+    _parentY[0] = MC_dict[IDev]['parentY']   if IsMC == 1 else -99998
+    _parentZ[0] = MC_dict[IDev]['parentZ']   if IsMC == 1 else -99998
+    _parentY[0] = MC_dict[IDev]['parentT']   if IsMC == 1 else -99998
+    _nproton[0] = MC_dict[IDev]['nproton']   if IsMC == 1 else -99998
+    _nlepton[0] = MC_dict[IDev]['nlepton']   if IsMC == 1 else -99998
 
     _phi_v.clear()
     _theta_v.clear()
     _length_v.clear()
+    _dqdx_v_calibrated.clear()
     _dqdx_v.clear()
     _EifP_v.clear()
     _EifMu_v.clear()
+    _eminusPID_int_v.clear()
+    _muonPID_int_v.clear()
+    _protonPID_int_v.clear()
+    _gammaPID_int_v.clear()
+    _pionPID_int_v.clear()
+    _eminusPID_pix_v.clear()
+    _muonPID_pix_v.clear()
+    _protonPID_pix_v.clear()
+    _gammaPID_pix_v.clear()
+    _pionPID_pix_v.clear()
     for i in vtxPhi_v:      _phi_v.push_back(i)
     for i in vtxTheta_v:    _theta_v.push_back(i)
     for i in length_v:      _length_v.push_back(i)
-    for i in dqdx_v:        _dqdx_v.push_back(i)
+    for i in dqdx_v_calibrated:        _dqdx_v_calibrated.push_back(i)
+    for i in dqdx_v_uncalibrated:        _dqdx_v.push_back(i)
     for i in EifP_v:        _EifP_v.push_back(i)
     for i in EifMu_v:       _EifMu_v.push_back(i)
+    for i in ev.eminus_int_score_torch:  _eminusPID_int_v.push_back(i)
+    for i in ev.muon_int_score_torch:    _muonPID_int_v.push_back(i)
+    for i in ev.proton_int_score_torch:  _protonPID_int_v.push_back(i)
+    for i in ev.gamma_int_score_torch:   _gammaPID_int_v.push_back(i)
+    for i in ev.pion_int_score_torch:    _pionPID_int_v.push_back(i)
+    for i in ev.eminus_pix_score_torch:  _eminusPID_pix_v.push_back(i)
+    for i in ev.muon_pix_score_torch:    _muonPID_pix_v.push_back(i)
+    for i in ev.proton_pix_score_torch:  _protonPID_pix_v.push_back(i)
+    for i in ev.gamma_pix_score_torch:   _gammaPID_pix_v.push_back(i)
+    for i in ev.pion_pix_score_torch:    _pionPID_pix_v.push_back(i)
 
     outTree.Fill()
     clear_vertex()

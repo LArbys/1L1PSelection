@@ -1,12 +1,12 @@
 #v1: added pmt precut stuff
 #v2: added mctruth info (where applicable, obvi)
-
+#v3: added energy calibration to dqdx
+#v4: added mpidtree
 
 # TODO:
-#       - make sure we're being EXTRA CAREFUL with exceptions
 #       - make sure we're being EXTRA CAREFUL with passCuts (since we're seeing a strange bug)
-#       - apply energy calibration to dqdx
 #       - add those variables janet wants
+#       - add 1e1p stuff
 
 import ROOT
 from ROOT import TFile,TTree
@@ -22,14 +22,34 @@ import os,sys
 
 from SelectionDefs import NewAng, VtxInSimpleFid, VtxInFid, GetPhiT, pTrans,pTransRat, alphaT, ECCQE, ECal, Q2, OpenAngle, PhiDiff, edgeCut, ECCQE_mom, Boost, BoostTracks, Getpz, GetCCQEDiff, SensibleMinimize, Getq3q0,GetTotPE, CorrectionFactor
 
-if len(argv) != 3:
+def MakeTreeBranch(ttree,s_name,s_type):
+    if s_type == 'int':
+        _myvar = array('i',[-9999])
+        ttree.Branch(s_name,_myvar,s_name+'/I')
+        return _myvar
+
+    if s_type == 'float':
+        _myvar = array('f',[-9999])
+        ttree.Branch(s_name,_myvar,s_name+'/F')
+        return _myvar
+
+    if s_type == 'tvector':
+        _myvar = ROOT.vector('double')()
+        ttree.Branch(s_name,_myvar)
+        return _myvar
+
+# ---------------------------------------------- #
+
+if len(argv) != 5:
     print('Fuck off')
     print('argv[1]: dlmerged.root')
-    print('argv[2]: calibration map'
-    print('argv[3]: destination (.)')
+    print('argv[2]: calibration map')
+    print('argv[3]: mpid')
+    print('argv[4]: destination (.)')
+    sys.exit()
 
 _tag = argv[1][-27:-5]
-_dest = argv[3]
+_dest = argv[4]
 
 # ---------------------------------------------- #
 
@@ -102,14 +122,26 @@ while ll_manager.next_event():
 
 ll_manager.close()
 
+# -----------------------------------------------------------------------#
+
 # --- Open Ana File (hadd vertexana.root + tracker_anaout.root)
 DLMergedFile = TFile(argv[1],'read')
+MPIDFile = TFile(argv[3],'read')
 
 # --- Load relevant analysis trees from track and vertex ana files ----- #
 
 try:
     TrkTree  = DLMergedFile.Get("_recoTree")
-    MCTree = DLMergedFile.Get("MCTree")
+    VtxTree  = DLMergedFile.Get("VertexTree")
+    ShpTree  = DLMergedFile.Get("ShapeAnalysis")
+    ShrTree  = DLMergedFile.Get("SecondShowerAnalysis")
+    MCTree   = DLMergedFile.Get("MCTree")
+    MPIDTree = MPIDFile.Get("multipid_tree")
+
+    TrkTree.AddFriend(VtxTree)
+    TrkTree.AddFriend(ShpTree)
+    TrkTree.AddFriend(ShrTree)
+    MPIDTree.AddFriend(mpidTree)
 except:
     print "FUCKED: %s"%argv[1]
     sys.exit()
@@ -126,7 +158,7 @@ for ev in MCTree:
     IDev           = tuple((run,subrun,event))
 
     MC_dict[IDev] = dict(parentPDG=ev.parentPDG,energyInit=ev.energyInit,parentX=ev.parentX,parentY=ev.parentY,parentZ=ev.parentZ,parentT=ev.parentT,nproton=ev.nproton,nlepton=ev.nlepton)
-    if !np.isnan(ev.energyInit):
+    if not np.isnan(ev.energyInit):
         IsMC = True
 
 # --- Load calibration file
@@ -135,27 +167,9 @@ calibfile = TFile.Open(argv[2],'read')
 calibMap0 = calibfile.Get("hImageCalibrationMap_00")
 calibMap1 = calibfile.Get("hImageCalibrationMap_01")
 calibMap2 = calibfile.Get("hImageCalibrationMap_02")
+calibMap_v = [calibMap0,calibMap1,calibMap2]
 
 # ----------------------------------------------------------------------- #
-
-
-
-def MakeTreeBranch(ttree,s_name,s_type):
-    if s_type == 'int':
-        _myvar = array('i',[-9999])
-        ttree.Branch(s_name,_myvar,s_name+'/I')
-        return _myvar
-
-    if s_type == 'float':
-        _myvar = array('f',[-9999])
-        ttree.Branch(s_name,_myvar,s_name+'/F')
-        return _myvar
-
-    if s_type == 'tvector':
-        _myvar = ROOT.vector('double')()
-        ttree.Branch(s_name,_myvar)
-        return _myvar
-
 
 # --- Create output ROOT file and initialize variables ----------------- #
 
@@ -259,6 +273,18 @@ _parentT = MakeTreeBranch(outTree,'MC_parentT','float')
 _nproton = MakeTreeBranch(outTree,'MC_nproton','int')
 _nlepton = MakeTreeBranch(outTree,'MC_nlepton','int')
 
+# MPID stuff
+_eminusPID_int_v = MakeTreeBranch(outTree,'EminusPID_int_v','tvector')
+_muonPID_int_v = MakeTreeBranch(outTree,'MuonPID_int_v','tvector')
+_protonPID_int_v = MakeTreeBranch(outTree,'ProtonPID_int_v','tvector')
+_gammaPID_int_v = MakeTreeBranch(outTree,'GammaPID_int_v','tvector')
+_pionPID_int_v = MakeTreeBranch(outTree,'PionPID_int_v','tvector')
+_eminusPID_pix_v = MakeTreeBranch(outTree,'EminusPID_pix_v','tvector')
+_muonPID_pix_v = MakeTreeBranch(outTree,'MuonPID_pix_v','tvector')
+_protonPID_pix_v = MakeTreeBranch(outTree,'ProtonPID_pix_v','tvector')
+_gammaPID_pix_v = MakeTreeBranch(outTree,'GammaPID_pix_v','tvector')
+_pionPID_pix_v = MakeTreeBranch(outTree,'PionPID_pix_v','tvector')
+
 def clear_vertex():
     _lepton_id        = int(-9999)
     _lepton_phi       = float(-9999)
@@ -320,10 +346,7 @@ for indo,ev in enumerate(TrkTree):
     vtxTheta_v     = ev.vertexTheta
 
     dqdx_v_uncalibrated         = ev.Avg_Ion_v
-    dqdx_v_calibrated = dqdx_v_uncalibrated
-    if IsMC:
-        for i in xrange(0,len(dqdx_v_calibrated)):
-            dqdx_v_calibrated[i] = dqdx_v_uncalibrated * CorrectionFactor(vtxX,vtxY,vtxZ,vtxTheta_v[i],vtxPhi_v[i],Length_v[i])
+    dqdx_v_calibrated = ev.Avg_Ion_v
 
     iondlen_v      = ev.IondivLength_v
     Good3DReco     = ev.GoodVertex
@@ -331,7 +354,7 @@ for indo,ev in enumerate(TrkTree):
     EifP_v         = ev.E_proton_v
     EifMu_v        = ev.E_muon_v
 
-    if NumTracks == 2:
+    if NumTracks == 2 and InFiducial:
         lid            = int(np.argmin(ev.Avg_Ion_v))
         pid            = int(np.argmax(ev.Avg_Ion_v))
         lTh            = ev.vertexTheta[lid]
@@ -356,7 +379,12 @@ for indo,ev in enumerate(TrkTree):
         wallLepton     = EdgeDistance[lid]
 
         openAng        = OpenAngle(pTh,lTh,pPh,lPh)
-        eta            = abs(ev.Avg_Ion_v[pid]-ev.Avg_Ion_v[lid])/(ev.Avg_Ion_v[pid]+ev.Avg_Ion_v[lid])
+
+        if IsMC:
+            for i in xrange(0,len(dqdx_v_calibrated)):
+                dqdx_v_calibrated[i] = dqdx_v_uncalibrated[i] * CorrectionFactor(calibMap_v,vtxX,vtxY,vtxZ,vtxTheta_v[i],vtxPhi_v[i],length_v[i])
+
+        eta = abs(dqdx_v_calibrated[pid]-dqdx_v_calibrated[lid])/(dqdx_v_calibrated[pid]+dqdx_v_calibrated[lid])
 
         longtracklen   = max(ev.Length_v)
         shorttracklen  = min(ev.Length_v)
@@ -419,7 +447,7 @@ for indo,ev in enumerate(TrkTree):
     _lepton_theta[0] = float(vtxTheta_v[lid]) if NumTracks == 2 else -99999
     _lepton_length[0] = float(length_v[lid]) if NumTracks == 2 else -99999
     _lepton_dqdx_calibrated[0] = float(dqdx_v_calibrated[lid]) if NumTracks == 2 else -99999
-    _lepton_dqdx[0] = float(dqdx_v[lid]) if NumTracks == 2 else -99999
+    _lepton_dqdx[0] = float(dqdx_v_uncalibrated[lid]) if NumTracks == 2 else -99999
     _lepton_edge_dist[0] = float(wallLepton) if NumTracks == 2 else -99999
     _muon_E[0] = float(EifMu_v.at(lid)) if NumTracks == 2 else -99999
     _muon_phiB_1m1p[0] = float(mPhB_1m1p) if NumTracks == 2 else -99999
@@ -482,6 +510,16 @@ for indo,ev in enumerate(TrkTree):
     _dqdx_v.clear()
     _EifP_v.clear()
     _EifMu_v.clear()
+    _eminusPID_int_v.clear()
+    _muonPID_int_v.clear()
+    _protonPID_int_v.clear()
+    _gammaPID_int_v.clear()
+    _pionPID_int_v.clear()
+    _eminusPID_pix_v.clear()
+    _muonPID_pix_v.clear()
+    _protonPID_pix_v.clear()
+    _gammaPID_pix_v.clear()
+    _pionPID_pix_v.clear()
     for i in vtxPhi_v:      _phi_v.push_back(i)
     for i in vtxTheta_v:    _theta_v.push_back(i)
     for i in length_v:      _length_v.push_back(i)
@@ -489,6 +527,16 @@ for indo,ev in enumerate(TrkTree):
     for i in dqdx_v_uncalibrated:        _dqdx_v.push_back(i)
     for i in EifP_v:        _EifP_v.push_back(i)
     for i in EifMu_v:       _EifMu_v.push_back(i)
+    for i in ev.eminus_int_score_torch:  _eminusPID_int_v.push_back(i)
+    for i in ev.muon_int_score_torch:    _muonPID_int_v.push_back(i)
+    for i in ev.proton_int_score_torch:  _protonPID_int_v.push_back(i)
+    for i in ev.gamma_int_score_torch:   _gammaPID_int_v.push_back(i)
+    for i in ev.pion_int_score_torch:    _pionPID_int_v.push_back(i)
+    for i in ev.eminus_pix_score_torch:  _eminusPID_pix_v.push_back(i)
+    for i in ev.muon_pix_score_torch:    _muonPID_pix_v.push_back(i)
+    for i in ev.proton_pix_score_torch:  _protonPID_pix_v.push_back(i)
+    for i in ev.gamma_pix_score_torch:   _gammaPID_pix_v.push_back(i)
+    for i in ev.pion_pix_score_torch:    _pionPID_pix_v.push_back(i)
 
     outTree.Fill()
     clear_vertex()
