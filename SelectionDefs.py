@@ -503,27 +503,22 @@ def GetTotPE(coincidenceThresh, flashes):
 
 
 
-def CorrectionFactor(x,y,z,theta,phi,L):        #  assumes straight line
+def CorrectionFactor(calibMap_v,x,y,z,theta,phi,L):        #  assumes straight line
 
     dr    = 0.5
     steps = int(L / dr)
     dx    = sin(theta)*cos(phi)*dr
     dy    = sin(theta)*sin(phi)*dr
     dz    = cos(theta)*dr
-
-
-calibMap0
-calibMap1
-calibMap2
-
+    
     sumFac = 0
     for i in range(steps):
-        thisBin  = calibMap0.FindBin(x+i*dx,y+i*dy,z+i*dz)
-        corrFac0 = calibMap0.GetBinContent(thisBin)
-        thisBin  = calibMap1.FindBin(x+i*dx,y+i*dy,z+i*dz)
-        corrFac1 = calibMap1.GetBinContent(thisBin)
-        thisBin  = calibMap2.FindBin(x+i*dx,y+i*dy,z+i*dz)
-        corrFac2 = calibMap2.GetBinContent(thisBin)
+        thisBin  = calibMap_v[0].FindBin(x+i*dx,y+i*dy,z+i*dz)
+        corrFac0 = calibMap_v[0].GetBinContent(thisBin)
+        thisBin  = calibMap_v[1].FindBin(x+i*dx,y+i*dy,z+i*dz)
+        corrFac1 = calibMap_v[1].GetBinContent(thisBin)
+        thisBin  = calibMap_v[2].FindBin(x+i*dx,y+i*dy,z+i*dz)
+        corrFac2 = calibMap_v[2].GetBinContent(thisBin)
 
         sumFac+=(corrFac0+corrFac1+corrFac2)/3.0
 
@@ -532,14 +527,14 @@ calibMap2
     return avgCorrFac
 
 
-def CorrectionFactorPoint(x,y,z):
+def CorrectionFactorPoint(calibMap_v,x,y,z):
 
-    thisBin  = calibMap0.FindBin(x,y,z)
-    corrFac0 = calibMap0.GetBinContent(thisBin)
-    thisBin  = calibMap1.FindBin(x,y,z)
-    corrFac1 = calibMap1.GetBinContent(thisBin)
-    thisBin  = calibMap2.FindBin(x,y,z)
-    corrFac2 = calibMap2.GetBinContent(thisBin)
+    thisBin  = calibMap_v[0].FindBin(x,y,z)
+    corrFac0 = calibMap_v[0].GetBinContent(thisBin)
+    thisBin  = calibMap_v[1].FindBin(x,y,z)
+    corrFac1 = calibMap_v[1].GetBinContent(thisBin)
+    thisBin  = calibMap_v[2].FindBin(x,y,z)
+    corrFac2 = calibMap_v[2].GetBinContent(thisBin)
 
     avgFac=(corrFac0+corrFac1+corrFac2)/3.0
 

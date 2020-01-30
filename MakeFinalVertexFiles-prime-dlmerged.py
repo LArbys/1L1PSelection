@@ -9,9 +9,27 @@
 #       - add those variables janet wants
 #       - add 1e1p stuff
 
+import os,sys
+from sys import argv
+
 import ROOT
 from ROOT import TFile,TTree
-import matplotlib.pyplot as plt
+
+if len(argv) != 6:
+    print('Fuck off')
+    print('argv[1]: dlmerged.root')
+    print('argv[2]: calibration map')
+    print('argv[3]: mpid')
+    print('argv[4]: showerreco')
+    print('argv[5]: destination (.)')
+    sys.exit()
+
+_tag = argv[1][-27:-5]
+_dest = argv[5]
+
+#argv.append("-b")
+
+#import matplotlib.pyplot as plt
 import pickle
 import numpy as np
 import pandas as pd
@@ -42,17 +60,6 @@ def MakeTreeBranch(ttree,s_name,s_type):
 
 # ---------------------------------------------- #
 
-if len(argv) != 6:
-    print('Fuck off')
-    print('argv[1]: dlmerged.root')
-    print('argv[2]: calibration map')
-    print('argv[3]: mpid')
-    print('argv[4]: showerreco')
-    print('argv[5]: destination (.)')
-    sys.exit()
-
-_tag = argv[1][-27:-5]
-_dest = argv[5]
 
 # ---------------------------------------------- #
 
@@ -127,7 +134,7 @@ ll_manager.close()
 
 # -----------------------------------------------------------------------#
 
-df_ShowerReco = pd.read_table(argv[4])
+df_ShowerReco = pd.read_table(argv[4],sep=' ')
 df_ShowerReco.set_index(['run','subrun','event','vtxid'],inplace=True)
 
 # --- Open Ana File (hadd vertexana.root + tracker_anaout.root)
@@ -147,9 +154,10 @@ try:
     TrkTree.AddFriend(VtxTree)
     TrkTree.AddFriend(ShpTree)
     TrkTree.AddFriend(ShrTree)
-    MPIDTree.AddFriend(mpidTree)
+    TrkTree.AddFriend(MPIDTree)
 except:
     print "FUCKED: %s"%argv[1]
+    print "FUCKED: %s"%argv[3]
     sys.exit()
 
 # --- Create a dict with truth info
@@ -414,6 +422,15 @@ for indo,ev in enumerate(TrkTree):
         shrFrac     = max(sh_foundClusV)
         shrFracPart = sh_foundClusV
 
+    try:
+        eE = df_ShowerReco['e_reco'][IDvtx]
+        if eE < 0:
+            eE = -99999
+            passShowerReco = False
+    except:
+        eE = -9999
+        passShowerReco = False
+
     if NumTracks == 2 and InFiducial:
         lid            = int(np.argmin(ev.Avg_Ion_v))
         pid            = int(np.argmax(ev.Avg_Ion_v))
@@ -430,20 +447,11 @@ for indo,ev in enumerate(TrkTree):
         ldq = ev.IonY_5cm_v[lid]
         pdq = ev.IonY_5cm_v[pid]
 
-        # Gotta find which particle is the proton in shower reco
-        try:
-            eE = df_ShowerReco['e_reco']
-            if eE < 0:
-                eE = -99999
-                passShowerReco = False
-        except:
-            eE = -9999
-            passShowerReco = False
-
         thetas         = lTh+pTh
         phis           = PhiDiff(lPh,pPh)
         EpCCQE         = ECCQE(pE,pTh,pid="proton",B=BE)
         EmCCQE         = ECCQE(mE,lTh,pid="muon",B=BE)
+        if(passShowerReco): EeCCQE = ECCQE(eE,lTh,pid="electron",B=BE)
 
         wallProton     = EdgeDistance[pid]
         wallLepton     = EdgeDistance[lid]
@@ -458,6 +466,8 @@ for indo,ev in enumerate(TrkTree):
 
         longtracklen   = max(ev.Length_v)
         shorttracklen  = min(ev.Length_v)
+        maxshrFrac     = max(shrFracPart)
+        minshrFrac     = min(shrFracPart)
 
         # for 1mu1p (only difference is energy used)
         Ecal_1m1p              = ECal(mE,pE,'muon',B=BE)
@@ -491,8 +501,7 @@ for indo,ev in enumerate(TrkTree):
         alphTB_1m1p          = alphaT(mEB_1m1p,pEB_1m1p,mThB_1m1p,pThB_1m1p,mPhB_1m1p,pPhB_1m1p,'muon')
 
         #Now, let's hack in the electron stuff for now... this'll need to be changed later, but it'll suffice for the time being
-        if passShowerReco == 1:
-
+        if passShowerReco:
             # Second Shower Cut
             if ev.secondshower == 1:
                 secsh_OpenAng = OpenAngle(ev.shr_theta,lTh,ev.shr_phi,lPh)
@@ -639,7 +648,7 @@ for indo,ev in enumerate(TrkTree):
     _parentX[0] = MC_dict[IDev]['parentX']   if IsMC == 1 else -99998
     _parentY[0] = MC_dict[IDev]['parentY']   if IsMC == 1 else -99998
     _parentZ[0] = MC_dict[IDev]['parentZ']   if IsMC == 1 else -99998
-    _parentY[0] = MC_dict[IDev]['parentT']   if IsMC == 1 else -99998
+    _parentT[0] = MC_dict[IDev]['parentT']   if IsMC == 1 else -99998
     _nproton[0] = MC_dict[IDev]['nproton']   if IsMC == 1 else -99998
     _nlepton[0] = MC_dict[IDev]['nlepton']   if IsMC == 1 else -99998
 
