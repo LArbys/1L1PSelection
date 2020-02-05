@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # sample name
-SAMPLE=mcc9jan_extbnb
-showerreco=/cluster/tufts/wongjiradlab/twongj01/1L1PSelection/SSNetShowerRecoOut_extbnb.txt
+SAMPLE=mcc9_v13_bnb_overlay_run1
+showerreco=/cluster/tufts/wongjiradlab/twongj01/1L1PSelection/SSNetShowerRecoOut_bnboverlay.txt
 
 # where the selection scripts live
 SELECT_DIR=/cluster/tufts/wongjiradlab/twongj01/1L1PSelection/

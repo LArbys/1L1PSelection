@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # sample name
-SAMPLE=mcc9jan_extbnb
-showerreco=/cluster/tufts/wongjiradlab/twongj01/1L1PSelection/SSNetShowerRecoOut_extbnb.txt
+SAMPLE=mcc9_v13_overlay_dirt_run1
+showerreco=/cluster/tufts/wongjiradlab/twongj01/1L1PSelection/SSNetShowerRecoOut_dirt.txt
 
 # where the selection scripts live
 SELECT_DIR=/cluster/tufts/wongjiradlab/twongj01/1L1PSelection/
@@ -56,7 +56,7 @@ module load singularity
 for f in `cat runlist.txt`
 do
     dlreco=$f;
-    mpid=$(echo ${dlreco%/*}/multipid_out* | sed 's/\/dlreco/\/stage2\/test21_mpid_pytorch_0121_dlreco/g');
+    mpid=$(echo ${dlreco%/*}/multipid_out* | sed 's/\/dlreco/\/stage2\/test21_mpid_pytorch_0123_dlreco/g');
     #echo BOTH ${dlreco} ${mpid};
     COMMAND="python ${SELECT_DIR}/MakeFinalVertexFiles-prime-dlmerged.py ${dlreco} ${calibmap} ${mpid} ${showerreco} ${outdir}"
     echo $COMMAND
