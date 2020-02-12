@@ -59,20 +59,11 @@ def MakeTreeBranch(ttree,s_name,s_type):
 def GetPMTPrecutDict(s_dlmerged):
     PMTPrecutDict = {}
 
-    PP_WINDOW_LENGTH = 130
-    PP_COINC_WINDOW = 6
-    PP_PE_THRESH = 20
-    PP_PMT_MAX_FRAC_CUTOFF = 0.60
-    PP_WIN_START = 190
-    PP_WIN_END = 320
-    PP_PORCH_WIN_START = PP_WIN_START - 130
-    PP_PORCH_WIN_END = PP_WIN_END - 130
-    PP_TICK_SIZE = 0.015625		# 15.625 ns per tick
-
     # Load up larlite
     ll_manager = larlite.storage_manager()
     ll_manager.set_io_mode(ll_manager.kREAD)
     ll_manager.add_in_filename(s_dlmerged)
+    ll_manager.set_data_to_read(larlite.data.kUserInfo,'precutresults')
     ll_manager.set_in_rootdir("")
     ll_manager.open()
 
@@ -80,44 +71,10 @@ def GetPMTPrecutDict(s_dlmerged):
         id_rse = tuple((ll_manager.run_id(),ll_manager.subrun_id(),ll_manager.event_id()))
 
         # ---------- Grab vectors containing particle info --------- #
-        ophits   = ll_manager.get_data(larlite.data.kOpHit,"ophitBeam")
+        precutresults   = ll_manager.get_data(larlite.data.kUserInfo,"precutresults")
+        precutresult = precutresults[0]
         # ---------------------------------------------------------- #
-
-        # Torch cut and PE cut
-        porchClusters = [0]*((PP_WIN_END-PP_WIN_START)/PP_COINC_WINDOW+1)
-        Clusters = [0]*((PP_WIN_END-PP_WIN_START)/PP_COINC_WINDOW+1)
-        for ophit in ophits:
-            if PP_PORCH_WIN_START <= ophit.PeakTime()/PP_TICK_SIZE <= PP_PORCH_WIN_END:
-                porchClusters[int((ophit.PeakTime()/PP_TICK_SIZE-PP_PORCH_WIN_START)/PP_COINC_WINDOW)]+=ophit.PE()
-                if PP_WIN_START <= ophit.PeakTime()/PP_TICK_SIZE <= PP_WIN_END:
-                    Clusters[int((ophit.PeakTime()/PP_TICK_SIZE-PP_WIN_START)/PP_COINC_WINDOW)]+=ophit.PE()
-
-        porchTotPE,porchFlashBins = GetTotPE(PP_PE_THRESH,porchClusters)
-        TotPE,FlashBins = GetTotPE(PP_PE_THRESH,Clusters)
-
-        # PMT Frac Cut
-        PEbyPMT  = [0]*32
-        FracDict = {}
-        for ophit in ophits:
-            if (int(ophit.PeakTime()/PP_TICK_SIZE - PP_WIN_START)/PP_COINC_WINDOW) in FlashBins:
-                PEbyPMT[ophit.OpChannel()]+=ophit.PE()
-                if ophit.OpChannel() in FracDict:
-                    FracDict[ophit.OpChannel()]+=ophit.PE()/TotPE
-                else:
-                    FracDict[ophit.OpChannel()] = ophit.PE()/TotPE
-
-        if TotPE >= PP_PE_THRESH:
-            PMTfrac = [x / TotPE for x in PEbyPMT]
-        else:
-            PMTfrac = []
-
-        if len(PMTfrac) == 0:
-            MaxPEFrac = -1
-        else:
-            MaxPEFrac = max(PMTfrac)
-
-        PassPMTPrecut = porchTotPE < PP_PE_THRESH and TotPE > PP_PE_THRESH and 0 < MaxPEFrac < PP_PMT_MAX_FRAC_CUTOFF
-        PMTPrecutDict[id_rse] = dict(_totpe=TotPE,_porchtotpe=porchTotPE,_maxpefrac=MaxPEFrac,_passpmtprecut=PassPMTPrecut)
+        PMTPrecutDict[id_rse] = dict(_totpe=precutresult.get_double("beamPE"),_porchtotpe=precutresult.get_double("vetoPE"),_maxpefrac=precutresult.get_double("maxFrac"),_passpmtprecut=precutresult.get_int("pass"))
 
     ll_manager.close()
     return PMTPrecutDict
