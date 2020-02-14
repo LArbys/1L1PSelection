@@ -21,6 +21,7 @@ from sys import argv
 from array import array
 from larlite import larlite,larutil
 import os,sys
+import argparse
 
 from SelectionDefs import NewAng, VtxInSimpleFid, VtxInFid, GetPhiT, pTrans,pTransRat, alphaT, ECCQE, ECal, Q2, OpenAngle, PhiDiff, edgeCut, ECCQE_mom, Boost, BoostTracks, Getpz, GetCCQEDiff, SensibleMinimize, Getq3q0,GetTotPE, CorrectionFactor
 
@@ -64,7 +65,7 @@ def PerformPMTPrecuts(s_dlmerged,
     from ROOT import fcllite
     fcllite.PSet
     fcllite.CreatePSetFromFile
-    
+
     cfg = """OpHitProducer:\"%s\"
  BinTickWidth:%d
  WinStartTick:%d
@@ -80,7 +81,7 @@ def PerformPMTPrecuts(s_dlmerged,
     PP_WIN_START,
     PP_WIN_END,
     PP_PE_THRESH,
-    PP_PE_THRESH,    
+    PP_PE_THRESH,
     PP_PE_THRESH,
     PP_PORCH_WIN_START,
     PP_PORCH_WIN_END,
@@ -98,9 +99,9 @@ def PerformPMTPrecuts(s_dlmerged,
     precutalgo.configure(pset)
 
     print "PMT Precut algo configured"
-        
+
     # ---------------------------------------------- #
-    #print('<EVID: %s> -- First, we will figure out the PMT Precut info.'%_tag)  #gotta do this first for io reasons    
+    #print('<EVID: %s> -- First, we will figure out the PMT Precut info.'%_tag)  #gotta do this first for io reasons
     PMTPrecutDict = {}
 
     # Load up larlite
@@ -111,7 +112,7 @@ def PerformPMTPrecuts(s_dlmerged,
     ll_manager.open()
 
     while ll_manager.next_event():
-    
+
         id_rse = tuple((ll_manager.run_id(),ll_manager.subrun_id(),ll_manager.event_id()))
 
         ev_ophits   = ll_manager.get_data(larlite.data.kOpHit,ophittree)
@@ -125,7 +126,7 @@ def PerformPMTPrecuts(s_dlmerged,
                                      _vetoFirstTick=precutalgo.vetoFirstTick() )
 
     return PMTPrecutDict
-    
+
 def GetPMTPrecutDict(s_dlmerged):
     """ get results from previously applied pmt precuts """
     PMTPrecutDict = {}
@@ -162,20 +163,22 @@ def GetPMTPrecutDict(s_dlmerged):
 #    Get started!
 # -----------------------------------------------------------------------#
 
-if len(argv) != 6:
-    print('Fuck off')
-    print('argv[1]: dlmerged.root')
-    print('argv[2]: calibration map')
-    print('argv[3]: mpid')
-    print('argv[4]: showerreco')
-    print('argv[5]: destination (.)')
-    sys.exit()
 
-_tag = argv[1][-27:-5]
-_dest = argv[5]
-_dlmerged = argv[1]
-_mpid = argv[3]
-_calibmap = argv[2]
+
+parser = argparse.ArgumentParser(description="Run 1L1P FVV Compiler")
+parser.add_argument('-d','--dlmerged',required=True,type=str,help="dlmerged file")
+parser.add_argument('-c','--calibmap',required=True,type=str,help="calibration map file")
+parser.add_argument('-m','--mpid',required=True,type=str,help="mpid file")
+parser.add_argument('-s','--showerreco',required=True,type=str,help="shower reco file")
+parser.add_argument('--ismc',help='are we looking at montecarlo?',action="store_true")
+parser.add_argument('-o','--outdir',default=".",type=str,help="Output directory")
+
+args = parser.parse_args()
+
+_tag = args.dlmerged[-27:-5]
+_dest = args.outdir
+_dlmerged = args.dlmerged
+_mpid = args.mpid
 
 sce = larutil.SpaceChargeMicroBooNEMCC9()
 
@@ -186,7 +189,7 @@ PMTPrecut_Dict = GetPMTPrecutDict(_dlmerged)
 
 print()
 print('<EVID: %s> -- Now read in the shower reco stuff.'%_tag)
-df_ShowerReco = pd.read_csv(argv[4],sep=' ')
+df_ShowerReco = pd.read_csv(args.showerreco,sep=' ')
 df_ShowerReco.set_index(['run','subrun','event','vtxid'],inplace=True)
 
 print()
@@ -213,20 +216,17 @@ except:
 print()
 print('<EVID: %s> -- Load up that truth info.'%_tag)
 MC_dict = {}
-IsMC = False
-for ev in MCTree:
-    run            = ev.run
-    subrun         = ev.subrun
-    event          = ev.event
-    IDev           = tuple((run,subrun,event))
-
-    MC_dict[IDev] = dict(parentPDG=ev.parentPDG,energyInit=ev.energyInit,parentX=ev.parentX,parentY=ev.parentY,parentZ=ev.parentZ,nproton=ev.nproton,nlepton=ev.nlepton)
-    if not np.isnan(ev.energyInit):
-        IsMC = True
+if args.ismc:
+    for ev in MCTree:
+        run            = ev.run
+        subrun         = ev.subrun
+        event          = ev.event
+        IDev           = tuple((run,subrun,event))
+        MC_dict[IDev] = dict(parentPDG=ev.parentPDG,energyInit=ev.energyInit,parentX=ev.parentX,parentY=ev.parentY,parentZ=ev.parentZ,nproton=ev.nproton,nlepton=ev.nlepton)
 
 print()
 print('<EVID: %s> -- Load up calibration map.'%_tag)
-calibfile = TFile.Open(_calibmap,'read')
+calibfile = TFile.Open(args.calibmap,'read')
 calibMap0 = calibfile.Get("hImageCalibrationMap_00")
 calibMap1 = calibfile.Get("hImageCalibrationMap_01")
 calibMap2 = calibfile.Get("hImageCalibrationMap_02")
@@ -467,7 +467,7 @@ for indo,ev in enumerate(TrkTree):
         PassShowerReco = False
 
     # - get MC Truth info (if applicable)
-    if(IsMC):
+    if(args.ismc):
         parentX = MC_dict[IDev]['parentX']
         parentY = MC_dict[IDev]['parentY']
         parentZ = MC_dict[IDev]['parentZ']
@@ -500,7 +500,7 @@ for indo,ev in enumerate(TrkTree):
 
         openAng        = OpenAngle(pTh,lTh,pPh,lPh)
 
-        if IsMC:
+        if args.ismc:
             for i in xrange(0,len(dqdx_v_uncalibrated)):
                 dqdx_v_calibrated[i] = dqdx_v_uncalibrated[i] * CorrectionFactor(vtxX,vtxY,vtxZ,vtxTheta_v[i],vtxPhi_v[i],length_v[i],calibMap_v)
 
@@ -512,7 +512,7 @@ for indo,ev in enumerate(TrkTree):
         minshrFrac     = min(shrFracPart)
 
         # - Correct SCE of coords
-        if(IsMC):
+        if(args.ismc):
             if(VtxInSimpleFid(parentX,parentY,parentZ,5.0)):
                 sce_offsets_v = sce.GetPosOffsets( parentX, parentY , parentZ)
                 parentSCEX = parentX - sce_offsets_v[0] + 0.6
@@ -712,17 +712,17 @@ for indo,ev in enumerate(TrkTree):
     _porchTotPE[0] = PMTPrecut_Dict[IDev]['_porchtotpe']
     _maxPEFrac[0] = PMTPrecut_Dict[IDev]['_maxpefrac']
     _passPMTPrecut[0] = PMTPrecut_Dict[IDev]['_passpmtprecut']
-    _parentPDG[0] = MC_dict[IDev]['parentPDG']                  if IsMC else -99998
-    _energyInit[0] = MC_dict[IDev]['energyInit']                if IsMC else -99998
-    _nproton[0] = MC_dict[IDev]['nproton']                      if IsMC else -99998
-    _nlepton[0] = MC_dict[IDev]['nlepton']                      if IsMC else -99998
-    _parentX[0] = parentX                                       if IsMC else -99998
-    _parentY[0] = parentY                                       if IsMC else -99998
-    _parentZ[0] = parentZ                                       if IsMC else -99998
-    _parentSCEX[0] = parentSCEX                                 if IsMC and PassSimpleCuts else -99998
-    _parentSCEY[0] = parentSCEY                                 if IsMC and PassSimpleCuts else -99998
-    _parentSCEZ[0] = parentSCEZ                                 if IsMC and PassSimpleCuts else -99998
-    _scedr[0] = scedr                                           if IsMC and PassSimpleCuts else -99998
+    _parentPDG[0] = MC_dict[IDev]['parentPDG']                  if args.ismc else -99998
+    _energyInit[0] = MC_dict[IDev]['energyInit']                if args.ismc else -99998
+    _nproton[0] = MC_dict[IDev]['nproton']                      if args.ismc else -99998
+    _nlepton[0] = MC_dict[IDev]['nlepton']                      if args.ismc else -99998
+    _parentX[0] = parentX                                       if args.ismc else -99998
+    _parentY[0] = parentY                                       if args.ismc else -99998
+    _parentZ[0] = parentZ                                       if args.ismc else -99998
+    _parentSCEX[0] = parentSCEX                                 if args.ismc and PassSimpleCuts else -99998
+    _parentSCEY[0] = parentSCEY                                 if args.ismc and PassSimpleCuts else -99998
+    _parentSCEZ[0] = parentSCEZ                                 if args.ismc and PassSimpleCuts else -99998
+    _scedr[0] = scedr                                           if args.ismc and PassSimpleCuts else -99998
 
     _eminusPID_int_v.clear()
     _muonPID_int_v.clear()
