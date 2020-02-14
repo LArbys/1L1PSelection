@@ -361,8 +361,8 @@ _parentZ = MakeTreeBranch(outTree,'MC_parentZ','float')
 _nproton = MakeTreeBranch(outTree,'MC_nproton','int')
 _nlepton = MakeTreeBranch(outTree,'MC_nlepton','int')
 _parentSCEX = MakeTreeBranch(outTree,'MC_parentSCEX','float')
-_parentSCEY = MakeTreeBranch(outTree,'MC_parentSCEX','float')
-_parentSCEZ = MakeTreeBranch(outTree,'MC_parentSCEX','float')
+_parentSCEY = MakeTreeBranch(outTree,'MC_parentSCEY','float')
+_parentSCEZ = MakeTreeBranch(outTree,'MC_parentSCEZ','float')
 _scedr = MakeTreeBranch(outTree,'MC_scedr','float')
 
 # MPID stuff
