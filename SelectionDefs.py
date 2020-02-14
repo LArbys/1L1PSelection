@@ -238,14 +238,14 @@ def edgeCut(wallDistVec):
 
     if abs(wallDistVec[0]-wallDistVec[1]) < 5:
         if min(wallDistVec) < vtxEdge:
-            return True
-        else:
             return False
+        else:
+            return True
     else:
         if min(wallDistVec) < trkEdge:
-            return True
-        else:
             return False
+        else:
+            return True
 
 
 def ECCQE_mom(px,py,pz,pid="muon",B = 29.5,n=[0,0,1]):
@@ -329,8 +329,8 @@ def Boost(Pfx,Pfy,Pfz,w,x,y,z,B=25.9):
     _pn = sqrt(Pfx**2+Pfy**2+Pfz**2)
     _MAr = 37211.0 #MeV
     _Mn  = 939.5654
-    _KEf = sqrt(pow(_MAr-_Mn+B,2)-pow(_pn,2)) - _MAr-_Mn+B
-    _En = _Mn-B-_KEf
+    _KEf = sqrt((_MAr + B - _Mn)**2 - _pn**2) - _MAr - B + _Mn
+    _En = _Mn - B - _KEf
     _beta = _pn / _En
     _betax = Pfx/_En
     _betay = Pfy/_En
@@ -503,22 +503,22 @@ def GetTotPE(coincidenceThresh, flashes):
 
 
 
-def CorrectionFactor(calibMap_v,x,y,z,theta,phi,L):        #  assumes straight line
+def CorrectionFactor(x,y,z,theta,phi,L,calibmap_v):        #  assumes straight line
 
     dr    = 0.5
     steps = int(L / dr)
     dx    = sin(theta)*cos(phi)*dr
     dy    = sin(theta)*sin(phi)*dr
     dz    = cos(theta)*dr
-    
+
     sumFac = 0
     for i in range(steps):
-        thisBin  = calibMap_v[0].FindBin(x+i*dx,y+i*dy,z+i*dz)
-        corrFac0 = calibMap_v[0].GetBinContent(thisBin)
-        thisBin  = calibMap_v[1].FindBin(x+i*dx,y+i*dy,z+i*dz)
-        corrFac1 = calibMap_v[1].GetBinContent(thisBin)
-        thisBin  = calibMap_v[2].FindBin(x+i*dx,y+i*dy,z+i*dz)
-        corrFac2 = calibMap_v[2].GetBinContent(thisBin)
+        thisBin  = calibmap_v[0].FindBin(x+i*dx,y+i*dy,z+i*dz)
+        corrFac0 = calibmap_v[0].GetBinContent(thisBin)
+        thisBin  = calibmap_v[1].FindBin(x+i*dx,y+i*dy,z+i*dz)
+        corrFac1 = calibmap_v[1].GetBinContent(thisBin)
+        thisBin  = calibmap_v[2].FindBin(x+i*dx,y+i*dy,z+i*dz)
+        corrFac2 = calibmap_v[2].GetBinContent(thisBin)
 
         sumFac+=(corrFac0+corrFac1+corrFac2)/3.0
 
@@ -526,8 +526,7 @@ def CorrectionFactor(calibMap_v,x,y,z,theta,phi,L):        #  assumes straight l
 
     return avgCorrFac
 
-
-def CorrectionFactorPoint(calibMap_v,x,y,z):
+def CorrectionFactorPoint(x,y,z):
 
     thisBin  = calibMap_v[0].FindBin(x,y,z)
     corrFac0 = calibMap_v[0].GetBinContent(thisBin)
