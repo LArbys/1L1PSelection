@@ -528,12 +528,12 @@ def CorrectionFactor(x,y,z,theta,phi,L,calibmap_v):        #  assumes straight l
 
 def CorrectionFactorPoint(x,y,z):
 
-    thisBin  = calibMap0.FindBin(x,y,z)
-    corrFac0 = calibMap0.GetBinContent(thisBin)
-    thisBin  = calibMap1.FindBin(x,y,z)
-    corrFac1 = calibMap1.GetBinContent(thisBin)
-    thisBin  = calibMap2.FindBin(x,y,z)
-    corrFac2 = calibMap2.GetBinContent(thisBin)
+    thisBin  = calibMap_v[0].FindBin(x,y,z)
+    corrFac0 = calibMap_v[0].GetBinContent(thisBin)
+    thisBin  = calibMap_v[1].FindBin(x,y,z)
+    corrFac1 = calibMap_v[1].GetBinContent(thisBin)
+    thisBin  = calibMap_v[2].FindBin(x,y,z)
+    corrFac2 = calibMap_v[2].GetBinContent(thisBin)
 
     avgFac=(corrFac0+corrFac1+corrFac2)/3.0
 
