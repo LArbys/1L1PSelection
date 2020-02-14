@@ -182,7 +182,7 @@ sce = larutil.SpaceChargeMicroBooNEMCC9()
 print()
 print('<EVID: %s> -- First, we will figure out the PMT Precut info.'%_tag)  #gotta do this first for io reasons
 PMTPrecut_Dict = GetPMTPrecutDict(_dlmerged)
-PMTPrecut_Dict = PerformPMTPrecuts(_dlmerged)
+#PMTPrecut_Dict = PerformPMTPrecuts(_dlmerged)
 
 print()
 print('<EVID: %s> -- Now read in the shower reco stuff.'%_tag)
