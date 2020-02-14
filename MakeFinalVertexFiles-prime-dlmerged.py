@@ -24,23 +24,6 @@ import os,sys
 
 from SelectionDefs import NewAng, VtxInSimpleFid, VtxInFid, GetPhiT, pTrans,pTransRat, alphaT, ECCQE, ECal, Q2, OpenAngle, PhiDiff, edgeCut, ECCQE_mom, Boost, BoostTracks, Getpz, GetCCQEDiff, SensibleMinimize, Getq3q0,GetTotPE, CorrectionFactor
 
-if len(argv) != 6:
-    print('Fuck off')
-    print('argv[1]: dlmerged.root')
-    print('argv[2]: calibration map')
-    print('argv[3]: mpid')
-    print('argv[4]: showerreco')
-    print('argv[5]: destination (.)')
-    sys.exit()
-
-_tag = argv[1][-27:-5]
-_dest = argv[5]
-_dlmerged = argv[1]
-_mpid = argv[3]
-_calibmap = argv[2]
-
-sce = larutil.SpaceChargeMicroBooNEMCC9()
-
 # --------------------------------------------- #
 
 def MakeTreeBranch(ttree,s_name,s_type):
@@ -61,29 +44,69 @@ def MakeTreeBranch(ttree,s_name,s_type):
 
 
 
-def PerformPMTPrecuts(s_dlmerged):
+def PerformPMTPrecuts(s_dlmerged,
+                      ophittree = "ophitBeam",
+                      PP_WINDOW_LENGTH = 130,
+                      PP_COINC_WINDOW = 6,
+                      PP_PE_THRESH = 20.0,
+                      PP_PMT_MAX_FRAC_CUTOFF = 0.60,
+                      PP_WIN_START = 190,
+                      PP_WIN_END = 320,
+                      PP_PORCH_WIN_START = 60,
+                      PP_PORCH_WIN_END =190,
+                      PP_TICK_SIZE = 0.015625 ):
     """
     calculate PMT precuts
+    TICK_SIZE units in 15.625 ns per tick
     """
+
+    # make config
+    from ROOT import fcllite
+    fcllite.PSet
+    fcllite.CreatePSetFromFile
     
+    cfg = """OpHitProducer:\"%s\"
+ BinTickWidth:%d
+ WinStartTick:%d
+ WinEndTick:%d
+ PEThreshold:%.2f
+ VetoPEThreshold:%.2f
+ MaxVetoPE:%.2f
+ VetoStartTick:%.2f
+ VetoEndTick:%.2f
+ PMTMaxFrac:%.2f
+"""%(ophittree,
+    PP_COINC_WINDOW,
+    PP_WIN_START,
+    PP_WIN_END,
+    PP_PE_THRESH,
+    PP_PE_THRESH,    
+    PP_PE_THRESH,
+    PP_PORCH_WIN_START,
+    PP_PORCH_WIN_END,
+    PP_PMT_MAX_FRAC_CUTOFF)
+
+    fout = open("precut.cfg",'w')
+    print>>fout,cfg
+    fout.close()
+
+    pset = fcllite.CreatePSetFromFile("precut.cfg","PMTPreCut")
+    #print pset.dump()
+
+    pset = fcllite.PSet("PMTPreCut",cfg)
+    precutalgo = larlite.LEEPreCut()
+    precutalgo.configure(pset)
+
+    print "PMT Precut algo configured"
+        
     # ---------------------------------------------- #
     #print('<EVID: %s> -- First, we will figure out the PMT Precut info.'%_tag)  #gotta do this first for io reasons    
-    PMTPrecut_Dict = {}
-
-    PP_WINDOW_LENGTH = 130
-    PP_COINC_WINDOW = 6
-    PP_PE_THRESH = 20
-    PP_PMT_MAX_FRAC_CUTOFF = 0.60
-    PP_WIN_START = 190
-    PP_WIN_END = 320
-    PP_PORCH_WIN_START = PP_WIN_START - 130
-    PP_PORCH_WIN_END = PP_WIN_END - 130
-    PP_TICK_SIZE = 0.015625		# 15.625 ns per tick
+    PMTPrecutDict = {}
 
     # Load up larlite
     ll_manager = larlite.storage_manager()
     ll_manager.set_io_mode(ll_manager.kREAD)
-    ll_manager.add_in_filename(argv[1])
+    ll_manager.add_in_filename(s_dlmerged)
     ll_manager.set_in_rootdir("")
     ll_manager.open()
 
@@ -91,39 +114,15 @@ def PerformPMTPrecuts(s_dlmerged):
     
         id_rse = tuple((ll_manager.run_id(),ll_manager.subrun_id(),ll_manager.event_id()))
 
-        # ---------- Grab vectors containing particle info --------- #
-        ophits   = ll_manager.get_data(larlite.data.kOpHit,"ophitBeam")
-        # ---------------------------------------------------------- #
-
-        # Torch cut and PE cut
-        porchClusters = [0]*((PP_WIN_END-PP_WIN_START)/PP_COINC_WINDOW+1)
-        Clusters = [0]*((PP_WIN_END-PP_WIN_START)/PP_COINC_WINDOW+1)
-        for ophit in ophits:
-            if PP_PORCH_WIN_START <= ophit.PeakTime()/PP_TICK_SIZE <= PP_PORCH_WIN_END:
-                porchClusters[int((ophit.PeakTime()/PP_TICK_SIZE-PP_PORCH_WIN_START)/PP_COINC_WINDOW)]+=ophit.PE()
-            if PP_WIN_START <= ophit.PeakTime()/PP_TICK_SIZE <= PP_WIN_END:
-                Clusters[int((ophit.PeakTime()/PP_TICK_SIZE-PP_WIN_START)/PP_COINC_WINDOW)]+=ophit.PE()
-
-        porchTotPE,porchFlashBins = GetTotPE(PP_PE_THRESH,porchClusters)
-        TotPE,FlashBins = GetTotPE(PP_PE_THRESH,Clusters)
-
-        # PMT Frac Cut
-        PEbyPMT  = [0]*32
-        FracDict = {}
-        for ophit in ophits:
-            if (int(ophit.PeakTime()/PP_TICK_SIZE - PP_WIN_START)/PP_COINC_WINDOW) in FlashBins:
-                PEbyPMT[ophit.OpChannel()]+=ophit.PE()
-                if ophit.OpChannel() in FracDict:
-                    FracDict[ophit.OpChannel()]+=ophit.PE()/TotPE
-                else:
-                    FracDict[ophit.OpChannel()] = ophit.PE()/TotPE
-
-        if TotPE >= PP_PE_THRESH:
-            PMTfrac = [x / TotPE for x in PEbyPMT]
-        else:
-            PMTfrac = []
-
-        PMTPrecutDict[id_rse] = dict(_totpe=TotPE,_porchtotpe=porchTotPE,_maxpefrac=max(PMTfrac),_passpmtprecut=0)
+        ev_ophits   = ll_manager.get_data(larlite.data.kOpHit,ophittree)
+        print "[event {}] number of ophits: {}".format( id_rse, ev_ophits.size() )
+        passcuts = precutalgo.apply( ev_ophits )
+        PMTPrecutDict[id_rse] = dict(_totpe=precutalgo.beamPE(),
+                                     _porchtotpe=precutalgo.vetoPE(),
+                                     _maxpefrac=precutalgo.maxFrac(),
+                                     _passpmtprecut=passcuts,
+                                     _beamFirstTick=precutalgo.beamFirstTick(),
+                                     _vetoFirstTick=precutalgo.vetoFirstTick() )
 
     return PMTPrecutDict
     
@@ -154,9 +153,31 @@ def GetPMTPrecutDict(s_dlmerged):
     ll_manager.close()
     return PMTPrecutDict
 
+
+#precutdict = PerformPMTPrecuts("../ubdl/testdata/mcc9_v13_nueintrinsic_overlay_run1/opreco-Run004999-SubRun000006.root")
+#print precutdict
+#sys.exit(-1)
+
 # -----------------------------------------------------------------------#
 #    Get started!
 # -----------------------------------------------------------------------#
+
+if len(argv) != 6:
+    print('Fuck off')
+    print('argv[1]: dlmerged.root')
+    print('argv[2]: calibration map')
+    print('argv[3]: mpid')
+    print('argv[4]: showerreco')
+    print('argv[5]: destination (.)')
+    sys.exit()
+
+_tag = argv[1][-27:-5]
+_dest = argv[5]
+_dlmerged = argv[1]
+_mpid = argv[3]
+_calibmap = argv[2]
+
+sce = larutil.SpaceChargeMicroBooNEMCC9()
 
 print()
 print('<EVID: %s> -- First, we will figure out the PMT Precut info.'%_tag)  #gotta do this first for io reasons
