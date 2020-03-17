@@ -3,7 +3,54 @@ import numpy as np
 from larlite import larlite,larutil
 
 
-def PerformPMTPrecuts(s_dlmerged,
+# --------------------------------------------- #
+# makePMTpars
+def makePMTpars( sample ):
+    """
+    sample [str] name of sample to get parameters for. choices: BNB, Overlay, EXTBNB
+    """
+    if sample not in ["BNB","EXT","Overlay"]:
+        raise ValueError("Invalid sample type given to makePMTpars. choices: BNB, EXT, Overlay")
+
+    if sample=="BNB":
+        return dict( ophittree = "ophitBeam",
+                     PP_WINDOW_LENGTH = 130,
+                     PP_COINC_WINDOW = 6,
+                     PP_PE_THRESH = 20.0,
+                     PP_PMT_MAX_FRAC_CUTOFF = 0.60,
+                     PP_WIN_START = 190,
+                     PP_WIN_END = 320,
+                     PP_PORCH_WIN_START = 60,
+                     PP_PORCH_WIN_END =190,
+                     PP_TICK_SIZE = 0.015625 )
+    elif sample=="EXT":
+        return dict( ophittree = "ophitBeam",
+                     PP_WINDOW_LENGTH = 130,
+                     PP_COINC_WINDOW = 6,
+                     PP_PE_THRESH = 20.0,
+                     PP_PMT_MAX_FRAC_CUTOFF = 0.60,
+                     PP_WIN_START = 210,
+                     PP_WIN_END = 340,
+                     PP_PORCH_WIN_START = 80,
+                     PP_PORCH_WIN_END =210,
+                     PP_TICK_SIZE = 0.015625 )
+    elif sample=="Overlay":
+        return dict( ophittree = "ophitBeam",
+                     PP_WINDOW_LENGTH = 130,
+                     PP_COINC_WINDOW = 6,
+                     PP_PE_THRESH = 20.0,
+                     PP_PMT_MAX_FRAC_CUTOFF = 0.60,
+                     PP_WIN_START = 210,
+                      PP_WIN_END = 340,
+                     PP_PORCH_WIN_START = 80,
+                     PP_PORCH_WIN_END =210,
+                     PP_TICK_SIZE = 0.015625 )
+
+    return None
+
+# --------------------------------------------- #
+# performPMTPrecuts
+def performPMTPrecuts(s_dlmerged,
                       ophittree = "ophitBeam",
                       PP_WINDOW_LENGTH = 130,
                       PP_COINC_WINDOW = 6,
@@ -85,7 +132,10 @@ def PerformPMTPrecuts(s_dlmerged,
 
     return PMTPrecutDict
 
-def GetPMTPrecutDict(s_dlmerged):
+# -----------------------------
+# GetPMTPrecutDict
+#
+def getPMTPrecutDict(s_dlmerged):
     """ get results from previously applied pmt precuts """
     PMTPrecutDict = {}
 

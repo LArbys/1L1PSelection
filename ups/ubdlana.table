@@ -1,0 +1,36 @@
+File=Table 
+Product=ubdlana
+Version=develop
+ 
+Group:
+
+Flavor     = ANY
+Qualifiers = "e17:prof"
+
+  Action = GetProducts
+    setupRequired( dllee_unified develop -q e17:prof )
+    setupRequired( ubMPIDnet v1_0_0 -q NULL )
+    setupRequired( numpy    v1_14_3   -q e17:p2714b:openblas:prof )
+    setupRequired( pandas   v0_24_2   -q e17:p2714b:prof )
+
+Common:
+  Action = setup
+    prodDir()
+    setupEnv()
+    envSet(${UPS_PROD_NAME_UC}_VERSION, ${UPS_PROD_VERSION})
+
+    # Set up required products, which is root
+    exeActionRequired(GetProducts)
+
+
+    # add python directory to the python path
+    pathPrepend(PYTHONPATH, ${UPS_PROD_DIR} )
+
+End:
+# End Group definition
+#*************************************************
+#
+# ups declare command that works on gpvm:
+# ups declare dllee_unified v1_0_2 -r ubdl/v06_36_00 -f Linux64bit+2.6-2.12 -m dllee_unified.table -q e17:prof -U ups/
+#
+#
