@@ -28,7 +28,7 @@ import os,sys
 import argparse
 
 from SelectionDefs import NewAng, VtxInSimpleFid, VtxInFid, GetPhiT, pTrans,pTransRat, alphaT, ECCQE, ECal, Q2, OpenAngle, PhiDiff, edgeCut, ECCQE_mom, Boost, BoostTracks, Getpz, GetCCQEDiff, SensibleMinimize, Getq3q0,GetTotPE, CorrectionFactor
-from LEEPreCuts_Functions import makePMTpars,performPMTPrecuts,getPMTPrecutDict,
+from LEEPreCuts_Functions import makePMTpars,performPMTPrecuts,getPMTPrecutDict
 
 # --------------------------------------------- #
 # MakeTreeBranch
