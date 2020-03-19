@@ -121,7 +121,9 @@ echo "run inference_pid_torch_dlmerger_WC.py"
 inference_pid_torch_dlmerger_WC.py ${inputfile_xrootd} out log/inference_config_tufts_WC.cfg >& log/mpid.out
 
 ### SHOWER ###
+echo "<<<<<<< RUN SHOWER RECO >>>>>>>"
 run_ssnetshowerreco.py --input-larcv ${inputfile_xrootd} --input-larlite ${inputfile_xrootd} -f both -o out_showerreco -sec >& log/showerreco.out
+cp out_showerreco* out/
 
 ### SELECTION VARIABLE TREES ###
 #make_

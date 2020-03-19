@@ -11,8 +11,29 @@
 # - make sure CCQE energies match proper off-shell formulae  (talk to steven about that)
 """
 
-import os,sys
+import os,sys,argparse,json
 from sys import argv
+
+
+# ------------------------------------------------------------------------------- #
+# PARSE ARGUMENTS
+# need to parse arguments before loading ROOT, so args not passed to it's parser
+# ------------------------------------------------------------------------------- #
+
+parser = argparse.ArgumentParser(description="Run 1L1P FVV Compiler")
+parser.add_argument('-d','--dlmerged',required=True,type=str,help="dlmerged file [REQUIRED]")
+parser.add_argument('-c','--calibmap',required=True,type=str,help="calibration map file [REQUIRED]")
+parser.add_argument('-m','--mpid',required=True,type=str,help="mpid file [REQUIRED]")
+parser.add_argument('-s','--showerreco',required=True,type=str,help="shower reco file [REQUIRED]")
+parser.add_argument('-t','--sample-type',required=True,type=str,help="Sample type. choices: BNB,EXT,Overlay")
+parser.add_argument('-o','--outdir',default=".",type=str,help="Output directory")
+parser.add_argument('-g','--tag',default="test",type=str,help="Tag: used to name files. [default: 'test']")
+parser.add_argument('--ismc',help='are we looking at montecarlo?',action="store_true")
+parser.add_argument('-pmt','--run-precuts',action='store_true',default=False,help="if true, will run precut code on ophits in file")
+parser.add_argument('-oh','--ophits',type=str,default="ophitBeam",help="tree name to use if running PMT precuts. [default: ophitBeam]")
+args = parser.parse_args()
+
+# ------------------------------------------------------------------------------- #
 
 import ROOT
 from ROOT import TFile,TTree
@@ -29,6 +50,7 @@ import argparse
 
 from SelectionDefs import NewAng, VtxInSimpleFid, VtxInFid, GetPhiT, pTrans,pTransRat, alphaT, ECCQE, ECal, Q2, OpenAngle, PhiDiff, edgeCut, ECCQE_mom, Boost, BoostTracks, Getpz, GetCCQEDiff, SensibleMinimize, Getq3q0,GetTotPE, CorrectionFactor
 from LEEPreCuts_Functions import makePMTpars,performPMTPrecuts,getPMTPrecutDict
+from showerrecodata import ShowerRecoData
 
 # --------------------------------------------- #
 # MakeTreeBranch
@@ -54,23 +76,8 @@ def MakeTreeBranch(ttree,s_name,s_type):
 #    Get started!
 # -----------------------------------------------------------------------#
 
-
-
-parser = argparse.ArgumentParser(description="Run 1L1P FVV Compiler")
-parser.add_argument('-d','--dlmerged',required=True,type=str,help="dlmerged file")
-parser.add_argument('-c','--calibmap',required=True,type=str,help="calibration map file")
-parser.add_argument('-m','--mpid',required=True,type=str,help="mpid file")
-parser.add_argument('-s','--showerreco',required=True,type=str,help="shower reco file")
-parser.add_argument('-o','--outdir',default=".",type=str,help="Output directory")
-parser.add_argument('-t','--sample-type',required=True,type=str,help="Sample type. choices: BNB,EXT,Overlay")
-parser.add_argument('--ismc',help='are we looking at montecarlo?',action="store_true")
-parser.add_argument('-pmt','--run-precuts',action='store_true',default=False,help="if true, will run precut code on ophits in file")
-parser.add_argument('-oh','--ophits',type=str,default="ophitBeam",help="tree name to use if running PMT precuts. [default: ophitBeam]")
-
-
-args = parser.parse_args()
-
-_tag = args.dlmerged[-27:-5] # fix, not generic
+#_tag = args.dlmerged[-27:-5] # fix, not generic
+_tag = args.tag
 _dest = args.outdir
 _dlmerged = args.dlmerged
 _mpid = args.mpid
@@ -78,10 +85,10 @@ _mpid = args.mpid
 sce = larutil.SpaceChargeMicroBooNEMCC9()
 
 if args.run_precuts:
-    print('<EVID: X> -- Run precuts using ophit tree, %s.'%%(args.ophits))  #gotta do this first for io reasons
+    print('<EVID: X> -- Run precuts using ophit tree, %s.'%(args.ophits))  #gotta do this first for io reasons
     precutpars = makePMTpars( args.sample_type )
     precutpars["ophittree"] = args.ophits
-    PMTPrecut_dict = performPMTPrecuts( _dlmerged, **precutpars )
+    PMTPrecut_Dict = performPMTPrecuts( _dlmerged, **precutpars )
 else:
     print()
     print('<EVID: %s> -- First, we will figure out the PMT Precut info.'%_tag)  #gotta do this first for io reasons
@@ -89,8 +96,10 @@ else:
 
 print()
 print('<EVID: %s> -- Now read in the shower reco stuff.'%_tag)
-df_ShowerReco = pd.read_csv(args.showerreco,sep=' ')
-df_ShowerReco.set_index(['run','subrun','event','vtxid'],inplace=True)
+inputfile_showerreco = open(args.showerreco,'r')
+json_showerreco = json.load(inputfile_showerreco)
+df_ShowerReco = ShowerRecoData( json_showerreco )
+
 
 print()
 print('<EVID: %s> -- Now make sure we can read the root trees we want (and make sure they are present).'%_tag)
@@ -131,6 +140,10 @@ calibMap0 = calibfile.Get("hImageCalibrationMap_00")
 calibMap1 = calibfile.Get("hImageCalibrationMap_01")
 calibMap2 = calibfile.Get("hImageCalibrationMap_02")
 calibMap_v = [calibMap0,calibMap1,calibMap2]
+
+if False:
+    """ for testing"""
+    sys.exit(-1)
 
 print()
 print('<EVID: %s> -- Create target root file and get started!'%_tag)
@@ -246,6 +259,14 @@ _proton_phiB_1e1p = MakeTreeBranch(outTree,'Proton_PhiRecoB_1e1p','float')
 _proton_thetaB_1e1p = MakeTreeBranch(outTree,'Proton_ThetaRecoB_1e1p','float')
 _proton_EB_1e1p = MakeTreeBranch(outTree,'Proton_EdepB_1e1p','float')
 
+# Shower variables
+_shower1_E_U = MakeTreeBranch(outTree,'shower1_E_U','float')
+_shower1_E_V = MakeTreeBranch(outTree,'shower1_E_V','float')
+_shower1_E_Y = MakeTreeBranch(outTree,'shower1_E_Y','float')
+_shower2_E_U = MakeTreeBranch(outTree,'shower2_E_U','float')
+_shower2_E_V = MakeTreeBranch(outTree,'shower2_E_V','float')
+_shower2_E_Y = MakeTreeBranch(outTree,'shower2_E_Y','float')
+
 # Precut stuff
 _totPE = MakeTreeBranch(outTree,'TotPE','float')
 _porchTotPE = MakeTreeBranch(outTree,'PorchTotPE','float')
@@ -289,7 +310,7 @@ def clear_vertex():
     _muon_phiB_1m1p      = float(-9999)
     _muon_thetaB_1m1p    = float(-9999)
     _muon_EB_1m1p        = float(-9999)
-    _electron_E         = float(-9999)
+    _electron_E          = float(-9999)
     _electron_phiB_1e1p      = float(-9999)
     _electron_thetaB_1e1p    = float(-9999)
     _electron_EB_1e1p        = float(-9999)
@@ -309,6 +330,14 @@ def clear_vertex():
     _proton_thetaB_1e1p    = float(-9999)
     _proton_EB_1e1p        = float(-9999)
 
+    _shower1_E_U = float(-9999)
+    _shower1_E_V = float(-9999)
+    _shower1_E_Y = float(-9999)
+    _shower2_E_U = float(-9999)
+    _shower2_E_V = float(-9999)
+    _shower2_E_Y = float(-9999)
+    
+
 
 print()
 print('<EVID: %s> -- Great. Now loop through track events and go wild'%_tag)
@@ -325,6 +354,8 @@ for indo,ev in enumerate(TrkTree):
     vtxX           = ev.vtx_x
     vtxY           = ev.vtx_y
     vtxZ           = ev.vtx_z
+
+    vtxShowerData  = df_ShowerReco.get_vertex( run, subrun, event, vtxid )
 
     # These are for passing simple precuts
     length_v       = ev.Length_v
@@ -358,12 +389,15 @@ for indo,ev in enumerate(TrkTree):
         shrFracPart = sh_foundClusV
 
     try:
-        eE = df_ShowerReco['e_reco'][IDvtx]
+        #eE = df_ShowerReco['e_reco'][IDvtx]
+        eE  = vtxShowerData['shower_energies'][2]
+        eE2 = vtxShowerData['secondshower_energies'][2]
         if eE < 0:
             eE = -99999
             PassShowerReco = False
     except:
-        eE = -9999
+        eE  = -9999
+        eE2 = -9999
         PassShowerReco = False
 
     # - get MC Truth info (if applicable)
@@ -607,6 +641,13 @@ for indo,ev in enumerate(TrkTree):
     _sphB_1e1p[0]         = sphB_1e1p                           if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
     _q2B_1e1p[0]          = Q2calB_1e1p                         if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
     _bjYB_1e1p[0]         = yB_1e1p                             if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
+
+    _shower1_E_U[0]       = float(vtxShowerData["shower_energies"][0])       if PassSimpleCuts and PassShowerReco else -99999
+    _shower1_E_V[0]       = float(vtxShowerData["shower_energies"][1])       if PassSimpleCuts and PassShowerReco else -99999
+    _shower1_E_Y[0]       = float(vtxShowerData["shower_energies"][2])       if PassSimpleCuts and PassShowerReco else -99999
+    _shower2_E_U[0]       = float(vtxShowerData["secondshower_energies"][0]) if PassSimpleCuts and PassShowerReco else -99999
+    _shower2_E_V[0]       = float(vtxShowerData["secondshower_energies"][1]) if PassSimpleCuts and PassShowerReco else -99999
+    _shower2_E_Y[0]       = float(vtxShowerData["secondshower_energies"][2]) if PassSimpleCuts and PassShowerReco else -99999
 
     _totPE[0] = PMTPrecut_Dict[IDev]['_totpe']
     _porchTotPE[0] = PMTPrecut_Dict[IDev]['_porchtotpe']
