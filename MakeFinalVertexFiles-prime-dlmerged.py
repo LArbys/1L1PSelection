@@ -39,14 +39,12 @@ import ROOT
 from ROOT import TFile,TTree
 import pickle
 import numpy as np
-import pandas as pd
+#import pandas as pd
 from numpy import mean,asarray,matmul
 from math import sqrt,acos,cos,sin,pi,exp,log,isnan,atan2
 from sys import argv
 from array import array
 from larlite import larlite,larutil
-import os,sys
-import argparse
 
 from SelectionDefs import NewAng, VtxInSimpleFid, VtxInFid, GetPhiT, pTrans,pTransRat, alphaT, ECCQE, ECal, Q2, OpenAngle, PhiDiff, edgeCut, ECCQE_mom, Boost, BoostTracks, Getpz, GetCCQEDiff, SensibleMinimize, Getq3q0,GetTotPE, CorrectionFactor
 from LEEPreCuts_Functions import makePMTpars,performPMTPrecuts,getPMTPrecutDict
