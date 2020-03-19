@@ -102,21 +102,25 @@ df_ShowerReco = ShowerRecoData( json_showerreco )
 print()
 print('<EVID: %s> -- Now make sure we can read the root trees we want (and make sure they are present).'%_tag)
 try:
-    DLMergedFile = TFile(_dlmerged,'read')
-    MPIDFile = TFile(_mpid,'read')
+    DLMergedFile = TFile.Open(_dlmerged)
+    MPIDFile = TFile.Open(_mpid)
 
     TrkTree  = DLMergedFile.Get("_recoTree")
     VtxTree  = DLMergedFile.Get("VertexTree")
     ShpTree  = DLMergedFile.Get("ShapeAnalysis")
     ShrTree  = DLMergedFile.Get("SecondShowerAnalysis")
-    MCTree   = DLMergedFile.Get("MCTree")
+    if args.ismc:
+        MCTree   = DLMergedFile.Get("MCTree")
     MPIDTree = MPIDFile.Get("multipid_tree")
 
     TrkTree.AddFriend(VtxTree)
     TrkTree.AddFriend(ShpTree)
     TrkTree.AddFriend(ShrTree)
     TrkTree.AddFriend(MPIDTree)
+    #if args.ismc:
+    #    TrkTree.AddFriend(MCTree)
 except:
+    print "Error opening DLmerged and/or MPID: ",sys.exc_info()[0]
     print 'Fucked: %s %s' %(_dlmerged,_mpid)
     sys.exit()
 

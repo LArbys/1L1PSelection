@@ -16,6 +16,7 @@ PROCESS=0
 INFILE_LIST=$CONDOR_DIR_INPUT/merged_flist_test.dat
 LOGDIR=/pnfs/uboone/persistent/users/tmw/dlana_test/log
 OUTDIR=/pnfs/uboone/persistent/users/tmw/dlana_test/out
+SAMPLE_TYPE=Overlay
 IFDH_OPT=""
 
 
@@ -118,15 +119,23 @@ cp ${MPIDMODEL_DIR}/production_cfg/inference_config_tufts_WC.cfg log/
 
 # execute
 echo "run inference_pid_torch_dlmerger_WC.py"
-inference_pid_torch_dlmerger_WC.py ${inputfile_xrootd} out log/inference_config_tufts_WC.cfg >& log/mpid.out
+inference_pid_torch_dlmerger_WC.py ${inputfile_xrootd} . log/inference_config_tufts_WC.cfg >& log/mpid.out
 
 ### SHOWER ###
 echo "<<<<<<< RUN SHOWER RECO >>>>>>>"
-run_ssnetshowerreco.py --input-larcv ${inputfile_xrootd} --input-larlite ${inputfile_xrootd} -f both -o out_showerreco -sec >& log/showerreco.out
-cp out_showerreco* out/
+run_ssnetshowerreco.py --input-larcv ${inputfile_xrootd} --input-larlite ${inputfile_xrootd} -f both -o out_showerreco -sec --tree-name ssnetshowerrecov2 >& log/showerreco.out
 
 ### SELECTION VARIABLE TREES ###
-#make_
+echo "<<<<<<< RUN SELECTION VARIABLES >>>>>>>"
+MakeFinalVertexFiles-prime-dlmerged.py --dlmerged ${inputfile_xrootd}  --calibmap ${UBDLANA_DIR}/CalibrationMaps_MCC9.root \
+ --mpid multipid_out_0_WC.root --showerreco out_showerreco.json \
+ -t ${SAMPLE_TYPE} -o . -g dlana --run-precuts -oh ophitBeamCalib >& log/anafile.out
+
+### MERGE THE FILES/PREPARE OUTPUT FOLDER ###
+echo "<<<<<<<< PREPARE MERGED OUTPUT FILE >>>>>>>"
+rootcp out_showerreco_larlite.root:*ssnetshowerrecov2* temp.root
+hadd -f out/dlana_merged.root ${inputfile_xrootd} temp.root multipid_out_0_WC.root FinalVertexVariables-prime_dlana.root
+cp out_showerreco.json out/
 
 ### END OF WORK #####################
 #####################################
