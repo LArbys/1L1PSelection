@@ -92,13 +92,15 @@ echo "Output subdirectory: $OUTPUT_SUBDIR"
 ##### DO WORK #########
 
 # SETUP UBOONE CVMFS
-#source /cvmfs/uboone.opensciencegrid.org/products/setup_uboone.sh
+source /cvmfs/uboone.opensciencegrid.org/products/setup_uboone.sh
+export PRODUCTS=/uboone/app/users/tmw/ups_dev/products:${PRODUCTS}
 
 # SETUP DLLEE_UNIFIED,MPID UPS
-#setup ifdhc v2_4_1 -q e17:p2714b:prof
-#setup ubMPIDnet v1_0_0 -q NULL
-#setup dllee_unified develop -q e17:prof
-#setup ubdlana develop -q e17:prof
+setup ifdhc v2_4_1 -q e17:p2714b:prof
+setup ubMPIDnet v1_0_0 -q NULL
+unsetup dllee_unified
+setup dllee_unified develop -q e17:prof
+setup ubdlana develop -q e17:prof
 
 # DETERMINE INPUT DLMERGED FILE
 let lineno=${PROCESS}+1

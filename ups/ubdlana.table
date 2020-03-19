@@ -11,7 +11,6 @@ Qualifiers = "e17:prof"
     setupRequired( dllee_unified develop -q e17:prof )
     setupRequired( ubMPIDnet v1_0_0 -q NULL )
     setupRequired( numpy    v1_14_3 -q e17:p2714b:openblas:prof )
-    setupRequired( pandas   v0_24_2 -q e17:p2714b:prof )
     setupRequired( ifdhc    v2_4_1  -q e17:p2714b:prof )
 
 Common:
@@ -26,6 +25,7 @@ Common:
 
     # add python directory to the python path
     pathPrepend(PYTHONPATH, ${UPS_PROD_DIR} )
+    pathPrepend(PATH, ${UPS_PROD_DIR} )
 
 End:
 # End Group definition
