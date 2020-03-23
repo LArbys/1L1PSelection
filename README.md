@@ -24,6 +24,15 @@ For each file, we need to run:
 
 Right now, this is just for Taritree to remember how to call the test command in the `test_dir` folder (not in this repo).
 
+
+### non-lar executable
+
 ```
 python ../bin/run_ubdlana_lar.py -d merged_dlreco_3e2d592c-e729-4ad2-9844-e517dd0a90b6.root -c ../CalibrationMaps_MCC9.root -m out/multipid_out_0_WC.root -s out/out_showerreco.json -t Overlay -o out/ -g test --ismc -pmt -oh opHitCalib
+```
+
+### `lar.py` call
+
+```
+lar.py -c cfg/ubdlana.fcl -s test_dir/merged_dlreco_3e2d592c-e729-4ad2-9844-e517dd0a90b6.root`
 ```

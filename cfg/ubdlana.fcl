@@ -1,0 +1,9 @@
+#include "sam_microboone.fcl"
+
+process_name : dlrecotest
+services : { FileCatalogMetadata: @local::art_file_catalog_mc }
+input_tree : "larlite_id_tree"
+loop_over_entries : True
+dump_every: 1
+modules : { sam_metadata : {}
+	    dlanalyze    : { another_tree : "DLAnaTree" } }

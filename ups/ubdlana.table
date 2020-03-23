@@ -30,6 +30,7 @@ Common:
     pathPrepend(PATH, ${UPS_PROD_DIR} )
     pathPrepend(PYTHONPATH, ${UPS_PROD_DIR}/ubdlana )
     pathPrepend(PATH, ${UPS_PROD_DIR}/bin )
+    pathPrepend(FHICL_FILE_PATH, ${UPS_PROD_DIR}/cfg )
 
 End:
 # End Group definition

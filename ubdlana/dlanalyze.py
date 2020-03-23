@@ -48,9 +48,9 @@ class DLAnalyze(RootAnalyze):
         #
         #----------------------------------------------------------------------
 
-        another_tree = config['modules']['dlrecoana']['another_tree']
+        another_tree = config['modules']['dlanalyze']['another_tree']
         print 'DLAnalyze constructed with second tree = %s' % another_tree
-        self.tree_name = another_tree
+        self.tree_name = "larlite_id_tree"
         self.tree_obj = None
         return
 
@@ -126,11 +126,15 @@ class DLAnalyze(RootAnalyze):
 
         # Get a leaf from the main tree.
 
-        br = tree.GetBranch('parentPDG')
-        leaves = br.GetListOfLeaves()
-        print 'parentPDG = %d' % int(leaves[0].GetValue())
+        rse_br = []
+        for brname in ['_run_id','_subrun_id','_event_id']:
+            br = tree.GetBranch(brname)
+            leaves = br.GetListOfLeaves()
+            print '%s = %d' % (brname,int(leaves[0].GetValue()))
 
         # Load entry for second tree.
+        if True:
+            return
 
         self.tree_obj.GetEntry(entry)
 
@@ -155,8 +159,7 @@ class DLAnalyze(RootAnalyze):
         print 'Input file: %s' % input_file.GetName()
         input_file.ls()
 
-        # Get second tree object.
-
+        # Use the larlite index tree as the index tree
         print 'Looking for TTree named %s' % self.tree_name
         obj = input_file.Get(self.tree_name)
         if obj.InheritsFrom('TTree'):
