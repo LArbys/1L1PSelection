@@ -1,3 +1,5 @@
 SSNetShowerReco_*
 *~
 *.pyc
+*.root
+dlanalyze_input_list*

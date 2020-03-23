@@ -31,6 +31,7 @@ Common:
     pathPrepend(PYTHONPATH, ${UPS_PROD_DIR}/ubdlana )
     pathPrepend(PYTHONPATH, ${UBMPIDNET_DIR}/uboone )
     pathPrepend(PATH, ${UPS_PROD_DIR}/bin )
+    pathPrepend(PATH, ${UPS_PROD_DIR}/production_fnal_scripts )
     pathPrepend(FHICL_FILE_PATH, ${UPS_PROD_DIR}/cfg )
 
 End:

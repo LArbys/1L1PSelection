@@ -66,6 +66,7 @@ class DLAnalyze(RootAnalyze):
         #
         #----------------------------------------------------------------------
 
+        self.input_file_list = [] # gets append to during open_input function
         self.tracker_treename = config['modules']['dlanalyze']['tracker_tree']
         self.ismc             = config['modules']['dlanalyze']['ismc']
         self.sample_type      = config['modules']['dlanalyze']['sample_type']
@@ -263,6 +264,7 @@ class DLAnalyze(RootAnalyze):
         print 'DLReco::open_input called.'
         print 'Input file: %s' % input_file.GetName()
         input_file.ls()
+        self.input_file_list.append(input_file.GetName())
 
         # we open the larcv and larlite iomanagers
         self.io_ll  = larlite.storage_manager(larlite.storage_manager.kBOTH)
@@ -356,6 +358,11 @@ class DLAnalyze(RootAnalyze):
         self.in_lcv.finalize()
         self.io_ll.close()        
         self.calibfile.Close()
+        fout = open('dlanalyze_input_list.txt','w')
+        for f in self.input_file_list:
+            print>>fout,f.strip()
+        fout.close()
+
 
     def extract_showerreco_entry_vars(self,data,showerreco):
         """ get variables from showerreco class """
