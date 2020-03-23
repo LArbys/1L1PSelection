@@ -62,6 +62,27 @@ class DLAnalyze(RootAnalyze):
         print 'DLAnalyze constructed with second tree = %s' % another_tree
         self.tree_name = "larlite_id_tree"
         self.tree_obj = None
+
+        llout_name = config['modules']['dlanalyze']['showerreco']['out_larlite_tree']
+        shr_ana    = config['modules']['dlanalyze']['showerreco']['out_ana_tree']
+        adc_tree   = config['modules']['dlanalyze']['showerreco']['adctree']
+        use_calib  = config['modules']['dlanalyze']['showerreco']['use_calib']
+        uselarlite = True
+        self.showerreco = larlitecv.ssnetshowerreco.SSNetShowerReco(uselarlite,llout_name)
+        self.showerreco.set_adc_treename( adc_tree )
+        if use_calib:
+            self.showerreco.use_calibrated_pixsum2mev( True )
+        if True:
+            self.showerreco.use_second_shower( True )
+        if False:
+            self.showerreco.use_ncpi0( True )
+        if False:
+            self.showerreco.use_nueint( True )
+        if False:
+            self.showerreco.use_bnb( True )
+        
+        self.showerreco.set_output_treename( shr_ana )
+
         return
 
 
@@ -97,7 +118,13 @@ class DLAnalyze(RootAnalyze):
 
         # Make MPID tree
         self.mpid_data, self.mpid_anatree = mpidutil.make_mpid_anatree(output_file)
-        
+
+        # Make Shower Reco Ana tree
+        shr_dir = output_file.mkdir("ssnetshowerreco")
+        shr_dir.cd()
+        self.showerreco.setupAnaTree()
+        self.shr_anatree = self.showerreco.getAnaTree()
+
         return
 
 
@@ -200,5 +227,6 @@ class DLAnalyze(RootAnalyze):
     def end_job(self):
         #self.output_file.cd()
         #self.anatreeclass.outTree.Write()
+        #self.showerreco.finalize()
         pass
 

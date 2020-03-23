@@ -6,4 +6,10 @@ input_tree : "larlite_id_tree"
 loop_over_entries : True
 dump_every: 1
 modules : { sam_metadata : {}
-	    dlanalyze    : { another_tree : "DLAnaTree" } }
+	    dlanalyze    : { another_tree : "DLAnaTree"
+                             showerreco: { out_larlite_tree: "ssnetshowerrecov2"
+                                           out_ana_tree: "ssnetshowerrecov2ana" 
+                                           adctree: "wire"
+                                           use_calib: False } 
+                            }
+            }
