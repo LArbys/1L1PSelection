@@ -24,3 +24,8 @@ args = parser.parse_args()
 # IMPORT MODULES
 from root_analyze import RootAnalyze
 import ubdlana
+import ubdlana.dlanalyze
+from ubdlana.dlanalyze import DLAnalyze
+
+print DLAnalyze
+
