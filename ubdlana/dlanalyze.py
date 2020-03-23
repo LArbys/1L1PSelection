@@ -19,19 +19,25 @@ if os.environ.has_key('TERM'):
 myargv = sys.argv
 sys.argv = myargv[0:1]
 
+# IMPORT ROOT
 import ROOT
 #ROOT.gErrorIgnoreLevel = ROOT.kError
 sys.argv = myargv
 
-# MPID
-
-
-# DL Final Vertex Variables
-from dlanatree import DLanaTree
-import mpidutil
+# IMPORT DL STACK
 from larlite import larlite
 from larcv import larcv
 from larlitecv import larlitecv
+
+# PRECUT utils
+from LEEPreCuts_Functions import makePMTpars,performPMTPrecuts,getPMTPrecutDict
+
+# MPID utils
+import mpidutil
+
+# DL Final Vertex Variables
+from dlanatree import DLanaTree
+
 
 def make(config):
     #----------------------------------------------------------------------
@@ -60,6 +66,7 @@ class DLAnalyze(RootAnalyze):
 
         self.tracker_treename = config['modules']['dlanalyze']['tracker_tree']
         self.ismc             = config['modules']['dlanalyze']['ismc']
+        self.sample_type      = config['modules']['dlanalyze']['sample_type']
 
         another_tree = config['modules']['dlanalyze']['another_tree']
         print 'DLAnalyze constructed with second tree = %s' % another_tree
@@ -92,6 +99,10 @@ class DLAnalyze(RootAnalyze):
         mpid_cfg = os.environ["UBMPIDNET_DIR"]+"/production_cfg/inference_config_tufts_WC.cfg"
         self.mpid, self.mpid_cfg = mpidutil.load_mpid_model( mpid_cfg )
 
+        # SETUP PMT Precuts module
+        self.precutpars = makePMTpars( self.sample_type )
+        self.precutpars['ophittree'] = config['modules']['dlanalyze']['precut_ophits']
+        
         return
 
 
@@ -170,6 +181,7 @@ class DLAnalyze(RootAnalyze):
         # Arguments: tree - Loaded tree.
         #
         #----------------------------------------------------------------------
+        """ this is a loop over vertex entries """
         pass
 
     def analyze_larlite_and_larcv_entry(self, tree, entry):
@@ -262,8 +274,12 @@ class DLAnalyze(RootAnalyze):
         # LARLITE ID TREE: governs loop to make MPID, Showerreco and Precut variables
         self.larlite_id_tree = input_file.Get("larlite_id_tree")
 
+        # make mpid and showerreco data
         self.make_morereco_variables()
 
+        # make precut data
+        self.PMTPrecut_Dict = performPMTPrecuts( input_file.GetName(), **self.precutpars )
+        
         # OTHER SELECTION VAR TREES, WE FRIEND THEM TO THE TRACKER TREE
         self.VtxTree  = input_file.Get("VertexTree")
         self.ShpTree  = input_file.Get("ShapeAnalysis")
@@ -276,6 +292,7 @@ class DLAnalyze(RootAnalyze):
         self.tree_obj.AddFriend(self.VtxTree)
         self.tree_obj.AddFriend(self.ShpTree)
         self.tree_obj.AddFriend(self.ShrTree)
+        # We attach the MPID ana tree as well
         self.tree_obj.AddFriend(self.mpid_anatree)
 
         print "[ End input tree prep ]"

@@ -8,7 +8,9 @@ dump_every: 1
 modules : { sam_metadata : {}
 	    dlanalyze    : { another_tree : "DLAnaTree"
                              tracker_tree : "_recoTree"
-                             ismc : False
+                             precut_ophits: "ophitBeamCalib"
+                             sample_type: "Overlay"
+                             ismc : True
                              showerreco: { out_larlite_tree: "ssnetshowerrecov2"
                                            out_ana_tree: "ssnetshowerrecov2ana" 
                                            adctree: "wire"
