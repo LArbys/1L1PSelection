@@ -23,7 +23,15 @@ import ROOT
 #ROOT.gErrorIgnoreLevel = ROOT.kError
 sys.argv = myargv
 
+# MPID
+
+
+# DL Final Vertex Variables
 from dlanatree import DLanaTree
+import mpidutil
+from larlite import larlite
+from larcv import larcv
+from larlitecv import larlitecv
 
 def make(config):
     #----------------------------------------------------------------------
@@ -80,7 +88,6 @@ class DLAnalyze(RootAnalyze):
         #----------------------------------------------------------------------
 
         # Make output directory.
-
         dir = output_file.mkdir('dlana')
         dir.cd()
 
@@ -88,6 +95,9 @@ class DLAnalyze(RootAnalyze):
         self.anatreeclass = DLanaTree()
         self.output_file = output_file
 
+        # Make MPID tree
+        self.mpid_data, self.mpid_anatree = mpidutil.make_mpid_anatree(output_file)
+        
         return
 
 
@@ -162,6 +172,10 @@ class DLAnalyze(RootAnalyze):
         print 'DLReco::open_input called.'
         print 'Input file: %s' % input_file.GetName()
         input_file.ls()
+
+        # we open the larcv and larlite iomanagers
+        self.in_ll  = larlite.storage_manager(larlite.storage_manager.kREAD)
+        self.in_lcv = larcv.IOManager(larcv.IOManager.kREAD,"input_larcv")
 
         # Use the larlite index tree as the index tree
         print 'Looking for TTree named %s' % self.tree_name
