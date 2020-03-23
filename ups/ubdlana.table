@@ -28,6 +28,8 @@ Common:
     # add python directory to the python path
     pathPrepend(PYTHONPATH, ${UPS_PROD_DIR} )
     pathPrepend(PATH, ${UPS_PROD_DIR} )
+    pathPrepend(PYTHONPATH, ${UPS_PROD_DIR}/ubdlana )
+    pathPrepend(PATH, ${UPS_PROD_DIR}/bin )
 
 End:
 # End Group definition
