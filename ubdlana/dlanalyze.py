@@ -63,13 +63,13 @@ class DLAnalyze(RootAnalyze):
         self.tree_name = "larlite_id_tree"
         self.tree_obj = None
 
-        llout_name = config['modules']['dlanalyze']['showerreco']['out_larlite_tree']
-        shr_ana    = config['modules']['dlanalyze']['showerreco']['out_ana_tree']
-        adc_tree   = config['modules']['dlanalyze']['showerreco']['adctree']
-        use_calib  = config['modules']['dlanalyze']['showerreco']['use_calib']
-        uselarlite = True
-        self.showerreco = larlitecv.ssnetshowerreco.SSNetShowerReco(uselarlite,llout_name)
-        self.showerreco.set_adc_treename( adc_tree )
+        self.llout_name = config['modules']['dlanalyze']['showerreco']['out_larlite_tree']
+        shr_ana         = config['modules']['dlanalyze']['showerreco']['out_ana_tree']
+        self.adc_tree   = config['modules']['dlanalyze']['showerreco']['adctree']
+        use_calib       = config['modules']['dlanalyze']['showerreco']['use_calib']
+        uselarlite      = True
+        self.showerreco = larlitecv.ssnetshowerreco.SSNetShowerReco(uselarlite,self.llout_name)
+        self.showerreco.set_adc_treename( self.adc_tree )
         if use_calib:
             self.showerreco.use_calibrated_pixsum2mev( True )
         if True:
@@ -82,6 +82,11 @@ class DLAnalyze(RootAnalyze):
             self.showerreco.use_bnb( True )
         
         self.showerreco.set_output_treename( shr_ana )
+
+        # list larlite data types
+        #self.larlite_types = []
+        #for i in xrange(larlite.kDATA_TYPE_MAX):
+        #    self.larlite_types.append( larlite.kDATA_TREE_NAME[i] )
 
         return
 
@@ -172,19 +177,25 @@ class DLAnalyze(RootAnalyze):
             br = tree.GetBranch(brname)
             leaves = br.GetListOfLeaves()
             print '%s = %d' % (brname,int(leaves[0].GetValue()))
+            rse_br.append( int(leaves[0].GetValue()) )
 
-        # Load entry for second tree.
-        if True:
-            return
+        # load larcv iomanager entry (larlite already loaded)
+        self.in_lcv.read_entry( entry )
 
-        self.tree_obj.GetEntry(entry)
+        # get larcv data
+        ev_adc    = self.in_lcv.get_data(larcv.kProductImage2D,self.adc_tree)
+        lcv_rse = [ev_adc.run(),ev_adc.subrun(),ev_adc.event()]
+        ll_rse  = [self.io_ll.run_id(),self.io_ll.subrun_id(),self.io_ll.event_id()]
+        if rse_br != lcv_rse or rse_br != ll_rse:
+            raise RuntimeError("(run,subrun,event) for event loop tree[{}], larlite tree[{}], larcv tree[{}] do not match".format(rse_br,ll_rse,lcv_rse))
+        
+        # check run, subrun, event
+        print "process: ",rse_br
 
-        # Get leaf from second tree.
-
-        br = self.tree_obj.GetBranch('selected1L1P')
-        leaves = br.GetListOfLeaves()
-        print 'selected1L1P = %d' % int(leaves[0].GetValue())
-
+        # run shower reco
+        self.showerreco.process( self.in_lcv, self.io_ll, entry )
+        self.showerreco.store_in_larlite(self.io_ll)
+        self.io_ll.next_event()
 
 
     def open_input(self, input_file):
@@ -201,8 +212,19 @@ class DLAnalyze(RootAnalyze):
         input_file.ls()
 
         # we open the larcv and larlite iomanagers
-        self.in_ll  = larlite.storage_manager(larlite.storage_manager.kREAD)
+        self.io_ll  = larlite.storage_manager(larlite.storage_manager.kBOTH)
+        self.io_ll.add_in_filename( input_file.GetName() )
+        self.io_ll.set_out_filename( "out_showerrecov2.root" )
+        self.io_ll.set_data_to_read( larlite.data.kTrack, "trackReco" )
+        #self.io_ll.set_data_to_write( larlite.data.kShower, self.llout_name )
+        #self.io_ll.set_data_to_write( larlite.data.kShower, self.llout_name+"_sec" )
+        #self.io_ll.set_data_to_write( larlite.data.kLArFlowCluster, self.llout_name )
+        self.io_ll.open()
+        self.io_ll.next_event() # go to first entry
+
         self.in_lcv = larcv.IOManager(larcv.IOManager.kREAD,"input_larcv")
+        self.in_lcv.add_in_file( input_file.GetName() )
+        self.in_lcv.initialize()
 
         # Use the larlite index tree as the index tree
         print 'Looking for TTree named %s' % self.tree_name
@@ -225,8 +247,7 @@ class DLAnalyze(RootAnalyze):
 
 
     def end_job(self):
-        #self.output_file.cd()
-        #self.anatreeclass.outTree.Write()
-        #self.showerreco.finalize()
-        pass
+        """ close larcv and larlite files. larlite output file will write."""
+        self.in_lcv.finalize()
+        self.io_ll.close()
 
