@@ -23,6 +23,8 @@ import ROOT
 #ROOT.gErrorIgnoreLevel = ROOT.kError
 sys.argv = myargv
 
+from dlanatree import DLanaTree
+
 def make(config):
     #----------------------------------------------------------------------
     #
@@ -79,10 +81,12 @@ class DLAnalyze(RootAnalyze):
 
         # Make output directory.
 
-        dir = output_file.mkdir('dlreco')
+        dir = output_file.mkdir('dlana')
         dir.cd()
 
         # Done.
+        self.anatreeclass = DLanaTree()
+        self.output_file = output_file
 
         return
 
@@ -179,5 +183,8 @@ class DLAnalyze(RootAnalyze):
 
 
 
-
+    def end_job(self):
+        #self.output_file.cd()
+        #self.anatreeclass.outTree.Write()
+        pass
 

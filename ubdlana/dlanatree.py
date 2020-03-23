@@ -1,31 +1,35 @@
+from array import array
+import ROOT
 
+# --------------------------------------------- #
+# MakeTreeBranch
+# --------------------------------------------- #
+def MakeTreeBranch(ttree,s_name,s_type):
+    """ utility function to setup tree branch """
+    if s_type == 'int':
+        _myvar = array('i',[-9999])
+        ttree.Branch(s_name,_myvar,s_name+'/I')
+        return _myvar
+        
+    if s_type == 'float':
+        _myvar = array('f',[-9999])
+        ttree.Branch(s_name,_myvar,s_name+'/F')
+        return _myvar
 
+    if s_type == 'tvector':
+        _myvar = ROOT.vector('double')()
+        ttree.Branch(s_name,_myvar)
+        return _myvar
+
+# --------------------------------------------- #
+# DLanaTree
+# --------------------------------------------- #
 class DLanaTree:
 
     def __init__(self):
         self.outTree = None
         self.makeDLanaTree()
         self.clear_vertex()
-
-    # --------------------------------------------- #
-    # MakeTreeBranch
-    # --------------------------------------------- #
-    def MakeTreeBranch(ttree,s_name,s_type):
-        """ utility function to setup tree branch """
-        if s_type == 'int':
-            _myvar = array('i',[-9999])
-            ttree.Branch(s_name,_myvar,s_name+'/I')
-            return _myvar
-
-        if s_type == 'float':
-            _myvar = array('f',[-9999])
-            ttree.Branch(s_name,_myvar,s_name+'/F')
-            return _myvar
-
-        if s_type == 'tvector':
-            _myvar = ROOT.vector('double')()
-            ttree.Branch(s_name,_myvar)
-            return _myvar
 
 
     # --------------------------------------------- #
@@ -36,7 +40,7 @@ class DLanaTree:
         if self.outTree is not None:
             raise RuntimeError("Already created tree and branches")
 
-        outTree = TTree('FinalVertexVariables','Final Vertex Variable Tree')
+        outTree = ROOT.TTree('FinalVertexVariables','Final Vertex Variable Tree')
         ## lepton agnostic
         self._run = MakeTreeBranch(outTree,'run','int')
         self._subrun = MakeTreeBranch(outTree,'subrun','int')
@@ -225,363 +229,4 @@ class DLanaTree:
         self._shower2_E_V = float(-9999)
         self._shower2_E_Y = float(-9999)
     
-
-
-print()
-print('<EVID: %s> -- Great. Now loop through track events and go wild'%_tag)
-
-for indo,ev in enumerate(TrkTree):
-    BE = 29.5
-
-    run            = ev.run
-    subrun         = ev.subrun
-    event          = ev.event
-    IDev           = tuple((run,subrun,event))
-    vtxid          = ev.vtx_id
-    IDvtx          = tuple((run,subrun,event,vtxid))
-    vtxX           = ev.vtx_x
-    vtxY           = ev.vtx_y
-    vtxZ           = ev.vtx_z
-
-    vtxShowerData  = df_ShowerReco.get_vertex( run, subrun, event, vtxid )
-
-    # These are for passing simple precuts
-    length_v       = ev.Length_v
-    InFiducial     = VtxInSimpleFid(vtxX,vtxY,vtxZ)
-    NumTracks      = len(length_v)
-    Num5cmTracks   = sum(1 for x in length_v if x > 5)
-    NothingRecod   = ev.nothingReconstructed
-    EdgeDistance   = ev.closestWall
-
-    PassSimpleCuts = (InFiducial and NumTracks == 2 and edgeCut(EdgeDistance))
-    PassShowerReco = True
-    PassSecondShower = True
-    FailBoost = False
-
-    vtxPhi_v       = ev.vertexPhi
-    vtxTheta_v     = ev.vertexTheta
-    dqdx_v_uncalibrated = ev.Avg_Ion_v
-    dqdx_v_calibrated = ev.Avg_Ion_v
-
-    Good3DReco     = ev.GoodVertex
-
-    # - Get ssnet and shape analysiss stuff
-    sh_foundClusY = [i for i in ev.shower_frac_Y_v]
-    sh_foundClusV = [i for i in ev.shower_frac_V_v]
-
-    if 0.0 < max(sh_foundClusY) < 1.0:
-        shrFrac    = max(sh_foundClusY)
-        shrFracPart = sh_foundClusY
-    else:
-        shrFrac     = max(sh_foundClusV)
-        shrFracPart = sh_foundClusV
-
-    try:
-        #eE = df_ShowerReco['e_reco'][IDvtx]
-        eE  = vtxShowerData['shower_energies'][2]
-        eE2 = vtxShowerData['secondshower_energies'][2]
-        if eE < 0:
-            eE = -99999
-            PassShowerReco = False
-    except:
-        eE  = -9999
-        eE2 = -9999
-        PassShowerReco = False
-
-    # - get MC Truth info (if applicable)
-    if(args.ismc):
-        parentX = MC_dict[IDev]['parentX']
-        parentY = MC_dict[IDev]['parentY']
-        parentZ = MC_dict[IDev]['parentZ']
-
-    # - Now, the big stuff
-    if PassSimpleCuts:
-        lid            = int(np.argmin(ev.Avg_Ion_v))
-        pid            = int(np.argmax(ev.Avg_Ion_v))
-        lTh            = ev.vertexTheta[lid]
-        pTh            = ev.vertexTheta[pid]
-        lPh            = ev.vertexPhi[lid]
-        pPh            = ev.vertexPhi[pid]
-        # Add detector rotation fix
-        lTh,lPh        = NewAng(lTh,lPh)
-        pTh,pPh        = NewAng(pTh,pPh)
-        # ----
-        mE             = ev.E_muon_v[lid]
-        pE             = ev.E_proton_v[pid]
-        ldq = ev.IonY_5cm_v[lid]
-        pdq = ev.IonY_5cm_v[pid]
-
-        thetas         = lTh+pTh
-        phis           = PhiDiff(lPh,pPh)
-        EpCCQE         = ECCQE(pE,pTh,pid="proton",B=BE)
-        EmCCQE         = ECCQE(mE,lTh,pid="muon",B=BE)
-        if PassShowerReco: EeCCQE = ECCQE(eE,lTh,pid="electron",B=BE)
-
-        wallProton     = EdgeDistance[pid]
-        wallLepton     = EdgeDistance[lid]
-
-        openAng        = OpenAngle(pTh,lTh,pPh,lPh)
-
-        if args.ismc:
-            for i in xrange(0,len(dqdx_v_uncalibrated)):
-                dqdx_v_calibrated[i] = dqdx_v_uncalibrated[i] * CorrectionFactor(vtxX,vtxY,vtxZ,vtxTheta_v[i],vtxPhi_v[i],length_v[i],calibMap_v)
-
-        eta = abs(dqdx_v_calibrated[pid]-dqdx_v_calibrated[lid])/(dqdx_v_calibrated[pid]+dqdx_v_calibrated[lid])
-
-        longtracklen   = max(ev.Length_v)
-        shorttracklen  = min(ev.Length_v)
-        maxshrFrac     = max(shrFracPart)
-        minshrFrac     = min(shrFracPart)
-
-        # - Correct SCE of coords
-        if(args.ismc):
-            if(VtxInSimpleFid(parentX,parentY,parentZ,5.0)):
-                sce_offsets_v = sce.GetPosOffsets( parentX, parentY , parentZ)
-                parentSCEX = parentX - sce_offsets_v[0] + 0.6
-                parentSCEY = parentY + sce_offsets_v[1]
-                parentSCEZ = parentZ + sce_offsets_v[2]
-                scedr = np.sqrt((parentSCEX-vtxX)**2 + (parentSCEY-vtxY)**2 + (parentSCEZ-vtxZ)**2)
-            else:
-                parentSCEX = parentX
-                parentSCEY = parentY
-                parentSCEZ = parentZ
-                scedr = 99997
-
-        # for 1mu1p (only difference is energy used)
-        Ecal_1m1p              = ECal(mE,pE,'muon',B=BE)
-        dEp_1m1p               = EpCCQE - Ecal_1m1p
-        dEm_1m1p               = EmCCQE - Ecal_1m1p
-        dEmp_1m1p              = EpCCQE-EmCCQE
-        pTRat_1m1p             = pTransRat(mE,pE,lTh,pTh,lPh,pPh,'muon')
-        Q2cal_1m1p             = Q2(Ecal_1m1p,mE,lTh,'muon')
-        Q3_1m1p,Q0_1m1p        = Getq3q0(pE,mE,pTh,lTh,pPh,lPh,'muon',B=BE)
-        EHad_1m1p              = (Ecal_1m1p - mE - 105.66)
-        y_1m1p                 = EHad_1m1p/Ecal_1m1p
-        x_1m1p                 = Q2cal_1m1p/(2*939.5654*EHad_1m1p)
-        sph_1m1p               = sqrt(dEp_1m1p**2+dEm_1m1p**2+dEmp_1m1p**2)
-        phiT_1m1p              = GetPhiT(mE,pE,lTh,pTh,lPh,pPh,'muon')
-        pzenu_1m1p             = Getpz(mE,pE,lTh,pTh,'muon') - Ecal_1m1p
-        pT_1m1p                = pTrans(mE,pE,lTh,pTh,lPh,pPh,'muon')
-        alphT_1m1p             = alphaT(mE,pE,lTh,pTh,lPh,pPh,'muon')
-        CCQE_energy_shift_1m1p = SensibleMinimize(mE,pE,lTh,pTh,lPh,pPh,'muon',B=BE)
-
-        # Now boost these badbois
-        try:
-            pEB_1m1p,mEB_1m1p,pThB_1m1p,mThB_1m1p,pPhB_1m1p,mPhB_1m1p,EcalB_1m1p,EpCCQEB_1m1p,EmCCQEB_1m1p,sphB_1m1p = BoostTracks(mE,pE,lTh,pTh,lPh,pPh,'muon',B=BE)
-            Q2calB_1m1p          = Q2(EcalB_1m1p,mEB_1m1p,mThB_1m1p)
-            openAngB_1m1p        = OpenAngle(pThB_1m1p,mThB_1m1p,pPhB_1m1p,mPhB_1m1p)
-            thetasB_1m1p         = mThB_1m1p+pThB_1m1p
-            phisB_1m1p           = PhiDiff(mPhB_1m1p,pPhB_1m1p)
-            EHadB_1m1p           = (EcalB_1m1p - mEB_1m1p - 105.66)
-            yB_1m1p              = EHadB_1m1p/EcalB_1m1p
-            xB_1m1p              = Q2calB_1m1p/(2*939.5654*EHadB_1m1p)
-            phiTB_1m1p           = GetPhiT(mEB_1m1p,pEB_1m1p,mThB_1m1p,pThB_1m1p,mPhB_1m1p,pPhB_1m1p,'muon')
-            pTB_1m1p             = pTrans(mEB_1m1p,pEB_1m1p,mThB_1m1p,pThB_1m1p,mPhB_1m1p,pPhB_1m1p,'muon')
-            alphTB_1m1p          = alphaT(mEB_1m1p,pEB_1m1p,mThB_1m1p,pThB_1m1p,mPhB_1m1p,pPhB_1m1p,'muon')
-            FailBoost = False
-        except:
-            FailBoost = True
-            print 'BADBOOST: ',mE,pE,lTh,pTh,lPh,pPh
-
-        #Now, let's hack in the electron stuff for now... this'll need to be changed later, but it'll suffice for the time being
-        if PassShowerReco:
-            # Second Shower Cut
-            if ev.secondshower == 1:
-                secsh_OpenAng = OpenAngle(ev.shr_theta,lTh,ev.shr_phi,lPh)
-                if ev.shr_rad_pts > 15 and secsh_OpenAng < 0.866:
-                    PassSecondShower = False
-
-            Ecal_1e1p              = ECal(eE,pE,'electron',B=BE)
-            dEp_1e1p               = EpCCQE - Ecal_1e1p
-            dEe_1e1p               = EeCCQE - Ecal_1e1p
-            dEep_1e1p              = EpCCQE-EeCCQE
-            pTRat_1e1p             = pTransRat(eE,pE,lTh,pTh,lPh,pPh,'electron')
-            Q2cal_1e1p             = Q2(Ecal_1e1p,eE,lTh,'electron')
-            Q3_1e1p,Q0_1e1p      = Getq3q0(pE,eE,pTh,lTh,pPh,lPh,'electron',B=BE)
-            EHad_1e1p              = (Ecal_1e1p - eE - .511)
-            y_1e1p                 = EHad_1e1p/Ecal_1e1p
-            x_1e1p                 = Q2cal_1e1p/(2*939.5654*EHad_1e1p)
-            sph_1e1p               = sqrt(dEp_1e1p**2+dEe_1e1p**2+dEep_1e1p**2)
-            phiT_1e1p              = GetPhiT(eE,pE,lTh,pTh,lPh,pPh,'electron')
-            pT_1e1p                = pTrans(eE,pE,lTh,pTh,lPh,pPh,'electron')
-            pzenu_1e1p             = Getpz(eE,pE,lTh,pTh,'electron') - Ecal_1e1p
-            alphT_1e1p             = alphaT(eE,pE,lTh,pTh,lPh,pPh,'electron')
-            CCQE_energy_shift_1e1p = SensibleMinimize(eE,pE,lTh,pTh,lPh,pPh,'electron',B=BE)
-
-            # now booooost
-            try:
-                pEB_1e1p,eEB_1e1p,pThB_1e1p,eThB_1e1p,pPhB_1e1p,ePhB_1e1p,EcalB_1e1p,EpCCQEB_1e1p,EeCCQEB_1e1p,sphB_1e1p = BoostTracks(eE,pE,lTh,pTh,lPh,pPh,'electron',B=BE)
-                Q2calB_1e1p          = Q2(EcalB_1e1p,eEB_1e1p,eThB_1e1p)
-                openAngB_1e1p        = OpenAngle(pThB_1e1p,eThB_1e1p,pPhB_1e1p,ePhB_1e1p)
-                thetasB_1e1p         = eThB_1e1p+pThB_1e1p
-                phisB_1e1p           = PhiDiff(ePhB_1e1p,pPhB_1e1p)
-                EHadB_1e1p           = (EcalB_1e1p - eEB_1e1p - .511)
-                yB_1e1p              = EHadB_1e1p/EcalB_1e1p
-                xB_1e1p              = Q2calB_1e1p/(2*939.5654*EHadB_1e1p)
-                phiTB_1e1p           = GetPhiT(eEB_1e1p,pEB_1e1p,eThB_1e1p,pThB_1e1p,ePhB_1e1p,pPhB_1e1p,'electron')
-                pTB_1e1p             = pTrans(eEB_1e1p,pEB_1e1p,eThB_1e1p,pThB_1e1p,ePhB_1e1p,pPhB_1e1p,'electron')
-                alphTB_1e1p          = alphaT(eEB_1e1p,pEB_1e1p,eThB_1e1p,pThB_1e1p,ePhB_1e1p,pPhB_1e1p,'electron')
-                FailBoost = False
-            except:
-                FailBoost = True
-                print 'BADBOOST: ',eE,pE,lTh,pTh,lPh,pPh
-
-    _run[0]          = run
-    _subrun[0]       = subrun
-    _event[0]        = event
-    _vtxid[0]        = vtxid
-    _x[0]            = vtxX
-    _y[0]            = vtxY
-    _z[0]            = vtxZ
-    _anyReco[0]      = not(NothingRecod)
-    _infiducial[0]   = InFiducial
-    _ntracks[0]      = NumTracks
-    _n5tracks[0]     = Num5cmTracks
-    _passCuts[0]     = PassSimpleCuts
-    _passShowerReco[0] = PassShowerReco
-    _passSecShr[0]   = PassSecondShower
-    _failBoost[0]    = FailBoost
-    _good3DReco[0]   = Good3DReco
-    _eta[0]          = eta                                      if PassSimpleCuts else -99999
-    _openAng[0]      = openAng                                  if PassSimpleCuts else -99999
-    _thetas[0]       = thetas                                   if PassSimpleCuts else -99999
-    _phis[0]         = phis                                     if PassSimpleCuts else -99999
-    _charge_near_trunk[0] = ldq + pdq                           if PassSimpleCuts else -99999
-    _longtracklen[0]   = longtracklen                           if PassSimpleCuts else -99999
-    _shorttracklen[0]  = shorttracklen                          if PassSimpleCuts else -99999
-    _maxshrFrac[0]     = maxshrFrac                             if PassSimpleCuts else -99999
-    _minshrFrac[0]     = minshrFrac                             if PassSimpleCuts else -99999
-
-    _lepton_id[0] = int(lid)                                    if PassSimpleCuts else -99999
-    _lepton_phi[0] = float(lPh)                                 if PassSimpleCuts else -99999
-    _lepton_theta[0] = float(lTh)                               if PassSimpleCuts else -99999
-    _lepton_length[0] = float(length_v[lid])                    if PassSimpleCuts else -99999
-    _lepton_dqdx_calibrated[0] = float(dqdx_v_calibrated[lid])  if PassSimpleCuts else -99999
-    _lepton_dqdx_uncalibrated[0] = float(dqdx_v_uncalibrated[lid])  if PassSimpleCuts else -99999
-    _lepton_edge_dist[0] = float(wallLepton)                    if PassSimpleCuts else -99999
-    _muon_E[0] = float(mE)                                      if PassSimpleCuts else -99999
-    _electron_E[0] = float(eE)                                  if PassSimpleCuts else -99999
-    _muon_phiB_1m1p[0] = float(mPhB_1m1p)                       if PassSimpleCuts and not FailBoost else -99999
-    _muon_thetaB_1m1p[0] = float(mThB_1m1p)                     if PassSimpleCuts and not FailBoost else -99999
-    _muon_EB_1m1p[0] = float(mEB_1m1p)                          if PassSimpleCuts and not FailBoost else -99999
-    _electron_phiB_1e1p[0] = float(ePhB_1e1p)                   if PassSimpleCuts and PassShowerReco and not FailBoost else -99999
-    _electron_thetaB_1e1p[0] = float(eThB_1e1p)                 if PassSimpleCuts and PassShowerReco and not FailBoost else -99999
-    _electron_EB_1e1p[0] = float(eEB_1e1p)                      if PassSimpleCuts and PassShowerReco and not FailBoost else -99999
-    _proton_id[0] = int(pid)                                    if PassSimpleCuts else -99999
-    _proton_phi[0] = float(pPh)                                 if PassSimpleCuts else -99999
-    _proton_theta[0] = float(pTh)                               if PassSimpleCuts else -99999
-    _proton_length[0] = float(length_v[pid])                    if PassSimpleCuts else -99999
-    _proton_dqdx_calibrated[0] = float(dqdx_v_calibrated[pid])  if PassSimpleCuts else -99999
-    _proton_dqdx_uncalibrated[0] = float(dqdx_v_uncalibrated[pid])  if PassSimpleCuts else -99999
-    _proton_edge_dist[0] = float(wallProton)                    if PassSimpleCuts else -99999
-    _proton_E[0] = float(pE)                                    if PassSimpleCuts else -99999
-    _proton_phiB_1m1p[0] = float(pPhB_1m1p)                     if PassSimpleCuts and not FailBoost else -99999
-    _proton_thetaB_1m1p[0] = float(pThB_1m1p)                   if PassSimpleCuts and not FailBoost else -99999
-    _proton_EB_1m1p[0] = float(pEB_1m1p)                        if PassSimpleCuts and not FailBoost else -99999
-    _proton_phiB_1e1p[0] = float(pPhB_1e1p)                     if PassSimpleCuts and PassShowerReco and not FailBoost else -99999
-    _proton_thetaB_1e1p[0] = float(pThB_1e1p)                   if PassSimpleCuts and PassShowerReco and not FailBoost else -99999
-    _proton_EB_1e1p[0] = float(pEB_1e1p)                        if PassSimpleCuts and PassShowerReco and not FailBoost else -99999
-
-    _CCQE_energy_shift_1m1p[0] = CCQE_energy_shift_1m1p         if PassSimpleCuts else -99999
-    _enu_1m1p[0]          = Ecal_1m1p                           if PassSimpleCuts else -99999
-    _phiT_1m1p[0]         = phiT_1m1p                           if PassSimpleCuts else -99999
-    _alphaT_1m1p[0]       = alphT_1m1p                          if PassSimpleCuts else -99999
-    _pT_1m1p[0]           = pT_1m1p                             if PassSimpleCuts else -99999
-    _pTRat_1m1p[0]        = pTRat_1m1p                          if PassSimpleCuts else -99999
-    _bjX_1m1p[0]          = x_1m1p                              if PassSimpleCuts else -99999
-    _sph_1m1p[0]          = sph_1m1p                            if PassSimpleCuts else -99999
-    _pzEnu_1m1p[0]        = pzenu_1m1p                          if PassSimpleCuts else -99999
-    _q2_1m1p[0]           = Q2cal_1m1p                          if PassSimpleCuts else -99999
-    _q0_1m1p[0]           = Q0_1m1p                             if PassSimpleCuts else -99999
-    _q3_1m1p[0]           = Q3_1m1p                             if PassSimpleCuts else -99999
-    _bjY_1m1p[0]          = y_1m1p                              if PassSimpleCuts else -99999
-    _openAngB_1m1p[0]     = openAngB_1m1p                       if PassSimpleCuts and not FailBoost else -99995
-    _thetasB_1m1p[0]      = thetasB_1m1p                        if PassSimpleCuts and not FailBoost else -99995
-    _phisB_1m1p[0]        = phisB_1m1p                          if PassSimpleCuts and not FailBoost else -99995
-    _phiTB_1m1p[0]        = phiTB_1m1p                          if PassSimpleCuts and not FailBoost else -99995
-    _alphaTB_1m1p[0]      = alphTB_1m1p                         if PassSimpleCuts and not FailBoost else -99995
-    _pTB_1m1p[0]          = pTB_1m1p                            if PassSimpleCuts and not FailBoost else -99995
-    _bjXB_1m1p[0]         = xB_1m1p                             if PassSimpleCuts and not FailBoost else -99995
-    _sphB_1m1p[0]         = sphB_1m1p                           if PassSimpleCuts and not FailBoost else -99995
-    _q2B_1m1p[0]          = Q2calB_1m1p                         if PassSimpleCuts and not FailBoost else -99995
-    _bjYB_1m1p[0]         = yB_1m1p                             if PassSimpleCuts and not FailBoost else -99995
-
-    _CCQE_energy_shift_1e1p[0] = CCQE_energy_shift_1e1p         if PassSimpleCuts and PassShowerReco else -99999
-    _enu_1e1p[0]          = Ecal_1e1p                           if PassSimpleCuts and PassShowerReco else -99999
-    _phiT_1e1p[0]         = phiT_1e1p                           if PassSimpleCuts and PassShowerReco else -99999
-    _alphaT_1e1p[0]       = alphT_1e1p                          if PassSimpleCuts and PassShowerReco else -99999
-    _pT_1e1p[0]           = pT_1e1p                             if PassSimpleCuts and PassShowerReco else -99999
-    _pTRat_1e1p[0]        = pTRat_1e1p                          if PassSimpleCuts and PassShowerReco else -99999
-    _bjX_1e1p[0]          = x_1e1p                              if PassSimpleCuts and PassShowerReco else -99999
-    _sph_1e1p[0]          = sph_1e1p                            if PassSimpleCuts and PassShowerReco else -99999
-    _pzEnu_1e1p[0]        = pzenu_1e1p                          if PassSimpleCuts and PassShowerReco else -99999
-    _q2_1e1p[0]           = Q2cal_1e1p                          if PassSimpleCuts and PassShowerReco else -99999
-    _q0_1e1p[0]           = Q0_1e1p                             if PassSimpleCuts and PassShowerReco else -99999
-    _q3_1e1p[0]           = Q3_1e1p                             if PassSimpleCuts and PassShowerReco else -99999
-    _bjY_1e1p[0]          = y_1e1p                              if PassSimpleCuts and PassShowerReco else -99999
-    _openAngB_1e1p[0]     = openAngB_1e1p                       if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
-    _thetasB_1e1p[0]      = thetasB_1e1p                        if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
-    _phisB_1e1p[0]        = phisB_1e1p                          if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
-    _phiTB_1e1p[0]        = phiTB_1e1p                          if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
-    _alphaTB_1e1p[0]      = alphTB_1e1p                         if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
-    _pTB_1e1p[0]          = pTB_1e1p                            if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
-    _bjXB_1e1p[0]         = xB_1e1p                             if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
-    _sphB_1e1p[0]         = sphB_1e1p                           if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
-    _q2B_1e1p[0]          = Q2calB_1e1p                         if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
-    _bjYB_1e1p[0]         = yB_1e1p                             if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
-
-    _shower1_E_U[0]       = float(vtxShowerData["shower_energies"][0])       if PassSimpleCuts and PassShowerReco else -99999
-    _shower1_E_V[0]       = float(vtxShowerData["shower_energies"][1])       if PassSimpleCuts and PassShowerReco else -99999
-    _shower1_E_Y[0]       = float(vtxShowerData["shower_energies"][2])       if PassSimpleCuts and PassShowerReco else -99999
-    _shower2_E_U[0]       = float(vtxShowerData["secondshower_energies"][0]) if PassSimpleCuts and PassShowerReco else -99999
-    _shower2_E_V[0]       = float(vtxShowerData["secondshower_energies"][1]) if PassSimpleCuts and PassShowerReco else -99999
-    _shower2_E_Y[0]       = float(vtxShowerData["secondshower_energies"][2]) if PassSimpleCuts and PassShowerReco else -99999
-
-    _totPE[0] = PMTPrecut_Dict[IDev]['_totpe']
-    _porchTotPE[0] = PMTPrecut_Dict[IDev]['_porchtotpe']
-    _maxPEFrac[0] = PMTPrecut_Dict[IDev]['_maxpefrac']
-    _passPMTPrecut[0] = PMTPrecut_Dict[IDev]['_passpmtprecut']
-    _parentPDG[0] = MC_dict[IDev]['parentPDG']                  if args.ismc else -99998
-    _energyInit[0] = MC_dict[IDev]['energyInit']                if args.ismc else -99998
-    _nproton[0] = MC_dict[IDev]['nproton']                      if args.ismc else -99998
-    _nlepton[0] = MC_dict[IDev]['nlepton']                      if args.ismc else -99998
-    _parentX[0] = parentX                                       if args.ismc else -99998
-    _parentY[0] = parentY                                       if args.ismc else -99998
-    _parentZ[0] = parentZ                                       if args.ismc else -99998
-    _parentSCEX[0] = parentSCEX                                 if args.ismc and PassSimpleCuts else -99998
-    _parentSCEY[0] = parentSCEY                                 if args.ismc and PassSimpleCuts else -99998
-    _parentSCEZ[0] = parentSCEZ                                 if args.ismc and PassSimpleCuts else -99998
-    _scedr[0] = scedr                                           if args.ismc and PassSimpleCuts else -99998
-
-    _eminusPID_int_v.clear()
-    _muonPID_int_v.clear()
-    _protonPID_int_v.clear()
-    _gammaPID_int_v.clear()
-    _pionPID_int_v.clear()
-    _eminusPID_pix_v.clear()
-    _muonPID_pix_v.clear()
-    _protonPID_pix_v.clear()
-    _gammaPID_pix_v.clear()
-    _pionPID_pix_v.clear()
-    for i in ev.eminus_int_score_torch:  _eminusPID_int_v.push_back(i)
-    for i in ev.muon_int_score_torch:    _muonPID_int_v.push_back(i)
-    for i in ev.proton_int_score_torch:  _protonPID_int_v.push_back(i)
-    for i in ev.gamma_int_score_torch:   _gammaPID_int_v.push_back(i)
-    for i in ev.pion_int_score_torch:    _pionPID_int_v.push_back(i)
-    for i in ev.eminus_pix_score_torch:  _eminusPID_pix_v.push_back(i)
-    for i in ev.muon_pix_score_torch:    _muonPID_pix_v.push_back(i)
-    for i in ev.proton_pix_score_torch:  _protonPID_pix_v.push_back(i)
-    for i in ev.gamma_pix_score_torch:   _gammaPID_pix_v.push_back(i)
-    for i in ev.pion_pix_score_torch:    _pionPID_pix_v.push_back(i)
-
-    outTree.Fill()
-    clear_vertex()
-
-DLMergedFile.Close()
-MPIDFile.Close()
-
-print()
-print('<EVID: %s> -- Excellent! Now just write it up and we are done. Thanks for being patient'%_tag)
-outTree.Write()
-outFile.Close()
-sys.exit(0)
+        return
