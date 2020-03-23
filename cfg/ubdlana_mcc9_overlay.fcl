@@ -1,0 +1,20 @@
+#include "sam_microboone.fcl"
+
+process_name : dlrecotest
+services : { FileCatalogMetadata: @local::art_file_catalog_mc }
+input_tree : "_recoTree"
+loop_over_entries : True
+dump_every: 1
+modules : { sam_metadata : {}
+	    dlanalyze    : { another_tree : "DLAnaTree"
+                             tracker_tree : "_recoTree"
+                             precut_ophits: "ophitBeamCalib"
+                             sample_type: "Overlay"
+                             ismc : True
+                             showerreco: { out_larlite_tree: "ssnetshowerrecov2"
+                                           out_ana_tree: "ssnetshowerrecov2ana" 
+                                           adctree: "wire"
+                                           second_shower: True
+                                           use_calib: False } 
+                            }
+            }
