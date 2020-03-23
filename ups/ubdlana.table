@@ -12,6 +12,7 @@ Qualifiers = "e17:prof"
     setupRequired( ubMPIDnet v1_0_0 -q NULL )
     setupRequired( numpy    v1_14_3 -q e17:p2714b:openblas:prof )
     setupRequired( ifdhc    v2_4_1  -q e17:p2714b:prof )
+    setupRequired( xgboost  v0_82   -q e17:prof )
 
 Common:
   Action = setup
@@ -32,6 +33,6 @@ End:
 #*************************************************
 #
 # ups declare command that works on gpvm:
-# ups declare dllee_unified v1_0_2 -r ubdl/v06_36_00 -f Linux64bit+2.6-2.12 -m dllee_unified.table -q e17:prof -U ups/
+# ups declare ubdlana develop -r ubdlana/develop -f Linux64bit+3.10-2.17 -m ubdlana.table -q e17:prof -U ups/
 #
 #
