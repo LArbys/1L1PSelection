@@ -58,6 +58,9 @@ class DLAnalyze(RootAnalyze):
         #
         #----------------------------------------------------------------------
 
+        self.tracker_treename = config['modules']['dlanalyze']['tracker_tree']
+        self.ismc             = config['modules']['dlanalyze']['ismc']
+
         another_tree = config['modules']['dlanalyze']['another_tree']
         print 'DLAnalyze constructed with second tree = %s' % another_tree
         self.tree_name = "larlite_id_tree"
@@ -67,6 +70,7 @@ class DLAnalyze(RootAnalyze):
         self.llout_name = config['modules']['dlanalyze']['showerreco']['out_larlite_tree']
         shr_ana         = config['modules']['dlanalyze']['showerreco']['out_ana_tree']
         self.adc_tree   = config['modules']['dlanalyze']['showerreco']['adctree']
+        self.second_shr = config['modules']['dlanalyze']['showerreco']['second_shower']
         use_calib       = config['modules']['dlanalyze']['showerreco']['use_calib']
         uselarlite      = True
         self.showerreco = larlitecv.ssnetshowerreco.SSNetShowerReco(uselarlite,self.llout_name)
@@ -166,9 +170,18 @@ class DLAnalyze(RootAnalyze):
         # Arguments: tree - Loaded tree.
         #
         #----------------------------------------------------------------------
+        pass
 
-        entry = tree.GetReadEntry()
-        print 'DLReco::analyze_entry called for entry %d.' % entry
+    def analyze_larlite_and_larcv_entry(self, tree, entry):
+        #----------------------------------------------------------------------
+        #
+        # Purpose: Analyze loaded tree (fill histograms).  Called by framework.
+        #
+        # Arguments: tree - Loaded tree.
+        #
+        #----------------------------------------------------------------------
+
+        print 'analyze_larlite_and_larcv_entry called for entry %d.' % entry
 
         # Get a leaf from the main tree.
 
@@ -230,22 +243,56 @@ class DLAnalyze(RootAnalyze):
         self.in_lcv.initialize()
 
         # Use the larlite index tree as the index tree
-        print 'Looking for TTree named %s' % self.tree_name
-        obj = input_file.Get(self.tree_name)
+        print 'Looking for TTree named %s' % self.tracker_treename
+        obj = input_file.Get(self.tracker_treename)
         if obj.InheritsFrom('TTree'):
-            print 'Found %s with %d entries.' % (self.tree_name, obj.GetEntriesFast())
+            print 'Found %s with %d entries.' % (self.tracker_treename, obj.GetEntriesFast())
 
             # Activate all branches.
 
             obj.SetBranchStatus('*', 1)
-            print 'List of activated branches of tree %s' % self.tree_name
-            for branch in obj.GetListOfBranches():
-                if obj.GetBranchStatus(branch.GetName()):
-                    print '  %s' % branch.GetName()
+            #print 'List of activated branches of tree %s' % self.tree_name
+            #for branch in obj.GetListOfBranches():
+            #    if obj.GetBranchStatus(branch.GetName()):
+            #        print '  %s' % branch.GetName()
 
             self.tree_obj = obj
-            print
+            print 
 
+        # LARLITE ID TREE: governs loop to make MPID, Showerreco and Precut variables
+        self.larlite_id_tree = input_file.Get("larlite_id_tree")
+
+        self.make_morereco_variables()
+
+        # OTHER SELECTION VAR TREES, WE FRIEND THEM TO THE TRACKER TREE
+        self.VtxTree  = input_file.Get("VertexTree")
+        self.ShpTree  = input_file.Get("ShapeAnalysis")
+        self.ShrTree  = input_file.Get("SecondShowerAnalysis")
+        if self.ismc:
+            self.MCTree = input_file.Get("MCTree")
+        else:
+            self.MCTree = None
+
+        self.tree_obj.AddFriend(self.VtxTree)
+        self.tree_obj.AddFriend(self.ShpTree)
+        self.tree_obj.AddFriend(self.ShrTree)
+        self.tree_obj.AddFriend(self.mpid_anatree)
+
+        print "[ End input tree prep ]"
+        print "================================"
+
+    def make_morereco_variables(self):
+        """ before running event loop, we go through events and make showerreco, mpid, precut variables """
+        print "make showerreco, mpid, precut variables"
+        nentries = self.larlite_id_tree.GetEntries()
+        
+        # we create a dictionary where we will store shower reco variables
+        self.df_ShowerReco = {"entries":[]}
+        
+        for entry in xrange(nentries):
+            self.larlite_id_tree.GetEntry(entry)
+            self.analyze_larlite_and_larcv_entry(self.larlite_id_tree,entry)
+            self.extract_showerreco_entry_vars(self.df_ShowerReco,self.showerreco)
 
 
 
@@ -254,3 +301,171 @@ class DLAnalyze(RootAnalyze):
         self.in_lcv.finalize()
         self.io_ll.close()
 
+    def extract_showerreco_entry_vars(self,data,showerreco):
+        """ get variables from showerreco class """
+
+        entrydata = { "run":self.in_lcv.event_id().run(),
+                      "subrun":self.in_lcv.event_id().subrun(),
+                      "event":self.in_lcv.event_id().event(),
+                      "shower_energies":[],
+                      "shower_sumQs":[],
+                      "shower_shlengths":[],
+                      "vertex_pos":[]}
+
+        # Save first shower output
+        for ivtx in xrange(showerreco.numVertices()):
+            entrydata["shower_energies"].append( [ showerreco.getVertexShowerEnergy(ivtx,p) for p in xrange(3) ] )
+            entrydata["shower_sumQs"].append( [ showerreco.getVertexShowerSumQ(ivtx,p) for p in xrange(3) ] )
+            entrydata["shower_shlengths"].append( [ showerreco.getVertexShowerShlength(ivtx,p) for p in xrange(3) ] )
+            entrydata["vertex_pos"].append( [ showerreco.getVertexPos(ivtx).at(p) for p in xrange(3) ] )
+
+        if self.second_shr:
+            # Save second shower output
+            entrydata["secondshower_energies"] = []
+            entrydata["secondshower_sumQs"] = []
+            entrydata["secondshower_shlengths"] = []
+
+            for ivtx in xrange(showerreco.numVertices()):
+                entrydata["secondshower_energies"].append( [ showerreco.getVertexSecondShowerEnergy(ivtx,p) for p in xrange(3) ] )
+                entrydata["secondshower_sumQs"].append( [ showerreco.getVertexSecondShowerSumQ(ivtx,p) for p in xrange(3) ] )
+                entrydata["secondshower_shlengths"].append( [ showerreco.getVertexSecondShowerShlength(ivtx,p) for p in xrange(3) ] )
+
+        # Below are MC-based truth metrics
+
+        # save vertex truth information
+        if False:
+            # build graph and get primary particles
+            mcpg.buildgraph( self.in_lcv, ioll )
+            mcpg.printGraph()
+            node_v = mcpg.getPrimaryParticles()
+
+            # determine topology, get electron energy if available
+            nelectrons = 0
+            nprotons   = 0
+            nother     = 0
+            pidX = []
+            pidOther = []
+            for inode in xrange(node_v.size()):
+                node = node_v.at(inode)
+                #print "node[",inode,"] pid=",node.pid," E=",node.E_MeV
+                if abs(node.pid)==11:
+                    entrydata["true_electron_energy"] = node.E_MeV
+                    nelectrons += 1
+                elif node.pid==2212:
+                    #print "found proton: ",node.E_MeV
+                    if node.E_MeV>60.0:
+                        nprotons += 1
+                else:
+                    if node.pid in [211,-211]:
+                        # charged pions
+                        nother += 1
+                        pidOther.append( node.pid )
+                    else:
+                        pidX.append(node.pid)
+            entrydata["true_topology"] = "%de%dp%dX"%(nelectrons,nprotons,nother)
+            print "topology",entrydata["true_topology"]
+            #print "unknown PID: ",pidX
+
+            # determine distance of reco vertices from true
+            vtx_v = mcpg.findTrackID(-1).start
+            entrydata["true_vertex"] = [ vtx_v[i] for i in xrange(3) ] # get the ROOT node
+            offset_v = sce.GetPosOffsets( vtx_v[0], vtx_v[1], vtx_v[2] )
+            vtx_sce_v = [ vtx_v[0]-offset_v[0]+0.7,
+                          vtx_v[1]+offset_v[1],
+                          vtx_v[2]+offset_v[2] ]
+            entrydata["true_vertex_sce"] = vtx_sce_v
+
+            entrydata["vertex_dist_from_truth"] = []
+            for pos in entrydata["vertex_pos"]:
+                d = 0.0
+                for i in xrange(3):
+                    d += (pos[i]-vtx_sce_v[i])*(pos[i]-vtx_sce_v[i])
+                d = sqrt(d)
+                entrydata["vertex_dist_from_truth"].append(d)
+
+        if False:  #args.use_bnb:
+            entrydata["pi0mass"] = []
+            entrydata["haspi0"] = showerreco.getHasPi0()
+            entrydata["ccnc"] = showerreco.getCCNC()
+            entrydata["disttoint"] = []
+            entrydata["impact1"] = []
+            entrydata["impact2"] = []
+            entrydata["alpha"] = []
+            entrydata["firstdirection"] = []
+            entrydata["seconddirection"] = []
+
+            mcpg.buildgraph( self.in_lcv, ioll )
+            vtx_v = mcpg.findTrackID(-1).start
+            entrydata["true_vertex"] = [ vtx_v[i] for i in xrange(3) ] # get the ROOT node
+            offset_v = sce.GetPosOffsets( vtx_v[0], vtx_v[1], vtx_v[2] )
+            vtx_sce_v = [ vtx_v[0]-offset_v[0]+0.7,
+                          vtx_v[1]+offset_v[1],
+                          vtx_v[2]+offset_v[2] ]
+            entrydata["true_vertex_sce"] = vtx_sce_v
+
+            for ivtx in xrange(showerreco.numVertices()):
+                entrydata["pi0mass"].append( showerreco.getPi0Mass(ivtx))
+                entrydata["disttoint"].append( showerreco.getDistToInt(ivtx))
+                entrydata["impact1"].append( showerreco.getImpact1(ivtx))
+                entrydata["impact2"].append( showerreco.getImpact2(ivtx))
+                entrydata["alpha"].append( showerreco.getAlpha(ivtx))
+                for dir in xrange(3):
+                    entrydata["firstdirection"].append( showerreco.getFirstDirection(ivtx,dir))
+                    entrydata["seconddirection"].append( showerreco.getSecondDirection(ivtx,dir))
+
+
+        if False:#args.use_ncpi0:
+            entrydata["true_shower_energies"] = []
+            entrydata["true_shower_starts"] = []
+            entrydata["remaining_adc"] = []
+            entrydata["overlap_fraction1"] = []
+            entrydata["overlap_fraction2"] = []
+            entrydata["purity"] = []
+            entrydata["efficiency"] = []
+            entrydata["pi0mass"] = []
+            entrydata["useformass"] = []
+            entrydata["disttoint"] = []
+            entrydata["impact1"] = []
+            entrydata["impact2"] = []
+
+            for ivtx in xrange(showerreco.numVertices()):
+                entrydata["useformass"].append( showerreco.getUseForMass(ivtx))
+                entrydata["pi0mass"].append( showerreco.getPi0Mass(ivtx))
+                entrydata["disttoint"].append( showerreco.getDistToInt(ivtx))
+                entrydata["impact1"].append( showerreco.getImpact1(ivtx))
+                entrydata["impact2"].append( showerreco.getImpact2(ivtx))
+                entrydata["overlap_fraction1"].append( [showerreco.getOverlapFraction1(ivtx,plane,0) for plane in xrange(2) ] )
+                entrydata["overlap_fraction1"].append( [showerreco.getOverlapFraction1(ivtx,plane,1) for plane in xrange(2) ] )
+                entrydata["overlap_fraction2"].append( [showerreco.getOverlapFraction2(ivtx,plane,0) for plane in xrange(2) ] )
+                entrydata["overlap_fraction2"].append( [showerreco.getOverlapFraction2(ivtx,plane,1) for plane in xrange(2) ] )
+                entrydata["purity"].append( [showerreco.getShowerTruthMatchPur(ivtx,shower) for shower in xrange(6)])
+                entrydata["efficiency"].append( [showerreco.getShowerTruthMatchEff(ivtx,shower) for shower in xrange(6)])
+
+
+            for ivtx in xrange(showerreco.numShowers()):
+                entrydata["true_shower_energies"].append( [ showerreco.getTrueShowerEnergy(ivtx) for shower in xrange(2) ] )
+                entrydata["true_shower_starts"].append( [ showerreco.getTrueShowerStarts(ivtx).at(p) for p in xrange(3) ] )
+                entrydata["remaining_adc"].append( [showerreco.getRemainingADC()])
+
+        if False: #args.use_nueint:
+            entrydata["uplane_profile"] = []
+            entrydata["vplane_profile"] = []
+            entrydata["yplane_profile"] = []
+            entrydata["purity"] = []
+            entrydata["efficiency"] = []
+
+            for ivtx in xrange(showerreco.numVertices()):
+                entrydata["purity"].append( [showerreco.getShowerTruthMatchPur(ivtx,shower) for shower in xrange(3)])
+                entrydata["efficiency"].append( [showerreco.getShowerTruthMatchEff(ivtx,shower) for shower in xrange(3)])
+
+            for ii in xrange(showerreco.numpointsU()):
+                entrydata["uplane_profile"].append( [ showerreco.getUPlaneShowerProfile(ii,index) for index in xrange(2) ] )
+            for ii in xrange(showerreco.numpointsV()):
+                entrydata["vplane_profile"].append( [ showerreco.getVPlaneShowerProfile(ii,index) for index in xrange(2) ] )
+            for ii in xrange(showerreco.numpointsY()):
+                entrydata["yplane_profile"].append( [ showerreco.getYPlaneShowerProfile(ii,index) for index in xrange(2) ] )
+
+        data["entries"].append( entrydata )
+
+        return
+        
