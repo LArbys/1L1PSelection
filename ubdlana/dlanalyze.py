@@ -63,6 +63,7 @@ class DLAnalyze(RootAnalyze):
         self.tree_name = "larlite_id_tree"
         self.tree_obj = None
 
+        # SETUP SSNET Shower reco
         self.llout_name = config['modules']['dlanalyze']['showerreco']['out_larlite_tree']
         shr_ana         = config['modules']['dlanalyze']['showerreco']['out_ana_tree']
         self.adc_tree   = config['modules']['dlanalyze']['showerreco']['adctree']
@@ -83,10 +84,9 @@ class DLAnalyze(RootAnalyze):
         
         self.showerreco.set_output_treename( shr_ana )
 
-        # list larlite data types
-        #self.larlite_types = []
-        #for i in xrange(larlite.kDATA_TYPE_MAX):
-        #    self.larlite_types.append( larlite.kDATA_TREE_NAME[i] )
+        # SETUP MPID
+        mpid_cfg = os.environ["UBMPIDNET_DIR"]+"/production_cfg/inference_config_tufts_WC.cfg"
+        self.mpid, self.mpid_cfg = mpidutil.load_mpid_model( mpid_cfg )
 
         return
 
@@ -196,6 +196,9 @@ class DLAnalyze(RootAnalyze):
         self.showerreco.process( self.in_lcv, self.io_ll, entry )
         self.showerreco.store_in_larlite(self.io_ll)
         self.io_ll.next_event()
+
+        # run mpid reco
+        nmpid_vertices = mpidutil.run_mpid_on_larcv_entry( self.mpid_cfg, self.mpid, self.in_lcv, self.mpid_data, self.mpid_anatree )
 
 
     def open_input(self, input_file):

@@ -44,6 +44,151 @@ def make_mpid_anatree(tfile):
     rd.reset()
     return rd,tree
 
+def load_mpid_model(CFG):
+    cfg  = config_loader(CFG)
+    assert cfg.batch == 1
+    mpid = mpid_net.MPID()
+    weight_file = ""
+    plane=2
+    exec("weight_file = cfg.weight_file_mpid_%i" % plane)
+    weight_file = weight_file.replace("__WEIGHT_FOLDER__",os.environ["UBMPIDNET_WEIGHT_DIR"])
+    print "MPID MODEL loaded with WEIGHT FILE: ",weight_file
+    mpid.load_state_dict(torch.load(weight_file, map_location=train_device))
+    mpid.eval()
+    return mpid,cfg
+
+def run_mpid_on_larcv_entry( cfg, mpid, iom, rd, outtree ):
+    """ run the network on current enetry in larcv iomanager 
+    inputs
+    ------
+    cfg  [config class] created by load_mpid_model
+    mpid [torch model]  created by load_mpid_model
+    iom  [larcv::IOManager]
+    
+    modified
+    --------
+    rd [ROOTData]   created by make_mpid_anatree (use this one to make sure array addresses tied to tree branches)
+    outtree [TTree] saves scores per vertex, index via (run,subrun,event,vtxid)
+    """
+    
+    ev_pgr = iom.get_data(larcv.kProductPGraph,"inter_par")
+    ev_par = iom.get_data(larcv.kProductPixel2D,"inter_par_pixel")
+    ev_pix = iom.get_data(larcv.kProductPixel2D,"inter_img_pixel")
+    ev_int = iom.get_data(larcv.kProductPixel2D,"inter_int_pixel")
+        
+    print '========================>>>>>>>>>>>>>>>>>>>>'
+    print 'MPID running on run, subrun, event',ev_pix.run(),ev_pix.subrun(),ev_pix.event()
+
+    rd.run[0]    = int(ev_pix.run())
+    rd.subrun[0] = int(ev_pix.subrun())
+    rd.event[0]  = int(ev_pix.event())
+    rd.entry[0]  = int(iom.current_entry())
+
+    rd.num_vertex[0] = int(ev_pgr.PGraphArray().size())
+
+    print 'num of vertices, ',rd.num_vertex[0]
+    print 'pgrapgh size, ',int(ev_pgr.PGraphArray().size())
+    nfilled = 0
+        
+    for ix,pgraph in enumerate(ev_pgr.PGraphArray()):
+        print "@pgid=%d" % ix
+        #if (ix != 2): continue
+        rd.vtxid[0] = int(ix)
+   
+        pgr = ev_pgr.PGraphArray().at(ix)
+        cindex_v = np.array(pgr.ClusterIndexArray())
+        
+        pixel2d_par_vv = ev_par.Pixel2DClusterArray()
+        pixel2d_pix_vv = ev_pix.Pixel2DClusterArray()
+        pixel2d_int_vv = ev_int.Pixel2DClusterArray()
+        
+        for plane in xrange(3):
+            print "@plane=%d" % plane
+
+            if pixel2d_par_vv.size() != 0:
+                rd.npar[plane] = 0
+                pixel2d_par_v = pixel2d_par_vv.at(plane)
+                for cidx in cindex_v:
+                    pixel2d_par = pixel2d_par_v.at(cidx)
+                    if pixel2d_par.size()>0:
+                        rd.npar[plane] += 1;
+				                  
+
+            pixel2d_pix_v = pixel2d_pix_vv.at(plane)
+            pixel2d_pix = pixel2d_pix_v.at(ix)
+
+            pixel2d_int_v = pixel2d_int_vv.at(plane)
+            pixel2d_int = pixel2d_int_v.at(ix)
+            
+            # nothing on this plane
+            #if pixel2d_pix.empty() == True: continue
+
+            rd.inferred[0] = 1
+                
+            img_pix = larcv.cluster_to_image2d(pixel2d_pix,cfg.xdim,cfg.ydim)
+            img_int = larcv.cluster_to_image2d(pixel2d_int,cfg.xdim,cfg.ydim)
+
+            img_pix_arr=image_np2torch(img_pix, cfg, train_device)
+            img_int_arr=image_np2torch(img_int, cfg, train_device)
+            '''
+            img_pix_arr = image_modify(img_pix, cfg)
+            img_int_arr = image_modify(img_int, cfg)
+            
+            img_pix_arr = torch.from_numpy(img_pix_arr.copy())
+            img_int_arr = torch.from_numpy(img_int_arr.copy())
+            
+            img_pix_arr = img_pix_arr.clone().detach()
+            img_int_arr = img_int_arr.clone().detach()
+            
+            img_pix_arr = img_pix_arr.to(train_device).view((-1,1,512,512))
+            img_int_arr = img_int_arr.to(train_device).view((-1,1,512,512))
+            '''
+            #score
+
+            if (img_pix_arr.sum().cpu() < 100):
+                score_pix_v = torch.zeros([5])
+            else:
+                score_pix_v = nn.Sigmoid()(mpid(img_pix_arr)).cpu().detach().numpy()[0]                    
+
+            if (img_int_arr.sum().cpu() < 100):
+                score_int_v = torch.zeros([5])
+            else:
+                score_int_v = nn.Sigmoid()(mpid(img_int_arr)).cpu().detach().numpy()[0]
+
+            '''
+            #Plot the image from pgraph
+            fig, (ax1,ax2) = plt.subplots(nrows=1, ncols=2, figsize = (18, 6))
+            
+            ax1.imshow(image_modify(img_pix,cfg).reshape(512,512), cmap='jet')
+            ax2.imshow(image_modify(img_int,cfg).reshape(512,512), cmap='jet')
+        
+            plt.savefig("out/image/%i_%i_%i_%i_graph_plane_%i"%(ev_pix.run(), ev_pix.subrun(), ev_pix.event(), ix, plane))
+            '''
+            print 'pix scores are ',score_pix_v
+            print 'int scores are ',score_int_v
+
+            rd.eminus_pix_score_torch[plane] = score_pix_v[0]
+            rd.gamma_pix_score_torch[plane]  = score_pix_v[1]
+            rd.muon_pix_score_torch[plane]   = score_pix_v[2]
+            rd.pion_pix_score_torch[plane]   = score_pix_v[3]
+            rd.proton_pix_score_torch[plane] = score_pix_v[4]
+
+            rd.eminus_int_score_torch[plane] = score_int_v[0]
+            rd.gamma_int_score_torch[plane]  = score_int_v[1]
+            rd.muon_int_score_torch[plane]   = score_int_v[2]
+            rd.pion_int_score_torch[plane]   = score_int_v[3]
+            rd.proton_int_score_torch[plane] = score_int_v[4]
+            
+            continue
+        nfilled += 1
+        outtree.Fill()
+        rd.reset_vertex()
+
+    print "number of entries filled: ",nfilled
+    print "-------------------------------------------"
+    return nfilled
+        
+
 def main(IMAGE_FILE,OUT_DIR,CFG,FILEID=0):
     #
     # initialize
