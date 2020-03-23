@@ -10,6 +10,7 @@
 ###############################################################################
 import sys, os
 from root_analyze import RootAnalyze
+from ROOT import TFile
 
 # Prevent root from printing garbage on initialization.
 if os.environ.has_key('TERM'):
@@ -25,7 +26,7 @@ import ROOT
 sys.argv = myargv
 
 # IMPORT DL STACK
-from larlite import larlite
+from larlite import larlite,larutil
 from larcv import larcv
 from larlitecv import larlitecv
 
@@ -36,8 +37,9 @@ from LEEPreCuts_Functions import makePMTpars,performPMTPrecuts,getPMTPrecutDict
 import mpidutil
 
 # DL Final Vertex Variables
+from showerrecodata import ShowerRecoData # provides wrapper for shower reco info
 from dlanatree import DLanaTree
-
+from makeselectionvars import make_selection_vars
 
 def make(config):
     #----------------------------------------------------------------------
@@ -70,7 +72,7 @@ class DLAnalyze(RootAnalyze):
 
         another_tree = config['modules']['dlanalyze']['another_tree']
         print 'DLAnalyze constructed with second tree = %s' % another_tree
-        self.tree_name = "larlite_id_tree"
+        self.tree_name = "_recoTree"
         self.tree_obj = None
 
         # SETUP SSNET Shower reco
@@ -102,7 +104,18 @@ class DLAnalyze(RootAnalyze):
         # SETUP PMT Precuts module
         self.precutpars = makePMTpars( self.sample_type )
         self.precutpars['ophittree'] = config['modules']['dlanalyze']['precut_ophits']
-        
+
+        # SCE class
+        self.sce = larutil.SpaceChargeMicroBooNEMCC9()
+
+        # Calibration maps
+        calibmap_path = os.environ["UBDLANA_DIR"]+"/CalibrationMaps_MCC9.root"
+        self.calibfile = TFile.Open(calibmap_path,'read')
+        calibMap0 = self.calibfile.Get("hImageCalibrationMap_00")
+        calibMap1 = self.calibfile.Get("hImageCalibrationMap_01")
+        calibMap2 = self.calibfile.Get("hImageCalibrationMap_02")
+        self.calibMap_v = [calibMap0,calibMap1,calibMap2]
+
         return
 
 
@@ -182,7 +195,19 @@ class DLAnalyze(RootAnalyze):
         #
         #----------------------------------------------------------------------
         """ this is a loop over vertex entries """
-        pass
+        entry = tree.GetReadEntry()
+        self.tree_obj.GetEntry(entry)
+
+        print "----- ANALYZE ENTRY [%d] ---------------------------------"%(entry)
+        #for branch in self.tree_obj.GetListOfBranches():
+        #    if self.tree_obj.GetBranchStatus(branch.GetName()):
+        #        print '  %s' % branch.GetName()
+
+        make_selection_vars( entry, self.ismc, 
+                             self.tree_obj, self.df_ShowerReco, self.PMTPrecut_Dict, self.MC_dict,
+                             self.anatreeclass, self.calibMap_v,
+                             sce = self.sce )
+        self.anatreeclass.outTree.Fill()
 
     def analyze_larlite_and_larcv_entry(self, tree, entry):
         #----------------------------------------------------------------------
@@ -286,14 +311,27 @@ class DLAnalyze(RootAnalyze):
         self.ShrTree  = input_file.Get("SecondShowerAnalysis")
         if self.ismc:
             self.MCTree = input_file.Get("MCTree")
+            self.MC_dict = {}
+            for ev in self.MCTree:
+                run            = ev.run
+                subrun         = ev.subrun
+                event          = ev.event
+                IDev           = tuple((run,subrun,event))
+                self.MC_dict[IDev] = dict(parentPDG=ev.parentPDG,energyInit=ev.energyInit,
+                                          parentX=ev.parentX,parentY=ev.parentY,parentZ=ev.parentZ,
+                                          nproton=ev.nproton,nlepton=ev.nlepton)
         else:
             self.MCTree = None
 
         self.tree_obj.AddFriend(self.VtxTree)
         self.tree_obj.AddFriend(self.ShpTree)
         self.tree_obj.AddFriend(self.ShrTree)
+        if self.ismc:
+            self.tree_obj.AddFriend(self.MCTree)
+            
         # We attach the MPID ana tree as well
         self.tree_obj.AddFriend(self.mpid_anatree)
+
 
         print "[ End input tree prep ]"
         print "================================"
@@ -304,19 +342,20 @@ class DLAnalyze(RootAnalyze):
         nentries = self.larlite_id_tree.GetEntries()
         
         # we create a dictionary where we will store shower reco variables
-        self.df_ShowerReco = {"entries":[]}
+        self.dict_ShowerReco = {"entries":[]}
         
         for entry in xrange(nentries):
             self.larlite_id_tree.GetEntry(entry)
             self.analyze_larlite_and_larcv_entry(self.larlite_id_tree,entry)
-            self.extract_showerreco_entry_vars(self.df_ShowerReco,self.showerreco)
+            self.extract_showerreco_entry_vars(self.dict_ShowerReco,self.showerreco)
 
-
+        self.df_ShowerReco = ShowerRecoData( self.dict_ShowerReco )
 
     def end_job(self):
         """ close larcv and larlite files. larlite output file will write."""
         self.in_lcv.finalize()
-        self.io_ll.close()
+        self.io_ll.close()        
+        self.calibfile.Close()
 
     def extract_showerreco_entry_vars(self,data,showerreco):
         """ get variables from showerreco class """

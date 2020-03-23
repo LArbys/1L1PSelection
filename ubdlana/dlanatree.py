@@ -29,7 +29,6 @@ class DLanaTree:
     def __init__(self):
         self.outTree = None
         self.makeDLanaTree()
-        self.clear_vertex()
 
 
     # --------------------------------------------- #
