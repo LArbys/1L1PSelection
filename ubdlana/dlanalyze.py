@@ -395,6 +395,7 @@ class DLAnalyze(RootAnalyze):
             for p in xrange(3):
                 entrydata["shower_start_2d"].append( [ showerreco.getShowerStart2D(ivtx,p,dir) for dir in xrange(3) ])
 
+        print "SHOWER START!",entrydata["shower_start_2d"]
 
         if self.second_shr:
             # Save second shower output
