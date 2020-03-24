@@ -36,3 +36,24 @@ python ../bin/run_ubdlana_lar.py -d merged_dlreco_3e2d592c-e729-4ad2-9844-e517dd
 ```
 lar.py -c ubdlana.fcl -s test_dir/merged_dlreco_3e2d592c-e729-4ad2-9844-e517dd0a90b6.root`
 ```
+
+### Testing development environment
+
+This is for setting up a situation where you are developing this code AND `dllee_unified`.
+This might be the case if you are developing the shower reco code or any other module.
+
+Steps:
+
+* build `dllee_unified` on FNAL or setup your existing copy.  Refer to the README in the `dllee_unified` folder. 
+  But, as a reminder, there are scripts to setup and build `dllee_unified`. Also, you want the `mcc9_prod1_29e_rc` branch.
+* go into `configure.sh` in this repo and comment out 
+
+      setup dllee_unified develop -q e17:prof
+
+  This line sets up `dllee_unified` using UPS. you don't want to do this, if you have changed that dependency.
+* now run `configure.sh`
+
+      source configure.sh
+
+
+* Now you can use the `lar.py` call in the subsection above.

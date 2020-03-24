@@ -1,36 +1,12 @@
 #!/bin/bash
 
-if [ -z ${DLLEE_UNIFIED_BASEDIR+x} ]; then
-    export DLLEE_UNIFIED_BASEDIR=/cluster/tufts/wongjiradlab/dcianc01/dllee_unified
-fi
+source /cvmfs/uboone.opensciencegrid.org/products/setup_uboone.sh
+setup numpy v1_14_3 -q e17:p2714b:openblas:prof
+setup xgboost  v0_82   -q e17:prof
+setup ubutil   v08_00_00_27 -q e17:prof
+setup dllee_unified develop -q e17:prof # comment out this line if using your own copy
+setup ubMPIDnet v1_0_0 -q NULL
 
-# setup environment variables
-#source $DLLEE_UNIFIED_BASEDIR/setup.sh
-
-# setup larlite
-source $DLLEE_UNIFIED_BASEDIR/larlite/config/setup.sh
-
-# setup laropencv
-source $DLLEE_UNIFIED_BASEDIR/LArOpenCV/setup_laropencv.sh
-
-# setup Geo2D
-source $DLLEE_UNIFIED_BASEDIR/Geo2D/config/setup.sh
-
-# setup Cilantro
-source $DLLEE_UNIFIED_BASEDIR/cilantro/dllee_setup.sh
-
-# setup LArCV
-source $DLLEE_UNIFIED_BASEDIR/LArCV/configure.sh
-
-# setup larlitecv
-source $DLLEE_UNIFIED_BASEDIR/larlitecv/configure.sh
-
-# ENV VARIABLES TO SETUP BINARIES/RECO SCRIPTS
-
-# Tagger
-export TAGGER_BIN_DIR=$DLLEE_UNIFIED_BASEDIR/larlitecv/app/TaggerCROI/bin
-[[ ":${PATH}:" != *":${TAGGER_BIN_DIR}:"* ]] && export PATH="${TAGGER_BIN_DIR}:${PATH}"
-
-# Vertexer
-export VERTEXER_SCRIPT_DIR=${LARCV_BASEDIR}/app/LArOpenCVHandle/cfg/mac/
-[[ ":${PATH}:" != *":${VERTEXER_SCRIPT_DIR}:"* ]] && export PATH="${VERTEXER_SCRIPT_DIR}:${PATH}"
+export UBDLANA_DIR=$PWD
+export PYTHONPATH=$UBDLANA_DIR/ubdlana:$UBDLANA_DIR:${UBMPIDNET_DIR}/uboone:$PYTHONPATH
+export FHICL_FILE_PATH=${UBDLANA_DIR}/cfg:$FHICL_FILE_PATH
