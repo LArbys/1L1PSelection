@@ -6,7 +6,7 @@ import numpy as np
 from lib.config import config_loader
 from lib_mpid_torch.rootdata_pid import ROOTData
 
-larcv.LArbysLoader()
+#larcv.LArbysLoader()
 
 import torch
 import torch.nn as nn
