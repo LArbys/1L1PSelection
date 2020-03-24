@@ -10,7 +10,7 @@ def MakeTreeBranch(ttree,s_name,s_type):
         _myvar = array('i',[-9999])
         ttree.Branch(s_name,_myvar,s_name+'/I')
         return _myvar
-        
+
     if s_type == 'float':
         _myvar = array('f',[-9999])
         ttree.Branch(s_name,_myvar,s_name+'/F')
@@ -91,7 +91,7 @@ class DLanaTree:
         self._bjYB_1m1p = MakeTreeBranch(outTree,'BjYB_1m1p','float')
         self._q2B_1m1p = MakeTreeBranch(outTree,'Q2B_1m1p','float')
         self._sphB_1m1p = MakeTreeBranch(outTree,'SphB_1m1p','float')
-        
+
         # same stuff, but for 1e1p
         self._CCQE_energy_shift_1e1p = MakeTreeBranch(outTree,'CCQEEnergyShift_1e1p','float')
         self._enu_1e1p = MakeTreeBranch(outTree,'Enu_1e1p','float')
@@ -116,7 +116,7 @@ class DLanaTree:
         self._bjYB_1e1p = MakeTreeBranch(outTree,'BjYB_1e1p','float')
         self._q2B_1e1p = MakeTreeBranch(outTree,'Q2B_1e1p','float')
         self._sphB_1e1p = MakeTreeBranch(outTree,'SphB_1e1p','float')
-    
+
         self._lepton_id = MakeTreeBranch(outTree,'Lepton_ID','int')
         self._lepton_phi = MakeTreeBranch(outTree,'Lepton_PhiReco','float')
         self._lepton_theta = MakeTreeBranch(outTree,'Lepton_ThetaReco','float')
@@ -146,21 +146,68 @@ class DLanaTree:
         self._proton_phiB_1e1p = MakeTreeBranch(outTree,'Proton_PhiRecoB_1e1p','float')
         self._proton_thetaB_1e1p = MakeTreeBranch(outTree,'Proton_ThetaRecoB_1e1p','float')
         self._proton_EB_1e1p = MakeTreeBranch(outTree,'Proton_EdepB_1e1p','float')
-        
+
         # Shower variables
         self._shower1_E_U = MakeTreeBranch(outTree,'shower1_E_U','float')
         self._shower1_E_V = MakeTreeBranch(outTree,'shower1_E_V','float')
         self._shower1_E_Y = MakeTreeBranch(outTree,'shower1_E_Y','float')
+        self._shower1_gap_U = MakeTreeBranch(outTree,'shower1_gap_U','int')
+        self._shower1_gap_V = MakeTreeBranch(outTree,'shower1_gap_V','int')
+        self._shower1_gap_Y = MakeTreeBranch(outTree,'shower1_gap_Y','int')
+        self._shower1_dir_3d_X = MakeTreeBranch(outTree,'shower1_dir_3d_X','float')
+        self._shower1_dir_3d_Y = MakeTreeBranch(outTree,'shower1_dir_3d_Y','float')
+        self._shower1_dir_3d_Z = MakeTreeBranch(outTree,'shower1_dir_3d_Z','float')
+        self._shower1_dir_2d_U = MakeTreeBranch(outTree,'shower1_dir_2d_U','float')
+        self._shower1_dir_2d_V = MakeTreeBranch(outTree,'shower1_dir_2d_V','float')
+        self._shower1_dir_2d_Y = MakeTreeBranch(outTree,'shower1_dir_2d_Y','float')
+        self._shower1_op_2d_U = MakeTreeBranch(outTree,'shower1_op_2d_U','float')
+        self._shower1_op_2d_V = MakeTreeBranch(outTree,'shower1_op_2d_V','float')
+        self._shower1_op_2d_Y = MakeTreeBranch(outTree,'shower1_op_2d_Y','float')
+        self._shower1_start_2d_U_X = MakeTreeBranch(outTree,'shower1_start_2d_U_X','int')
+        self._shower1_start_2d_U_Y = MakeTreeBranch(outTree,'shower1_start_2d_U_Y','int')
+        self._shower1_start_2d_U_Z = MakeTreeBranch(outTree,'shower1_start_2d_U_Z','int')
+        self._shower1_start_2d_V_X = MakeTreeBranch(outTree,'shower1_start_2d_V_X','int')
+        self._shower1_start_2d_V_Y = MakeTreeBranch(outTree,'shower1_start_2d_V_Y','int')
+        self._shower1_start_2d_V_Z = MakeTreeBranch(outTree,'shower1_start_2d_V_Z','int')
+        self._shower1_start_2d_Y_X = MakeTreeBranch(outTree,'shower1_start_2d_Y_X','int')
+        self._shower1_start_2d_Y_Y = MakeTreeBranch(outTree,'shower1_start_2d_Y_Y','int')
+        self._shower1_start_2d_Y_Z = MakeTreeBranch(outTree,'shower1_start_2d_Y_Z','int')
+        self._shower1_impact = MakeTreeBranch(outTree,'_shower1_impact','float')
         self._shower2_E_U = MakeTreeBranch(outTree,'shower2_E_U','float')
         self._shower2_E_V = MakeTreeBranch(outTree,'shower2_E_V','float')
         self._shower2_E_Y = MakeTreeBranch(outTree,'shower2_E_Y','float')
-    
+        self._shower2_gap_U = MakeTreeBranch(outTree,'shower2_gap_U','int')
+        self._shower2_gap_V = MakeTreeBranch(outTree,'shower2_gap_V','int')
+        self._shower2_gap_Y = MakeTreeBranch(outTree,'shower2_gap_Y','int')
+        self._shower2_dir_3d_X = MakeTreeBranch(outTree,'shower2_dir_3d_X','float')
+        self._shower2_dir_3d_Y = MakeTreeBranch(outTree,'shower2_dir_3d_Y','float')
+        self._shower2_dir_3d_Z = MakeTreeBranch(outTree,'shower2_dir_3d_Z','float')
+        self._shower2_dir_2d_U = MakeTreeBranch(outTree,'shower2_dir_2d_U','float')
+        self._shower2_dir_2d_V = MakeTreeBranch(outTree,'shower2_dir_2d_V','float')
+        self._shower2_dir_2d_Y = MakeTreeBranch(outTree,'shower2_dir_2d_Y','float')
+        self._shower2_op_2d_U = MakeTreeBranch(outTree,'shower2_op_2d_U','float')
+        self._shower2_op_2d_V = MakeTreeBranch(outTree,'shower2_op_2d_V','float')
+        self._shower2_op_2d_Y = MakeTreeBranch(outTree,'shower2_op_2d_Y','float')
+        self._shower2_start_2d_U_X = MakeTreeBranch(outTree,'shower2_start_2d_U_X','int')
+        self._shower2_start_2d_U_Y = MakeTreeBranch(outTree,'shower2_start_2d_U_Y','int')
+        self._shower2_start_2d_U_Z = MakeTreeBranch(outTree,'shower2_start_2d_U_Z','int')
+        self._shower2_start_2d_V_X = MakeTreeBranch(outTree,'shower2_start_2d_V_X','int')
+        self._shower2_start_2d_V_Y = MakeTreeBranch(outTree,'shower2_start_2d_V_Y','int')
+        self._shower2_start_2d_V_Z = MakeTreeBranch(outTree,'shower2_start_2d_V_Z','int')
+        self._shower2_start_2d_Y_X = MakeTreeBranch(outTree,'shower2_start_2d_Y_X','int')
+        self._shower2_start_2d_Y_Y = MakeTreeBranch(outTree,'shower2_start_2d_Y_Y','int')
+        self._shower2_start_2d_Y_Z = MakeTreeBranch(outTree,'shower2_start_2d_Y_Z','int')
+        self._shower2_impact = MakeTreeBranch(outTree,'_shower2_impact','float')
+        self._shower_alpha = MakeTreeBranch(outTree,'_shower_alpha','float')
+        self._pi0mass = MakeTreeBranch(outTree,'_pi0mass','float')
+
+
         # Precut stuff
         self._totPE = MakeTreeBranch(outTree,'TotPE','float')
         self._porchTotPE = MakeTreeBranch(outTree,'PorchTotPE','float')
         self._maxPEFrac = MakeTreeBranch(outTree,'MaxPEFrac','float')
         self._passPMTPrecut = MakeTreeBranch(outTree,'PassPMTPrecut','int')
-    
+
         # MC stuff
         self._parentPDG = MakeTreeBranch(outTree,'MC_parentPDG','int')
         self._energyInit = MakeTreeBranch(outTree,'MC_energyInit','float')
@@ -173,7 +220,7 @@ class DLanaTree:
         self._parentSCEY = MakeTreeBranch(outTree,'MC_parentSCEY','float')
         self._parentSCEZ = MakeTreeBranch(outTree,'MC_parentSCEZ','float')
         self._scedr = MakeTreeBranch(outTree,'MC_scedr','float')
-        
+
         # MPID stuff
         self._eminusPID_int_v = MakeTreeBranch(outTree,'EminusPID_int_v','tvector')
         self._muonPID_int_v = MakeTreeBranch(outTree,'MuonPID_int_v','tvector')
@@ -187,7 +234,7 @@ class DLanaTree:
         self._pionPID_pix_v = MakeTreeBranch(outTree,'PionPID_pix_v','tvector')
 
         self.outTree = outTree
-        
+
     def clear_vertex(self):
         """ clear values. also define when run for first time """
         self._lepton_id        = int(-9999)
@@ -220,12 +267,12 @@ class DLanaTree:
         self._proton_phiB_1e1p      = float(-9999)
         self._proton_thetaB_1e1p    = float(-9999)
         self._proton_EB_1e1p        = float(-9999)
-        
+
         self._shower1_E_U = float(-9999)
         self._shower1_E_V = float(-9999)
         self._shower1_E_Y = float(-9999)
         self._shower2_E_U = float(-9999)
         self._shower2_E_V = float(-9999)
         self._shower2_E_Y = float(-9999)
-    
+
         return

@@ -2,7 +2,7 @@
 ###############################################################################
 #
 # Name: dlanalyze.py
-# 
+#
 # Purpose: Analyze dlreco files.
 #
 # Created: 19-Mar-2020, H. Greenlee
@@ -95,7 +95,7 @@ class DLAnalyze(RootAnalyze):
             self.showerreco.use_nueint( True )
         if False:
             self.showerreco.use_bnb( True )
-        
+
         self.showerreco.set_output_treename( shr_ana )
 
         # SETUP MPID
@@ -173,8 +173,8 @@ class DLAnalyze(RootAnalyze):
         # Returns: Leaf (TLeaf).
         #
         # This function assumes one leaf/branch (true in case of analysis tree).
-        # The returned value is an instance of class TLeaf.  To get numeric 
-        # values, call TLeaf function GetValue(i), where i=array index or 0 for 
+        # The returned value is an instance of class TLeaf.  To get numeric
+        # values, call TLeaf function GetValue(i), where i=array index or 0 for
         # scalar leaf.
         #
         #----------------------------------------------------------------------
@@ -204,7 +204,7 @@ class DLAnalyze(RootAnalyze):
         #    if self.tree_obj.GetBranchStatus(branch.GetName()):
         #        print '  %s' % branch.GetName()
 
-        make_selection_vars( entry, self.ismc, 
+        make_selection_vars( entry, self.ismc,
                              self.tree_obj, self.df_ShowerReco, self.PMTPrecut_Dict, self.MC_dict,
                              self.anatreeclass, self.calibMap_v,
                              sce = self.sce )
@@ -239,7 +239,7 @@ class DLAnalyze(RootAnalyze):
         ll_rse  = [self.io_ll.run_id(),self.io_ll.subrun_id(),self.io_ll.event_id()]
         if rse_br != lcv_rse or rse_br != ll_rse:
             raise RuntimeError("(run,subrun,event) for event loop tree[{}], larlite tree[{}], larcv tree[{}] do not match".format(rse_br,ll_rse,lcv_rse))
-        
+
         # check run, subrun, event
         print "process: ",rse_br
 
@@ -296,7 +296,7 @@ class DLAnalyze(RootAnalyze):
             #        print '  %s' % branch.GetName()
 
             self.tree_obj = obj
-            print 
+            print
 
         # LARLITE ID TREE: governs loop to make MPID, Showerreco and Precut variables
         self.larlite_id_tree = input_file.Get("larlite_id_tree")
@@ -306,7 +306,7 @@ class DLAnalyze(RootAnalyze):
 
         # make precut data
         self.PMTPrecut_Dict = performPMTPrecuts( input_file.GetName(), **self.precutpars )
-        
+
         # OTHER SELECTION VAR TREES, WE FRIEND THEM TO THE TRACKER TREE
         self.VtxTree  = input_file.Get("VertexTree")
         self.ShpTree  = input_file.Get("ShapeAnalysis")
@@ -330,7 +330,7 @@ class DLAnalyze(RootAnalyze):
         self.tree_obj.AddFriend(self.ShrTree)
         if self.ismc:
             self.tree_obj.AddFriend(self.MCTree)
-            
+
         # We attach the MPID ana tree as well
         self.tree_obj.AddFriend(self.mpid_anatree)
 
@@ -342,10 +342,10 @@ class DLAnalyze(RootAnalyze):
         """ before running event loop, we go through events and make showerreco, mpid, precut variables """
         print "make showerreco, mpid, precut variables"
         nentries = self.larlite_id_tree.GetEntries()
-        
+
         # we create a dictionary where we will store shower reco variables
         self.dict_ShowerReco = {"entries":[]}
-        
+
         for entry in xrange(nentries):
             self.larlite_id_tree.GetEntry(entry)
             self.analyze_larlite_and_larcv_entry(self.larlite_id_tree,entry)
@@ -356,7 +356,7 @@ class DLAnalyze(RootAnalyze):
     def end_job(self):
         """ close larcv and larlite files. larlite output file will write."""
         self.in_lcv.finalize()
-        self.io_ll.close()        
+        self.io_ll.close()
         self.calibfile.Close()
         fout = open('dlanalyze_input_list.txt','w')
         for f in self.input_file_list:
@@ -373,7 +373,13 @@ class DLAnalyze(RootAnalyze):
                       "shower_energies":[],
                       "shower_sumQs":[],
                       "shower_shlengths":[],
-                      "vertex_pos":[]}
+                      "vertex_pos":[],
+                      "shower_gap":[],
+                      "shower_direction_3d":[],
+                      "shower_direction_2d":[],
+                      "shower_opening_2d":[],
+                      "shower_start_2d":[],
+                      }
 
         # Save first shower output
         for ivtx in xrange(showerreco.numVertices()):
@@ -381,17 +387,45 @@ class DLAnalyze(RootAnalyze):
             entrydata["shower_sumQs"].append( [ showerreco.getVertexShowerSumQ(ivtx,p) for p in xrange(3) ] )
             entrydata["shower_shlengths"].append( [ showerreco.getVertexShowerShlength(ivtx,p) for p in xrange(3) ] )
             entrydata["vertex_pos"].append( [ showerreco.getVertexPos(ivtx).at(p) for p in xrange(3) ] )
+            entrydata["shower_gap"].append( [ showerreco.getVertexShowerGap(ivtx,p) for p in xrange(3) ] )
+            entrydata["shower_direction_3d"].append( [ showerreco.getFirstDirection(ivtx,dir) for dir in xrange(3) ])
+            entrydata["shower_direction_2d"].append( [ showerreco.getVertexShowerDirection2D(ivtx,dir) for dir in xrange(3) ])
+            entrydata["shower_opening_2d"].append( [ showerreco.getVertexShowerOpening2D(ivtx,dir) for dir in xrange(3) ])
+            # showerstart also needs a loop over x,y,z
+            for p in xrange(3):
+                entrydata["shower_start_2d"].append( [ showerreco.getShowerStart2D(ivtx,p,dir) for dir in xrange(3) ])
+
 
         if self.second_shr:
             # Save second shower output
             entrydata["secondshower_energies"] = []
             entrydata["secondshower_sumQs"] = []
             entrydata["secondshower_shlengths"] = []
+            entrydata["secondshower_gap"] = []
+            entrydata["pi0mass"] = []
+            entrydata["opening_angle_3d"] = []
+            entrydata["shower_impact"] = []
+            entrydata["secondshower_impact"] =[]
+            entrydata["secondshower_direction_3d"]=[]
+            entrydata["secondshower_direction_2d"]=[]
+            entrydata["secondshower_opening_2d"]=[]
+            entrydata["secondshower_start_2d"] =[]
 
             for ivtx in xrange(showerreco.numVertices()):
                 entrydata["secondshower_energies"].append( [ showerreco.getVertexSecondShowerEnergy(ivtx,p) for p in xrange(3) ] )
                 entrydata["secondshower_sumQs"].append( [ showerreco.getVertexSecondShowerSumQ(ivtx,p) for p in xrange(3) ] )
                 entrydata["secondshower_shlengths"].append( [ showerreco.getVertexSecondShowerShlength(ivtx,p) for p in xrange(3) ] )
+                entrydata["secondshower_gap"].append( [ showerreco.getVertexSecondShowerGap(ivtx,p) for p in xrange(3) ] )
+                entrydata["pi0mass"].append([showerreco.getPi0Mass(ivtx)])
+                entrydata["opening_angle_3d"].append([showerreco.getAlpha(ivtx)])
+                entrydata["shower_impact"].append([showerreco.getImpact1(ivtx)])
+                entrydata["secondshower_impact"].append([showerreco.getImpact2(ivtx)])
+                entrydata["secondshower_direction_2d"].append( [ showerreco.getVertexSecondShowerDirection2D(ivtx,dir) for dir in xrange(3) ])
+                entrydata["secondshower_opening_2d"].append( [ showerreco.getVertexSecondShowerOpening2D(ivtx,dir) for dir in xrange(3) ])
+                entrydata["secondshower_direction_3d"].append( [ showerreco.getSecondDirection(ivtx,dir) for dir in xrange(3) ])
+                # showerstart also needs a loop over x,y,z
+                for p in xrange(3):
+                    entrydata["secondshower_start_2d"].append( [ showerreco.getSecondShowerStart2D(ivtx,p,dir) for dir in xrange(3) ])
 
         # Below are MC-based truth metrics
 
@@ -531,4 +565,3 @@ class DLAnalyze(RootAnalyze):
         data["entries"].append( entrydata )
 
         return
-        
