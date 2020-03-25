@@ -10,6 +10,9 @@ modules : { sam_metadata : {}
                              tracker_tree : "_recoTree"
                              precut_ophits: "ophitBeamCalib"
                              sample_type: "Overlay"
+                             bdt_1e1p_weights: "Selection_Weights_1e1p_3-24-20.pickle"
+                             bdt_1mu1p_cosmic_weights: "x"
+                             bdt_1mu1p_nu_weights: "x"
                              ismc : True
                              showerreco: { out_larlite_tree: "ssnetshowerrecov2"
                                            out_ana_tree: "ssnetshowerrecov2ana" 

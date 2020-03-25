@@ -36,6 +36,9 @@ from LEEPreCuts_Functions import makePMTpars,performPMTPrecuts,getPMTPrecutDict
 # MPID utils
 import mpidutil
 
+# BDT utils
+import bdtutil
+
 # DL Final Vertex Variables
 from showerrecodata import ShowerRecoData # provides wrapper for shower reco info
 from dlanatree import DLanaTree
@@ -117,6 +120,13 @@ class DLAnalyze(RootAnalyze):
         calibMap2 = self.calibfile.Get("hImageCalibrationMap_02")
         self.calibMap_v = [calibMap0,calibMap1,calibMap2]
 
+        # Setup BDTs
+        self.weights_1e1p_nu      = config['modules']['dlanalyze']['bdt_1e1p_weights']
+        self.weights_1mu1p_nu     = config['modules']['dlanalyze']['bdt_1mu1p_nu_weights']
+        self.weights_1mu1p_cosmic = config['modules']['dlanalyze']['bdt_1mu1p_cosmic_weights']
+        self.bdt_model_1e1p = bdtutil.load_1e1p_model( self.weights_1e1p_nu )
+        print "Loaded 1e1p model"
+        sys.exit(0)
         return
 
 
