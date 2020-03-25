@@ -4,7 +4,7 @@ from SelectionDefs import NewAng, VtxInSimpleFid, VtxInFid, GetPhiT, pTrans,pTra
 from SelectionDefs import alphaT, ECCQE, ECal, Q2, OpenAngle, PhiDiff, edgeCut
 from SelectionDefs import ECCQE_mom, Boost, BoostTracks, Getpz, GetCCQEDiff, SensibleMinimize, Getq3q0,GetTotPE, CorrectionFactor
 
-def make_selection_vars( indo, ismc, 
+def make_selection_vars( indo, ismc,
                          ev, df_ShowerReco, PMTPrecut_Dict, MC_dict,
                          dlanavars, calibMap_v,
                          sce=None ):
@@ -13,7 +13,7 @@ def make_selection_vars( indo, ismc,
     -------
     indo [int] entry number
     ev [TTree] merged event vertex tree
-    
+
     """
 
     if sce is None:
@@ -321,12 +321,59 @@ def make_selection_vars( indo, ismc,
     dlanavars._q2B_1e1p[0]          = Q2calB_1e1p                         if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
     dlanavars._bjYB_1e1p[0]         = yB_1e1p                             if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
 
+    # shower reco variables
     dlanavars._shower1_E_U[0]       = float(vtxShowerData["shower_energies"][0])       if PassSimpleCuts and PassShowerReco else -99999
     dlanavars._shower1_E_V[0]       = float(vtxShowerData["shower_energies"][1])       if PassSimpleCuts and PassShowerReco else -99999
     dlanavars._shower1_E_Y[0]       = float(vtxShowerData["shower_energies"][2])       if PassSimpleCuts and PassShowerReco else -99999
     dlanavars._shower2_E_U[0]       = float(vtxShowerData["secondshower_energies"][0]) if PassSimpleCuts and PassShowerReco else -99999
     dlanavars._shower2_E_V[0]       = float(vtxShowerData["secondshower_energies"][1]) if PassSimpleCuts and PassShowerReco else -99999
     dlanavars._shower2_E_Y[0]       = float(vtxShowerData["secondshower_energies"][2]) if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_gap_U[0]     = int(vtxShowerData["shower_gap"][0])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_gap_V[0]     = int(vtxShowerData["shower_gap"][1])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_gap_Y[0]     = int(vtxShowerData["shower_gap"][2])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_dir_3d_X[0]  = float(vtxShowerData["shower_direction_3d"][0])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_dir_3d_Y[0]  = float(vtxShowerData["shower_direction_3d"][1])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_dir_3d_Z[0]  = float(vtxShowerData["shower_direction_3d"][2])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_dir_2d_U[0]  = float(vtxShowerData["shower_direction_2d"][0])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_dir_2d_V[0]  = float(vtxShowerData["shower_direction_2d"][1])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_dir_2d_Y[0]  = float(vtxShowerData["shower_direction_2d"][2])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_op_2d_U[0]   = float(vtxShowerData["shower_opening_2d"][0])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_op_2d_V[0]   = float(vtxShowerData["shower_opening_2d"][1])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_op_2d_Y[0]   = float(vtxShowerData["shower_opening_2d"][2])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_start_2d_U_X[0] = int(vtxShowerData["shower_start_2d"][0])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_start_2d_U_Y[0] = int(vtxShowerData["shower_start_2d"][0])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_start_2d_U_Z[0] = int(vtxShowerData["shower_start_2d"][0])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_start_2d_V_X[0] = int(vtxShowerData["shower_start_2d"][1])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_start_2d_V_Y[0] = int(vtxShowerData["shower_start_2d"][1])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_start_2d_V_Z[0] = int(vtxShowerData["shower_start_2d"][1])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_start_2d_Y_X[0] = int(vtxShowerData["shower_start_2d"][2])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_start_2d_Y_Y[0] = int(vtxShowerData["shower_start_2d"][2])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_start_2d_Y_Z[0] = int(vtxShowerData["shower_start_2d"][2])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_impact[0]   = float(vtxShowerData["shower_impact"][0])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_gap_U[0]    = int(vtxShowerData["secondshower_gap"][0])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_gap_V[0]    = int(vtxShowerData["secondshower_gap"][1])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_gap_Y[0]    = int(vtxShowerData["secondshower_gap"][2])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_dir_3d_X[0] = float(vtxShowerData["secondshower_direction_3d"][0])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_dir_3d_Y[0] = float(vtxShowerData["secondshower_direction_3d"][1])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_dir_3d_Z[0] = float(vtxShowerData["secondshower_direction_3d"][2])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_dir_2d_U[0] = float(vtxShowerData["secondshower_direction_2d"][0])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_dir_2d_V[0] = float(vtxShowerData["secondshower_direction_2d"][1])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_dir_2d_Y[0] = float(vtxShowerData["secondshower_direction_2d"][2])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_op_2d_U[0]  = float(vtxShowerData["secondshower_opening_2d"][0])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_op_2d_V[0]  = float(vtxShowerData["secondshower_opening_2d"][1])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_op_2d_Y[0]  = float(vtxShowerData["secondshower_opening_2d"][2])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_start_2d_U_X[0] = int(vtxShowerData["secondshower_start_2d"][0])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_start_2d_U_Z[0] = int(vtxShowerData["secondshower_start_2d"][0])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_start_2d_U_Y[0] = int(vtxShowerData["secondshower_start_2d"][0])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_start_2d_V_X[0] = int(vtxShowerData["secondshower_start_2d"][1])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_start_2d_V_Y[0] = int(vtxShowerData["secondshower_start_2d"][1])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_start_2d_V_Z[0] = int(vtxShowerData["secondshower_start_2d"][1])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_start_2d_Y_X[0] = int(vtxShowerData["secondshower_start_2d"][2])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_start_2d_Y_Y[0] = int(vtxShowerData["secondshower_start_2d"][2])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_start_2d_Y_Z[0] = int(vtxShowerData["secondshower_start_2d"][2])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower2_impact[0]  = float(vtxShowerData["secondshower_impact"][0])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower_alpha[0]    = float(vtxShowerData["opening_angle_3d"][0])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._pi0mass[0]         = float(vtxShowerData["pi0mass"][0])       if PassSimpleCuts and PassShowerReco else -99999
 
     dlanavars._totPE[0] = PMTPrecut_Dict[IDev]['_totpe']
     dlanavars._porchTotPE[0] = PMTPrecut_Dict[IDev]['_porchtotpe']
@@ -366,4 +413,4 @@ def make_selection_vars( indo, ismc,
     for i in ev.pion_pix_score_torch:    dlanavars._pionPID_pix_v.push_back(i)
 
     print "[MakeSelectionVars] Done"
-    return 
+    return
