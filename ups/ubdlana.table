@@ -8,8 +8,8 @@ Flavor     = ANY
 Qualifiers = "e17:prof"
 
   Action = GetProducts
-    setupRequired( dllee_unified develop -q e17:prof )
-    setupRequired( ubMPIDnet develop -q NULL )
+    setupRequired( dllee_unified v1_0_5 -q e17:prof )
+    setupRequired( ubMPIDnet v1_0_0 -q NULL )
     setupRequired( numpy    v1_14_3 -q e17:p2714b:openblas:prof )
     setupRequired( ifdhc    v2_4_1  -q e17:p2714b:prof )
     setupRequired( xgboost  v0_82   -q e17:prof )
