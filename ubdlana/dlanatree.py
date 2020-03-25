@@ -233,6 +233,11 @@ class DLanaTree:
         self._gammaPID_pix_v = MakeTreeBranch(outTree,'GammaPID_pix_v','tvector')
         self._pionPID_pix_v = MakeTreeBranch(outTree,'PionPID_pix_v','tvector')
 
+        # BDT output
+        self._bdtscore_1e1p         = MakeTreeBranch(outTree,'BDTscore_1e1p','float')
+        self._bdtscore_1mu1p_cosmic = MakeTreeBranch(outTree,'BDTscore_1mu1p_cosmic','float')
+        self._bdtscore_1mu1p_nu     = MakeTreeBranch(outTree,'BDTscore_1mu1p_nu','float')
+
         self.outTree = outTree
 
     def clear_vertex(self):

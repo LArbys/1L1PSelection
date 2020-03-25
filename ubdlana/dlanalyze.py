@@ -126,7 +126,7 @@ class DLAnalyze(RootAnalyze):
         self.weights_1mu1p_cosmic = config['modules']['dlanalyze']['bdt_1mu1p_cosmic_weights']
         self.bdt_model_1e1p = bdtutil.load_1e1p_model( self.weights_1e1p_nu )
         print "Loaded 1e1p model"
-        sys.exit(0)
+
         return
 
 
@@ -218,6 +218,11 @@ class DLAnalyze(RootAnalyze):
                              self.tree_obj, self.df_ShowerReco, self.PMTPrecut_Dict, self.MC_dict,
                              self.anatreeclass, self.calibMap_v,
                              sce = self.sce )
+
+        print "Apply BDT[1e1p]"
+        probs_1e1p = bdtutil.apply_1e1p_model( self.bdt_model_1e1p, self.anatreeclass )
+        self.anatreeclass._bdtscore_1e1p[0] = probs_1e1p[0]
+
         self.anatreeclass.outTree.Fill()
 
     def analyze_larlite_and_larcv_entry(self, tree, entry):
