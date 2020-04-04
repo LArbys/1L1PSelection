@@ -125,7 +125,8 @@ class DLAnalyze(RootAnalyze):
         self.weights_1mu1p_nu     = config['modules']['dlanalyze']['bdt_1mu1p_nu_weights']
         self.weights_1mu1p_cosmic = config['modules']['dlanalyze']['bdt_1mu1p_cosmic_weights']
         self.bdt_model_1e1p = bdtutil.load_1e1p_model( self.weights_1e1p_nu )
-        print "Loaded 1e1p model"
+        self.bdt_model_1mu1p_cosmic, self.bdt_model_1mu1p_nu = bdtutil.load_1mu1p_models( self.weights_1mu1p_cosmic )
+        print "Loaded BDT models"
 
         return
 
@@ -220,8 +221,15 @@ class DLAnalyze(RootAnalyze):
                              sce = self.sce )
 
         print "Apply BDT[1e1p]"
-        probs_1e1p = bdtutil.apply_1e1p_model( self.bdt_model_1e1p, self.anatreeclass )
-        self.anatreeclass._bdtscore_1e1p[0] = probs_1e1p[0]
+        probs_1e1p         = bdtutil.apply_1e1p_model( self.bdt_model_1e1p, self.anatreeclass )
+        probs_1mu1p_cosmic, probs_1mu1p_nu = \
+                    bdtutil.apply_1mu1p_models( self.bdt_model_1mu1p_cosmic, 
+                                                self.bdt_model_1mu1p_nu, 
+                                                self.anatreeclass )
+        self.anatreeclass._bdtscore_1e1p[0]         = probs_1e1p[0]
+        self.anatreeclass._bdtscore_1mu1p_cosmic[0] = probs_1mu1p_cosmic
+        self.anatreeclass._bdtscore_1mu1p_nu[0]     = probs_1mu1p_nu
+    
 
         self.anatreeclass.outTree.Fill()
 

@@ -15,8 +15,12 @@ def load_1e1p_model( weightfile_name ):
         MyBDT = pickle.load(handle)
     return MyBDT
 
-def load_1mu1p_model():
-    pass
+def load_1mu1p_models( weightfile_name ):
+    """ model is for cosmics vs. neutrino BDT """
+    weight_path = os.environ["UBDLANA_DIR"]+"/bdt_models/"+weightfile_name
+    with open(weight_path,"rb") as handle: 
+        cosmicBDT,nubkgBDT = pickle.load(handle)
+    return cosmicBDT,nubkgBDT
 
 def apply_1e1p_model( model, dlvars ):
     """ apply the 1e1p BDT 
@@ -64,5 +68,54 @@ def apply_1e1p_model( model, dlvars ):
     print "BDT[1e1p] output: ",probs
     return probs
 
-def apply_1m1p_model( model, dlvars ):
-    pass
+def apply_1mu1p_models( cosmicBDT, nuBDT, dlvars ):
+    """ apply the 1mu1p cosmic and nu BDTs
+    
+    inputs
+    ------
+    cosmicBDT: xgboost model loaded from pickle file
+    nuBDT:     xgboost model loaded from pickle file
+    dlvars: instance of DLanaTree (defined dlanatree.py module)
+
+    outputs
+    -------
+    score [float] 1m1p cosmic score
+    score [float] 1m1p nu score
+    """
+
+    """
+vars_cos_allofem = ['Eta','ChargeNearTrunk','PT_1m1p','PhiT_1m1p','AlphaT_1m1p','Sph_1m1p','Q0_1m1p','Q2_1m1p','Q3_1m1p','Lepton_ThetaReco','Lepton_PhiReco','Proton_ThetaReco','Proton_PhiReco','PTRat_1m1p','Lepton_TrackLength','Thetas','Phis','Proton_TrackLength','OpenAng','PzEnu_1m1p']
+    """
+
+    # make input vars
+    input_vars = [[
+        dlvars._eta[0],           # Eta,
+        dlvars._charge_near_trunk[0], #ChargeNearTrunk_UniformityCalibrated,  #!!! calibrated?
+        dlvars._pT_1m1p[0],       # PT_1m1p,
+        dlvars._phiT_1m1p[0],     # PhiT_1m1p
+        dlvars._alphaT_1m1p[0],   # AlphaT_1m1p,
+        dlvars._sphB_1m1p[0],     # SphB_1m1p,
+        dlvars._q0_1m1p[0],       # Q0_1m1p,
+        dlvars._q2_1m1p[0],       # Q2_1m1p,
+        dlvars._q3_1m1p[0],       # Q3_1m1p,        
+        dlvars._lepton_theta[0],  # Lepton_ThetaReco,
+        dlvars._lepton_phi[0],    # Lepton_PhiReco,
+        dlvars._proton_theta[0],  # Proton_ThetaReco,
+        dlvars._proton_phi[0],    # Proton_PhiReco,
+        dlvars._pTRat_1m1p[0],    # PTRat_1m1p,
+        dlvars._lepton_length[0], # Lepton_TrackLength,
+        dlvars._thetas[0],        # Thetas,
+        dlvars._phis[0],          # Phis,
+        dlvars._proton_length[0], # Proton_TrackLength,
+        dlvars._openAng[0],       # OpenAng 
+        dlvars._pzEnu_1m1p[0] ],] # PzEnu_1m1p
+
+    vars_np = np.asarray( input_vars )
+    #print vars_np
+
+    cosmic_probs   = cosmicBDT.predict(vars_np, output_margin=True)[0]
+    nu_probs       = nuBDT.predict(vars_np,output_margin=True)[0]
+    
+    print "BDT[1mu1p-cosmic] output: ",cosmic_probs," ",cosmic_probs.shape
+    print "BDT[1mu1p-nu]     output: ",nu_probs," ",nu_probs.shape
+    return cosmic_probs,nu_probs
