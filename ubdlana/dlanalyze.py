@@ -36,6 +36,9 @@ from LEEPreCuts_Functions import makePMTpars,performPMTPrecuts,getPMTPrecutDict
 # MPID utils
 import mpidutil
 
+# BDT utils
+import bdtutil
+
 # DL Final Vertex Variables
 from showerrecodata import ShowerRecoData # provides wrapper for shower reco info
 from dlanatree import DLanaTree
@@ -118,6 +121,14 @@ class DLAnalyze(RootAnalyze):
         calibMap1 = self.calibfile.Get("hImageCalibrationMap_01")
         calibMap2 = self.calibfile.Get("hImageCalibrationMap_02")
         self.calibMap_v = [calibMap0,calibMap1,calibMap2]
+
+         # Setup BDTs
+        self.weights_1e1p_nu      = config['modules']['dlanalyze']['bdt_1e1p_weights']
+        self.weights_1mu1p_nu     = config['modules']['dlanalyze']['bdt_1mu1p_nu_weights']
+        self.weights_1mu1p_cosmic = config['modules']['dlanalyze']['bdt_1mu1p_cosmic_weights']
+        self.bdt_model_1e1p = bdtutil.load_1e1p_model( self.weights_1e1p_nu )
+        self.bdt_model_1mu1p_cosmic, self.bdt_model_1mu1p_nu = bdtutil.load_1mu1p_models( self.weights_1mu1p_cosmic )
+        print "Loaded BDT models"
 
         return
 
@@ -210,6 +221,18 @@ class DLAnalyze(RootAnalyze):
                              self.tree_obj, self.df_ShowerReco, self.PMTPrecut_Dict, self.MC_dict,
                              self.anatreeclass, self.calibMap_v,
                              sce = self.sce )
+
+
+        print "Apply BDT[1e1p]"
+        probs_1e1p         = bdtutil.apply_1e1p_model( self.bdt_model_1e1p, self.anatreeclass )
+        probs_1mu1p_cosmic, probs_1mu1p_nu = \
+                    bdtutil.apply_1mu1p_models( self.bdt_model_1mu1p_cosmic,
+                                                self.bdt_model_1mu1p_nu,
+                                                self.anatreeclass )
+        self.anatreeclass._bdtscore_1e1p[0]         = probs_1e1p[0]
+        self.anatreeclass._bdtscore_1mu1p_cosmic[0] = probs_1mu1p_cosmic
+        self.anatreeclass._bdtscore_1mu1p_nu[0]     = probs_1mu1p_nu
+
         self.anatreeclass.outTree.Fill()
 
     def analyze_larlite_and_larcv_entry(self, tree, entry):
@@ -375,7 +398,13 @@ class DLAnalyze(RootAnalyze):
                       "shower_energies":[],
                       "shower_sumQs":[],
                       "shower_shlengths":[],
-                      "vertex_pos":[]}
+                      "vertex_pos":[],
+                      "shower_gap":[],
+                      "shower_direction_3d":[],
+                      "shower_direction_2d":[],
+                      "shower_opening_2d":[],
+                      "shower_start_2d":[],
+                      }
 
         # Save first shower output
         for ivtx in xrange(showerreco.numVertices()):
@@ -383,19 +412,48 @@ class DLAnalyze(RootAnalyze):
             entrydata["shower_sumQs"].append( [ showerreco.getVertexShowerSumQ(ivtx,p) for p in xrange(3) ] )
             entrydata["shower_shlengths"].append( [ showerreco.getVertexShowerShlength(ivtx,p) for p in xrange(3) ] )
             entrydata["vertex_pos"].append( [ showerreco.getVertexPos(ivtx).at(p) for p in xrange(3) ] )
+            entrydata["shower_gap"].append( [ showerreco.getVertexShowerGap(ivtx,p) for p in xrange(3) ] )
+            entrydata["shower_direction_3d"].append( [ showerreco.getFirstDirection(ivtx,dir) for dir in xrange(3) ])
+            entrydata["shower_direction_2d"].append( [ showerreco.getVertexShowerDirection2D(ivtx,dir) for dir in xrange(3) ])
+            entrydata["shower_opening_2d"].append( [ showerreco.getVertexShowerOpening2D(ivtx,dir) for dir in xrange(3) ])
+            # showerstart also needs a loop over x,y,z
+            for p in xrange(3):
+                entrydata["shower_start_2d"].append( [ showerreco.getShowerStart2D(ivtx,p,dir) for dir in xrange(3) ])
+
+        print "SHOWER START!",entrydata["shower_start_2d"]
 
         if self.second_shr:
             # Save second shower output
             entrydata["secondshower_energies"] = []
             entrydata["secondshower_sumQs"] = []
             entrydata["secondshower_shlengths"] = []
+            entrydata["secondshower_gap"] = []
+            entrydata["pi0mass"] = []
+            entrydata["opening_angle_3d"] = []
+            entrydata["shower_impact"] = []
+            entrydata["secondshower_impact"] =[]
+            entrydata["secondshower_direction_3d"]=[]
+            entrydata["secondshower_direction_2d"]=[]
+            entrydata["secondshower_opening_2d"]=[]
+            entrydata["secondshower_start_2d"] =[]
 
             for ivtx in xrange(showerreco.numVertices()):
                 entrydata["secondshower_energies"].append( [ showerreco.getVertexSecondShowerEnergy(ivtx,p) for p in xrange(3) ] )
                 entrydata["secondshower_sumQs"].append( [ showerreco.getVertexSecondShowerSumQ(ivtx,p) for p in xrange(3) ] )
                 entrydata["secondshower_shlengths"].append( [ showerreco.getVertexSecondShowerShlength(ivtx,p) for p in xrange(3) ] )
+                entrydata["secondshower_gap"].append( [ showerreco.getVertexSecondShowerGap(ivtx,p) for p in xrange(3) ] )
+                entrydata["pi0mass"].append([showerreco.getPi0Mass(ivtx)])
+                entrydata["opening_angle_3d"].append([showerreco.getAlpha(ivtx)])
+                entrydata["shower_impact"].append([showerreco.getImpact1(ivtx)])
+                entrydata["secondshower_impact"].append([showerreco.getImpact2(ivtx)])
+                entrydata["secondshower_direction_2d"].append( [ showerreco.getVertexSecondShowerDirection2D(ivtx,dir) for dir in xrange(3) ])
+                entrydata["secondshower_opening_2d"].append( [ showerreco.getVertexSecondShowerOpening2D(ivtx,dir) for dir in xrange(3) ])
+                entrydata["secondshower_direction_3d"].append( [ showerreco.getSecondDirection(ivtx,dir) for dir in xrange(3) ])
+                # showerstart also needs a loop over x,y,z
+                for p in xrange(3):
+                    entrydata["secondshower_start_2d"].append( [ showerreco.getSecondShowerStart2D(ivtx,p,dir) for dir in xrange(3) ])
 
-        # Below are MC-based truth metrics
+
         # Below are MC-based truth metrics
         if self.ismc:
             # pi0 variables...
