@@ -460,12 +460,20 @@ class DLAnalyze(RootAnalyze):
         # Below are MC-based truth metrics
         if self.ismc:
             # pi0 variables...
-            entrydata["ccnc"] = showerreco.getCCNC()
-            entrydata["haspi0"] = showerreco.getHasPi0()
-            entrydata["truefid"] = showerreco.getTrueFid()
-            entrydata["numtrueshowers"] = showerreco.getNumTrueShowers()
+            entrydata["ccnc"] = []
+            entrydata["haspi0"] = []
+            entrydata["truefid"] = []
+            entrydata["numtrueshowers"] =[]
 
-            if (showerreco.getNumTrueShowers()> 0):
+            for ivtx in xrange(showerreco.numVertices()):
+                entrydata["ccnc"].append(showerreco.getCCNC())
+                entrydata["haspi0"].append(showerreco.getHasPi0())
+                entrydata["truefid"].append(showerreco.getTrueFid())
+                entrydata["numtrueshowers"].append(showerreco.getNumTrueShowers())
+
+     
+            if (showerreco.getNumTrueShowers() ==1 or showerreco.getNumTrueShowers() ==2):
+                print "Num showers: ",showerreco.getNumTrueShowers()
                 entrydata["shower_energy_true"]=[]
                 entrydata["shower_recotrue_dist"]=[]
                 entrydata["first_direction_true"]=[]
@@ -477,7 +485,7 @@ class DLAnalyze(RootAnalyze):
                     entrydata["first_direction_true"].append( [ showerreco.getTrueShowerDirection(ivtx,dir) for dir in xrange(3)])
                     entrydata["shower_start_2d_true"].append( [ showerreco.getTrueShower2DStart(ivtx,idx) for idx in xrange(4)])
 
-            if (showerreco.getNumTrueShowers()> 1):
+            if (showerreco.getNumTrueShowers()==2):
                 entrydata["secondshower_energy_true"]=[]
                 entrydata["secondshower_recotrue_dist"]=[]
                 entrydata["second_direction_true"]=[]

@@ -376,28 +376,29 @@ def make_selection_vars( indo, ismc,
     dlanavars._pi0mass[0]         = float(vtxShowerData["pi0mass"][0])       if PassSimpleCuts and PassShowerReco else -99999
     # shower true variables
     if (ismc):
-        dlanavars._haspi0[0]                          = int(vtxShowerData["haspi0"][0])
-        dlanavars._ccnc[0]                            = int(vtxShowerData["ccnc"][0])
-        dlanavars._truefid[0]                         = int(vtxShowerData["truefid"][0])
-        dlanavars._numshowers[0]                      = int(vtxShowerData["numshowers"][0])
-        dlanavars._seconddirection_true_X[0]          = double(vtxShowerData["second_direction_true"][0])
-        dlanavars._seconddirection_true_Y[0]          = double(vtxShowerData["second_direction_true"][0])
-        dlanavars._seconddirection_true_Z[0]          = double(vtxShowerData["second_direction_true"][0])
-        dlanavars._firstdirection_true_X[0]           = double(vtxShowerData["first_direction_true"][0])
-        dlanavars._firstdirection_true_Y[0]           = double(vtxShowerData["first_direction_true"][0])
-        dlanavars._firstdirection_true_Z[0]           = double(vtxShowerData["first_direction_true"][0])
-        dlanavars._shower_start_2d_true_row[0]        = int(vtxShowerData["shower_start_2d_true"][0])
-        dlanavars._shower_start_2d_true_colU[0]       = int(vtxShowerData["shower_start_2d_true"][0])
-        dlanavars._shower_start_2d_true_colV[0]       = int(vtxShowerData["shower_start_2d_true"][0])
-        dlanavars._shower_start_2d_true_colY[0]       = int(vtxShowerData["shower_start_2d_true"][0])
-        dlanavars._secondshower_start_2d_true_row[0]  = int(vtxShowerData["secondshower_start_2d_true"][0])
-        dlanavars._secondshower_start_2d_true_colU[0] = int(vtxShowerData["secondshower_start_2d_true"][0])
-        dlanavars._secondshower_start_2d_true_colV[0] = int(vtxShowerData["secondshower_start_2d_true"][0])
-        dlanavars._secondshower_start_2d_true_colY[0] = int(vtxShowerData["secondshower_start_2d_true"][0])
-        dlanavars._shower_energy_true[0]              = double(vtxShowerData["shower_energy_true"][0])
-        dlanavars._secondshower_energy_true[0]        = double(vtxShowerData["secondshower_energy_true"][0])
-        dlanavars._shower_recotrue_dist[0]            = float(vtxShowerData["shower_recotrue_dist"][0])
-        dlanavars._secondshower_recotrue_dist[0]      = float(vtxShowerData["secondshower_recotrue_dist"][0])
+        dlanavars._haspi0[0]                          = int(vtxShowerData["haspi0"])
+        dlanavars._ccnc[0]                            = int(vtxShowerData["ccnc"])
+        dlanavars._truefid[0]                         = int(vtxShowerData["truefid"])
+        dlanavars._numshowers[0]                      = int(vtxShowerData["numtrueshowers"])
+        dlanavars._seconddirection_true_X[0]          = float(vtxShowerData["second_direction_true"][0]) if dlanavars._numshowers[0] == 2 else -9999
+        dlanavars._seconddirection_true_Y[0]          = float(vtxShowerData["second_direction_true"][1]) if dlanavars._numshowers[0] == 2 else -9999
+        dlanavars._seconddirection_true_Z[0]          = float(vtxShowerData["second_direction_true"][2]) if dlanavars._numshowers[0] == 2 else -9999
+        dlanavars._firstdirection_true_X[0]           = float(vtxShowerData["first_direction_true"][0]) if (dlanavars._numshowers[0] == 2 or dlanavars._numshowers[0] == 1) else -9999
+        dlanavars._firstdirection_true_Y[0]           = float(vtxShowerData["first_direction_true"][1]) if (dlanavars._numshowers[0] == 2 or dlanavars._numshowers[0] == 1) else -9999
+        dlanavars._firstdirection_true_Z[0]           = float(vtxShowerData["first_direction_true"][2]) if (dlanavars._numshowers[0] == 2 or dlanavars._numshowers[0] == 1) else -9999
+        dlanavars._shower_start_2d_true_row[0]        = int(vtxShowerData["shower_start_2d_true"][0]) if (dlanavars._numshowers[0] == 2 or dlanavars._numshowers[0] == 1) else -9999
+        dlanavars._shower_start_2d_true_colU[0]       = int(vtxShowerData["shower_start_2d_true"][1]) if (dlanavars._numshowers[0] == 2 or dlanavars._numshowers[0] == 1) else -9999
+        dlanavars._shower_start_2d_true_colV[0]       = int(vtxShowerData["shower_start_2d_true"][2]) if (dlanavars._numshowers[0] == 2 or dlanavars._numshowers[0] == 1) else -9999
+        dlanavars._shower_start_2d_true_colY[0]       = int(vtxShowerData["shower_start_2d_true"][3]) if (dlanavars._numshowers[0] == 2 or dlanavars._numshowers[0] == 1) else -9999
+        dlanavars._secondshower_start_2d_true_row[0]  = int(vtxShowerData["secondshower_start_2d_true"][0]) if dlanavars._numshowers[0] == 2 else -9999
+        dlanavars._secondshower_start_2d_true_colU[0] = int(vtxShowerData["secondshower_start_2d_true"][1]) if dlanavars._numshowers[0] == 2 else -9999
+        dlanavars._secondshower_start_2d_true_colV[0] = int(vtxShowerData["secondshower_start_2d_true"][2]) if dlanavars._numshowers[0] == 2 else -9999
+        dlanavars._secondshower_start_2d_true_colY[0] = int(vtxShowerData["secondshower_start_2d_true"][3]) if dlanavars._numshowers[0] == 2 else -9999
+        dlanavars._shower_energy_true[0]              = float(vtxShowerData["shower_energy_true"][0]) if (dlanavars._numshowers[0] == 2 or dlanavars._numshowers[0] == 1) else -9999
+        dlanavars._secondshower_energy_true[0]        = float(vtxShowerData["secondshower_energy_true"][0]) if dlanavars._numshowers[0] == 2 else -9999
+        dlanavars._shower_recotrue_dist[0]            = float(vtxShowerData["shower_recotrue_dist"][0]) if (dlanavars._numshowers[0] == 2 or dlanavars._numshowers[0] == 1) else -9999
+        dlanavars._secondshower_recotrue_dist[0]      = float(vtxShowerData["secondshower_recotrue_dist"][0]) if dlanavars._numshowers[0] == 2 else -9999
+
 
 
     dlanavars._totPE[0] = PMTPrecut_Dict[IDev]['_totpe']
