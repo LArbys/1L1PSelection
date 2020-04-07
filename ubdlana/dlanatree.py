@@ -200,6 +200,29 @@ class DLanaTree:
         self._shower2_impact = MakeTreeBranch(outTree,'_shower2_impact','float')
         self._shower_alpha = MakeTreeBranch(outTree,'_shower_alpha','float')
         self._pi0mass = MakeTreeBranch(outTree,'_pi0mass','float')
+        # mc shower Variables
+        self._haspi0;
+        self._ccnc;
+        self._truefid;
+        self._numshowers;
+        self._seconddirection_true_X;
+        self._seconddirection_true_Y;
+        self._seconddirection_true_Z;
+        self._firstdirection_true_X;
+        self._firstdirection_true_Y;
+        self._firstdirection_true_Z;
+        self._shower_start_2d_true_row;
+        self._shower_start_2d_true_colU;
+        self._shower_start_2d_true_colV;
+        self._shower_start_2d_true_colY;
+        self._secondshower_start_2d_true_row;
+        self._secondshower_start_2d_true_colU;
+        self._secondshower_start_2d_true_colV;
+        self._secondshower_start_2d_true_colY;
+        self._shower_energy_true;
+        self._secondshower_energy_true;
+        self._shower_recotrue_dist;
+        self._secondshower_recotrue_dist;
 
 
         # Precut stuff
@@ -232,11 +255,6 @@ class DLanaTree:
         self._protonPID_pix_v = MakeTreeBranch(outTree,'ProtonPID_pix_v','tvector')
         self._gammaPID_pix_v = MakeTreeBranch(outTree,'GammaPID_pix_v','tvector')
         self._pionPID_pix_v = MakeTreeBranch(outTree,'PionPID_pix_v','tvector')
-
-        # BDT output
-        self._bdtscore_1e1p         = MakeTreeBranch(outTree,'BDTscore_1e1p','float')
-        self._bdtscore_1mu1p_cosmic = MakeTreeBranch(outTree,'BDTscore_1mu1p_cosmic','float')
-        self._bdtscore_1mu1p_nu     = MakeTreeBranch(outTree,'BDTscore_1mu1p_nu','float')
 
         self.outTree = outTree
 
@@ -279,9 +297,9 @@ class DLanaTree:
         self._shower2_E_U = float(-9999)
         self._shower2_E_V = float(-9999)
         self._shower2_E_Y = float(-9999)
-        self._shower1_gap_U = int(-9999)
-        self._shower1_gap_V = int(-9999)
-        self._shower1_gap_Y = int(-9999)
+        self._shower1_gap_U = float(-9999)
+        self._shower1_gap_V = float(-9999)
+        self._shower1_gap_Y = float(-9999)
         self._shower1_dir_3d_X = float(-9999)
         self._shower1_dir_3d_Y  = float(-9999)
         self._shower1_dir_3d_Z = float(-9999)
@@ -291,19 +309,19 @@ class DLanaTree:
         self._shower1_op_2d_U = float(-9999)
         self._shower1_op_2d_V = float(-9999)
         self._shower1_op_2d_Y = float(-9999)
-        self._shower1_start_2d_U_X = int(-9999)
-        self._shower1_start_2d_U_Y = int(-9999)
-        self._shower1_start_2d_U_Z = int(-9999)
-        self._shower1_start_2d_V_X  = int(-9999)
-        self._shower1_start_2d_V_Y = int(-9999)
-        self._shower1_start_2d_V_Z  = int(-9999)
-        self._shower1_start_2d_Y_X = int(-9999)
-        self._shower1_start_2d_Y_Y = int(-9999)
-        self._shower1_start_2d_Y_Z = int(-9999)
+        self._shower1_start_2d_U_X = float(-9999)
+        self._shower1_start_2d_U_Y = float(-9999)
+        self._shower1_start_2d_U_Z = float(-9999)
+        self._shower1_start_2d_V_X  = float(-9999)
+        self._shower1_start_2d_V_Y = float(-9999)
+        self._shower1_start_2d_V_Z  = float(-9999)
+        self._shower1_start_2d_Y_X = float(-9999)
+        self._shower1_start_2d_Y_Y = float(-9999)
+        self._shower1_start_2d_Y_Z = float(-9999)
         self._shower1_impact = float(-9999)
-        self._shower2_gap_U = int(-9999)
-        self._shower2_gap_V = int(-9999)
-        self._shower2_gap_Y = int(-9999)
+        self._shower2_gap_U = float(-9999)
+        self._shower2_gap_V = float(-9999)
+        self._shower2_gap_Y = float(-9999)
         self._shower2_dir_3d_X = float(-9999)
         self._shower2_dir_3d_Y = float(-9999)
         self._shower2_dir_3d_Z  = float(-9999)
@@ -313,18 +331,40 @@ class DLanaTree:
         self._shower2_op_2d_U  = float(-9999)
         self._shower2_op_2d_V = float(-9999)
         self._shower2_op_2d_Y = float(-9999)
-        self._shower2_start_2d_U_X = int(-9999)
-        self._shower2_start_2d_U_Y = int(-9999)
-        self._shower2_start_2d_U_Z = int(-9999)
-        self._shower2_start_2d_V_X = int(-9999)
-        self._shower2_start_2d_V_Y = int(-9999)
-        self._shower2_start_2d_V_Z = int(-9999)
-        self._shower2_start_2d_Y_X = int(-9999)
-        self._shower2_start_2d_Y_Y = int(-9999)
-        self._shower2_start_2d_Y_Z = int(-9999)
+        self._shower2_start_2d_U_X = float(-9999)
+        self._shower2_start_2d_U_Y = float(-9999)
+        self._shower2_start_2d_U_Z = float(-9999)
+        self._shower2_start_2d_V_X = float(-9999)
+        self._shower2_start_2d_V_Y = float(-9999)
+        self._shower2_start_2d_V_Z = float(-9999)
+        self._shower2_start_2d_Y_X = float(-9999)
+        self._shower2_start_2d_Y_Y = float(-9999)
+        self._shower2_start_2d_Y_Z = float(-9999)
         self._shower2_impact = float(-9999)
         self._shower_alpha = float(-9999)
         self._pi0mass = float(-9999)
+        self._haspi0= int(-9999)
+        self._ccnc= int(-9999)
+        self._truefid= int(-9999)
+        self._numshowers= int(-9999)
+        self._seconddirection_true_X= double(-9999)
+        self._seconddirection_true_Y= double(-9999)
+        self._seconddirection_true_Z= double(-9999)
+        self._firstdirection_true_X= double(-9999)
+        self._firstdirection_true_Y= double(-9999)
+        self._firstdirection_true_Z= double(-9999)
+        self._shower_start_2d_true_row= int(-9999)
+        self._shower_start_2d_true_colU= int(-9999)
+        self._shower_start_2d_true_colV= int(-9999)
+        self._shower_start_2d_true_colY= int(-9999)
+        self._secondshower_start_2d_true_row= int(-9999)
+        self._secondshower_start_2d_true_colU= int(-9999)
+        self._secondshower_start_2d_true_colV= int(-9999)
+        self._secondshower_start_2d_true_colY= int(-9999)
+        self._shower_energy_true= double(-9999)
+        self._secondshower_energy_true= double(-9999)
+        self._shower_recotrue_dist= float(-9999)
+        self._secondshower_recotrue_dist= float(-9999)
 
 
 
