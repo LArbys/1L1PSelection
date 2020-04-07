@@ -11,6 +11,10 @@ def MakeTreeBranch(ttree,s_name,s_type):
         ttree.Branch(s_name,_myvar,s_name+'/I')
         return _myvar
 
+    if s_type == 'double':
+        _myvar = array('d',[-9999])
+        ttree.Branch(s_name,_myvar,s_name+'/D')
+
     if s_type == 'float':
         _myvar = array('f',[-9999])
         ttree.Branch(s_name,_myvar,s_name+'/F')
@@ -201,28 +205,28 @@ class DLanaTree:
         self._shower_alpha = MakeTreeBranch(outTree,'_shower_alpha','float')
         self._pi0mass = MakeTreeBranch(outTree,'_pi0mass','float')
         # mc shower Variables
-        self._haspi0;
-        self._ccnc;
-        self._truefid;
-        self._numshowers;
-        self._seconddirection_true_X;
-        self._seconddirection_true_Y;
-        self._seconddirection_true_Z;
-        self._firstdirection_true_X;
-        self._firstdirection_true_Y;
-        self._firstdirection_true_Z;
-        self._shower_start_2d_true_row;
-        self._shower_start_2d_true_colU;
-        self._shower_start_2d_true_colV;
-        self._shower_start_2d_true_colY;
-        self._secondshower_start_2d_true_row;
-        self._secondshower_start_2d_true_colU;
-        self._secondshower_start_2d_true_colV;
-        self._secondshower_start_2d_true_colY;
-        self._shower_energy_true;
-        self._secondshower_energy_true;
-        self._shower_recotrue_dist;
-        self._secondshower_recotrue_dist;
+        self._haspi0 = MakeTreeBranch(outTree,'haspi0','int')
+        self._ccnc = MakeTreeBranch(outTree,'ccnc','int')
+        self._truefid = MakeTreeBranch(outTree,'truefid','int')
+        self._numshowers = MakeTreeBranch(outTree,'numshowers_true','int')
+        self._seconddirection_true_X = MakeTreeBranch(outTree,'second_direction_true_X','double')
+        self._seconddirection_true_Y = MakeTreeBranch(outTree,'second_direction_true_Y','double')
+        self._seconddirection_true_Z = MakeTreeBranch(outTree,'second_direction_true_Z','double')
+        self._firstdirection_true_X = MakeTreeBranch(outTree,'first_direction_true_X','double')
+        self._firstdirection_true_Y = MakeTreeBranch(outTree,'first_direction_true_Y','double')
+        self._firstdirection_true_Z = MakeTreeBranch(outTree,'first_direction_true_Z','double')
+        self._shower_start_2d_true_row = MakeTreeBranch(outTree,'shower_start_2d_true_row','int')
+        self._shower_start_2d_true_colU = MakeTreeBranch(outTree,'shower_start_2d_true_colU','int')
+        self._shower_start_2d_true_colV = MakeTreeBranch(outTree,'shower_start_2d_true_colV','int')
+        self._shower_start_2d_true_colY = MakeTreeBranch(outTree,'shower_start_2d_true_colY','int')
+        self._secondshower_start_2d_true_row = MakeTreeBranch(outTree,'second_shower_start_2d_true_row','int')
+        self._secondshower_start_2d_true_colU = MakeTreeBranch(outTree,'second_shower_start_2d_true_colU','int')
+        self._secondshower_start_2d_true_colV = MakeTreeBranch(outTree,'second_shower_start_2d_true_colV','int')
+        self._secondshower_start_2d_true_colY = MakeTreeBranch(outTree,'second_shower_start_2d_true_colY','int')
+        self._shower_energy_true = MakeTreeBranch(outTree,'shower_energy_true','double')
+        self._secondshower_energy_true = MakeTreeBranch(outTree,'secondshower_energy_true','double')
+        self._shower_recotrue_dist = MakeTreeBranch(outTree,'shower_recotrue_dist','float')
+        self._secondshower_recotrue_dist = MakeTreeBranch(outTree,'secondshower_recotrue_dist','float')
 
 
         # Precut stuff

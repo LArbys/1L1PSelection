@@ -340,7 +340,7 @@ def make_selection_vars( indo, ismc,
     dlanavars._shower1_op_2d_U[0]   = float(vtxShowerData["shower_opening_2d"][0])       if PassSimpleCuts and PassShowerReco else -99999
     dlanavars._shower1_op_2d_V[0]   = float(vtxShowerData["shower_opening_2d"][1])       if PassSimpleCuts and PassShowerReco else -99999
     dlanavars._shower1_op_2d_Y[0]   = float(vtxShowerData["shower_opening_2d"][2])       if PassSimpleCuts and PassShowerReco else -99999
-     dlanavars._shower1_start_2d_U_X[0] = int(vtxShowerData["shower_start_2d"][0])       if PassSimpleCuts and PassShowerReco else -99999
+    dlanavars._shower1_start_2d_U_X[0] = int(vtxShowerData["shower_start_2d"][0])       if PassSimpleCuts and PassShowerReco else -99999
     dlanavars._shower1_start_2d_U_Y[0] = int(vtxShowerData["shower_start_2d"][0])       if PassSimpleCuts and PassShowerReco else -99999
     dlanavars._shower1_start_2d_U_Z[0] = int(vtxShowerData["shower_start_2d"][0])       if PassSimpleCuts and PassShowerReco else -99999
     dlanavars._shower1_start_2d_V_X[0] = int(vtxShowerData["shower_start_2d"][1])       if PassSimpleCuts and PassShowerReco else -99999
