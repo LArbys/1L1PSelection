@@ -475,8 +475,8 @@ class DLAnalyze(RootAnalyze):
                 entrydata["truefid"].append(showerreco.getTrueFid())
                 entrydata["numtrueshowers"].append(showerreco.getNumTrueShowers())
 
-     
-            if (showerreco.getNumTrueShowers() ==1 or showerreco.getNumTrueShowers() ==2):
+
+            if (showerreco.getTrueFid()==1 and (showerreco.getNumTrueShowers() ==1 or showerreco.getNumTrueShowers() ==2)):
                 print "Num showers: ",showerreco.getNumTrueShowers()
                 entrydata["shower_energy_true"]=[]
                 entrydata["shower_recotrue_dist"]=[]
@@ -489,7 +489,7 @@ class DLAnalyze(RootAnalyze):
                     entrydata["first_direction_true"].append( [ showerreco.getTrueShowerDirection(ivtx,dir) for dir in xrange(3)])
                     entrydata["shower_start_2d_true"].append( [ showerreco.getTrueShower2DStart(ivtx,idx) for idx in xrange(4)])
 
-            if (showerreco.getNumTrueShowers()==2):
+            if (showerreco.getTrueFid()==1 and showerreco.getNumTrueShowers()==2):
                 entrydata["secondshower_energy_true"]=[]
                 entrydata["secondshower_recotrue_dist"]=[]
                 entrydata["second_direction_true"]=[]
