@@ -407,6 +407,7 @@ class DLAnalyze(RootAnalyze):
                       "shower_direction_2d":[],
                       "shower_opening_2d":[],
                       "shower_start_2d":[],
+                      "shower_smallq":[],
                       }
 
         # Save first shower output
@@ -419,6 +420,7 @@ class DLAnalyze(RootAnalyze):
             entrydata["shower_direction_3d"].append( [ showerreco.getFirstDirection(ivtx,dir) for dir in xrange(3) ])
             entrydata["shower_direction_2d"].append( [ showerreco.getVertexShowerDirection2D(ivtx,dir) for dir in xrange(3) ])
             entrydata["shower_opening_2d"].append( [ showerreco.getVertexShowerOpening2D(ivtx,dir) for dir in xrange(3) ])
+            entrydata["shower_smallq"].append( [ showerreco.getVertexCropSumQ(ivtx,p) for p in xrange(3) ] )
             # showerstart also needs a loop over x,y,z
             for p in xrange(3):
                 entrydata["shower_start_2d"].append( [ showerreco.getShowerStart2D(ivtx,p,dir) for dir in xrange(3) ])
@@ -439,6 +441,7 @@ class DLAnalyze(RootAnalyze):
             entrydata["secondshower_direction_2d"]=[]
             entrydata["secondshower_opening_2d"]=[]
             entrydata["secondshower_start_2d"] =[]
+            entrydata["secondshower_smallq"] = []
 
             for ivtx in xrange(showerreco.numVertices()):
                 entrydata["secondshower_energies"].append( [ showerreco.getVertexSecondShowerEnergy(ivtx,p) for p in xrange(3) ] )
@@ -448,6 +451,7 @@ class DLAnalyze(RootAnalyze):
                 entrydata["pi0mass"].append([showerreco.getPi0Mass(ivtx)])
                 entrydata["opening_angle_3d"].append([showerreco.getAlpha(ivtx)])
                 entrydata["shower_impact"].append([showerreco.getImpact1(ivtx)])
+                entrydata["secondshower_smallq"].append( [ showerreco.getVertexSecondShowerCropSumQ(ivtx,p) for p in xrange(3) ] )
                 entrydata["secondshower_impact"].append([showerreco.getImpact2(ivtx)])
                 entrydata["secondshower_direction_2d"].append( [ showerreco.getVertexSecondShowerDirection2D(ivtx,dir) for dir in xrange(3) ])
                 entrydata["secondshower_opening_2d"].append( [ showerreco.getVertexSecondShowerOpening2D(ivtx,dir) for dir in xrange(3) ])

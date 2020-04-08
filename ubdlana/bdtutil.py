@@ -58,7 +58,7 @@ def apply_1e1p_model( model, dlvars ):
         dlvars._lepton_phi[0],    # Lepton_PhiReco,
         max(dlvars._minshrFrac[0],-1), # MinShrFrac
         max(dlvars._maxshrFrac[0],-1), # MaxShrFrac
-        -1.0, #SHOWER_CHARGE_IN_IMAGE / SHOWER_CHARGE_IN_SHOWER_CLUSTER,
+        max(dlvars._shower1_smallq_Y[0]/dlvars._shower1_sumq_Y[0],-1.0), # SHOWER_CHARGE_IN_SHOWER_CLUSTER/SHOWER_CHARGE_IN_IMAGE
         dlvars._openAng[0] ]] #OpenAng ]
 
     vars_np = np.asarray( input_vars )
