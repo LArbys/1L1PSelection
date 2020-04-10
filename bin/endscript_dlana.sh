@@ -6,7 +6,7 @@ echo "SAM SCHEMA: "$SAM_SCHEMA
 echo "local files:"
 ls -lh
 source /cvmfs/uboone.opensciencegrid.org/products/setup_uboone.sh
-setup ubdlana develop -q e17:prof
+setup ubdlana v1_0_0 -q e17:prof
 rootcp out_showerrecov2.root:*ssnetshowerrecov2* temp1.root || { echo "error copying larlite shower trees to temp"; exit 1; };
 rootcp out_showerrecov2.root:*dqdx_* temp2.root || { echo "error copying larlite dqdx trees to temp"; exit 1; };
 
