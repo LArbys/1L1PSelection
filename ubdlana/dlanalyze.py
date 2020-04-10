@@ -147,6 +147,11 @@ class DLAnalyze(RootAnalyze):
 
         return ['*']
 
+    def event_info(self, tree):
+        """
+        tree that is passed is suppose to tbe the _recoTree
+        """
+        return tree.run,tree.subrun,tree.event
 
     def open_output(self, output_file):
         #----------------------------------------------------------------------
