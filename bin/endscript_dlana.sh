@@ -7,7 +7,8 @@ echo "local files:"
 ls -lh
 source /cvmfs/uboone.opensciencegrid.org/products/setup_uboone.sh
 setup ubdlana develop -q e17:prof
-rootcp out_showerrecov2.root:*ssnetshowerrecov2* temp.root || { echo "error copying larlite shower trees to temp"; exit 1; };
+rootcp out_showerrecov2.root:*ssnetshowerrecov2* temp1.root || { echo "error copying larlite shower trees to temp"; exit 1; };
+rootcp out_showerrecov2.root:*dqdx_* temp2.root || { echo "error copying larlite dqdx trees to temp"; exit 1; };
 
 input=transferred_uris.list
 
@@ -27,7 +28,8 @@ else
 fi
 
 # add extracted shower code
-echo temp.root >> dlanalyze_input_list.txt
+echo temp1.root >> dlanalyze_input_list.txt
+echo temp2.root >> dlanalyze_input_list.txt
 # change name of output ana file and its json
 mv merged_dlana0.root hist.root
 mv merged_dlana0.root.json merged_dlana.root.json
@@ -42,7 +44,8 @@ echo "attempt hadd"
 hadd -f merged_dlana.root @dlanalyze_input_list.txt || { echo "error hadding temp and input files"; exit 1; };
 
 echo "clean up"
-rm temp.root
+rm temp1.root
+rm temp2.root
 rm hist.root
 rm out_showerrecov2.root
 

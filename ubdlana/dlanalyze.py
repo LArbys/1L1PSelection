@@ -103,6 +103,9 @@ class DLAnalyze(RootAnalyze):
 
         self.showerreco.set_output_treename( shr_ana )
 
+        # SETUP DQDX module
+        self.dqdxbuilder = larlitecv.DQDXBuilder()
+
         # SETUP MPID
         mpid_cfg = os.environ["UBMPIDNET_DIR"]+"/production_cfg/inference_config_tufts_WC.cfg"
         self.mpid, self.mpid_cfg = mpidutil.load_mpid_model( mpid_cfg )
@@ -269,9 +272,29 @@ class DLAnalyze(RootAnalyze):
         print "process: ",rse_br
 
         # run shower reco
+        print 'run shower reco'
         self.showerreco.process( self.in_lcv, self.io_ll, entry )
         self.showerreco.store_in_larlite(self.io_ll)
-        self.io_ll.next_event()
+
+
+        # run dq/dx
+        print 'run dqdx'
+        ev_track = self.io_ll.get_data(larlite.data.kTrack,"trackReco")
+        evout_dqdxtrack_u = self.io_ll.get_data(larlite.data.kTrack,"dqdx_U")
+        evout_dqdxtrack_v = self.io_ll.get_data(larlite.data.kTrack,"dqdx_V")
+        evout_dqdxtrack_y = self.io_ll.get_data(larlite.data.kTrack,"dqdx_Y")
+        self.dqdxbuilder.set_img_v(ev_adc.Image2DArray())
+        for itrack in xrange(ev_track.size()):
+            reco3d_track = ev_track.at(itrack)
+            dqdxtrack_u = self.dqdxbuilder.calc_dqdx_track_revamp(reco3d_track, 0);
+            dqdxtrack_v = self.dqdxbuilder.calc_dqdx_track_revamp(reco3d_track, 1);
+            dqdxtrack_y = self.dqdxbuilder.calc_dqdx_track_revamp(reco3d_track, 2);
+            evout_dqdxtrack_u.push_back( dqdxtrack_u )
+            evout_dqdxtrack_v.push_back( dqdxtrack_v )
+            evout_dqdxtrack_y.push_back( dqdxtrack_y )
+
+        # save larlite entry and go to next event
+        self.io_ll.next_event()        
 
         # run mpid reco
         nmpid_vertices = mpidutil.run_mpid_on_larcv_entry( self.mpid_cfg, self.mpid, self.in_lcv, self.mpid_data, self.mpid_anatree )
@@ -375,9 +398,14 @@ class DLAnalyze(RootAnalyze):
         self.dict_ShowerReco = {"entries":[]}
 
         for entry in xrange(nentries):
+            # load larlite entry
             self.larlite_id_tree.GetEntry(entry)
+            # run extra
             self.analyze_larlite_and_larcv_entry(self.larlite_id_tree,entry)
+            # get showerreco energy, intermediary before storing in dlanatree
             self.extract_showerreco_entry_vars(self.dict_ShowerReco,self.showerreco)
+
+            
 
         self.df_ShowerReco = ShowerRecoData( self.dict_ShowerReco )
 
