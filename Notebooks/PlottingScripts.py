@@ -129,9 +129,9 @@ def distplot_wratio(myvar,nbins,myrange,predhists,datahist,stxcoord,legpos=0,yma
         if vals_mc_raw[i] > 0:
             ndof += 1
             if vals_data[i] > 0:
-                chisq += np.true_divide(np.power(vals_data[i]-(vals_mc[i]*normshift),2),(3.0*vals_data[i]*vals_mc_raw[i])/(vals_mc_raw[i]+2.0*vals_data[i]))
+                chisq += np.true_divide(np.power(vals_data[i]-(vals_mc[i]*normshift),2),(3.0*vals_data[i]*vals_mc[i]*normshift)/(vals_mc[i]*normshift+2.0*vals_data[i]))
             else:
-                chisq += np.true_divide(np.power(vals_data[i]-(vals_mc[i]*normshift),2),(vals_mc_raw[i]/2.0))
+                chisq += np.true_divide(np.power(vals_data[i]-(vals_mc[i]*normshift),2),(vals_mc[i]*normshift/2.0))
 
     #chisq = np.true_divide(np.power(vals_data-(vals_mc*normshift),2),(3*vals_data*vals_mc)/(vals_mc+2*vals_data)).sum() #Chi2 CNP
 
