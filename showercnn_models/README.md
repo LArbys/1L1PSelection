@@ -1,0 +1,3 @@
+Models
+
+ResNet18_nueintrinsic_JoshImages_epoch120.pytorch_weights

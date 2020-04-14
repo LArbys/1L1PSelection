@@ -39,6 +39,9 @@ import mpidutil
 # BDT utils
 import bdtutil
 
+# ShowerCNN utils
+import showercnnutil
+
 # DL Final Vertex Variables
 from showerrecodata import ShowerRecoData # provides wrapper for shower reco info
 from dlanatree import DLanaTree
@@ -152,6 +155,16 @@ class DLAnalyze(RootAnalyze):
         self.bdt_model_1e1p = bdtutil.load_1e1p_model( self.weights_1e1p_nu )
         self.bdt_model_1mu1p_cosmic, self.bdt_model_1mu1p_nu = bdtutil.load_1mu1p_models( self.weights_1mu1p_cosmic )
         print "Loaded BDT models"
+
+        # Setup Shower CNN
+        self.weights_showercnn = config['modules']['dlanalyze']['showercnn_weights'] 
+        if self.weights_showercnn in ["x","DoNotRun",""]:
+            self.showercnn = None
+            print "Not running Shower CNN model"
+        else:
+            self.showercnn = showercnnutil.load_showercnn_model( self.weights_showercnn )
+            print "Loaded Shower CNN Model"
+            print self.showercnn
 
         return
 
