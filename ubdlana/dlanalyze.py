@@ -99,7 +99,11 @@ class DLAnalyze(RootAnalyze):
         if False:
             self.showerreco.use_bnb( True )
         if self.ismc:
+            print "[DLAnalyze::USE MC]"
             self.showerreco.use_mc( True )
+        else:
+            print "[DLAnalyze::NOT MC]"
+            self.showerreco.use_mc( False )
 
         self.showerreco.set_output_treename( shr_ana )
 
@@ -367,9 +371,9 @@ class DLAnalyze(RootAnalyze):
         self.VtxTree  = input_file.Get("VertexTree")
         self.ShpTree  = input_file.Get("ShapeAnalysis")
         self.ShrTree  = input_file.Get("SecondShowerAnalysis")
+        self.MC_dict = {}
         if self.ismc:
             self.MCTree = input_file.Get("MCTree")
-            self.MC_dict = {}
             for ev in self.MCTree:
                 run            = ev.run
                 subrun         = ev.subrun
