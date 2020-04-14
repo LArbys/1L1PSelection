@@ -118,6 +118,22 @@ class DLAnalyze(RootAnalyze):
         self.precutpars = makePMTpars( self.sample_type )
         self.precutpars['ophittree'] = config['modules']['dlanalyze']['precut_ophits']
 
+        # SETUP CRT Veto module
+        self.crtveto_pars = config['modules']['dlanalyze']['crtveto']
+        self.crtveto = larlite.CRTVeto()
+        if self.sample_type=="BNB":
+            self.crtveto.setDefaults( larlite.CRTVeto.kBNB )
+        elif self.sample_type=="EXT":
+            self.crtveto.setDefaults( larlite.CRTVeto.kEXTBNB )
+        elif self.sample_type=="Overlay":
+            self.crtveto.setDefaults( larlite.CRTVeto.kOVERLAY )
+        elif self.sample_type=="MC":
+            self.crtveto.setDefaults( larlite.CRTVeto.kMC )
+        else:
+            raise ValueError("unrecognized sample type: "+self.sample_type)
+        self.crtveto.setOpFlashProducer( self.crtveto_pars['opflash_producer'] )
+        self.crtveto.setCRTHitProducer( self.crtveto_pars['crthit_producer'] )
+
         # SCE class
         self.sce = larutil.SpaceChargeMicroBooNEMCC9()
 
@@ -183,6 +199,13 @@ class DLAnalyze(RootAnalyze):
         shr_dir.cd()
         self.showerreco.setupAnaTree()
         self.shr_anatree = self.showerreco.getAnaTree()
+
+        # make crtveto tree
+        crtveto_dir = output_file.mkdir("crtveto")
+        crtveto_dir.cd()
+        #self.crtveto_tree = ROOT.TTree("crtvetoana","CRTVeto output varibles")
+        #self.crtveto.bindOutputVariablesToTree( self.crtveto_tree )
+        self.crtveto.initialize()
 
         return
 
@@ -285,6 +308,8 @@ class DLAnalyze(RootAnalyze):
         self.showerreco.process( self.in_lcv, self.io_ll, entry )
         self.showerreco.store_in_larlite(self.io_ll)
 
+        # run crtveto
+        crtveto_result = self.crtveto.analyze( self.io_ll )
 
         # run dq/dx
         print 'run dqdx'
@@ -331,9 +356,9 @@ class DLAnalyze(RootAnalyze):
         self.io_ll.set_data_to_read( larlite.data.kMCShower, "mcreco" )
         self.io_ll.set_data_to_read( larlite.data.kMCTruth,  "generator" )
         self.io_ll.set_data_to_read( larlite.data.kOpHit,    self.precutpars['ophittree'] )
-        #self.io_ll.set_data_to_write( larlite.data.kShower, self.llout_name )
-        #self.io_ll.set_data_to_write( larlite.data.kShower, self.llout_name+"_sec" )
-        #self.io_ll.set_data_to_write( larlite.data.kLArFlowCluster, self.llout_name )
+        self.io_ll.set_data_to_read( larlite.data.kOpFlash,  self.crtveto_pars['opflash_producer'] )
+        self.io_ll.set_data_to_read( larlite.data.kCRTHit,   self.crtveto_pars['crthit_producer'] )
+
         self.io_ll.open()
         self.io_ll.next_event() # go to first entry
 
