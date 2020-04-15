@@ -57,7 +57,7 @@ class DLFilter(RootAnalyze):
 
         self.input_file_list = [] # gets append to during open_input function
         self.filter_pars = config['modules']['dlfilter']
-
+        self.filter_type = self.filter_pars['filter_type']
         return
 
 
@@ -195,7 +195,10 @@ class DLFilter(RootAnalyze):
             #raw_input()
 
 
-        self.run_numu_filter(finalvertextree)
+        if self.filter_type=="numu-sideband":
+            self.run_numu_filter(finalvertextree)
+        else:
+            raise ValueError("unrecognized filter type: ",self.filter_type)
 
 
         print "Cloning output trees"

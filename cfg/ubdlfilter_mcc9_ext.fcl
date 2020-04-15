@@ -6,5 +6,5 @@ input_tree : "larlite_id_tree"
 loop_over_entries : True
 dump_every: 1
 modules : { sam_metadata: {}
-	    dlfilter:     {}
+	    dlfilter: { filter_type:"numu-sideband" }
           }
