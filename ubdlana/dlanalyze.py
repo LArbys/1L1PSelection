@@ -9,7 +9,15 @@
 #
 ###############################################################################
 import sys, os
-from root_analyze import RootAnalyze
+try:    
+    from root_analyze import RootAnalyze
+except:
+    """ dumpy class """
+    print "No root_analyze. Making a dummy class"
+    class RootAnalyze:
+        def __init__(self):
+            pass
+    
 from ROOT import TFile
 
 # Prevent root from printing garbage on initialization.
@@ -196,6 +204,8 @@ class DLAnalyze(RootAnalyze):
         #
         #----------------------------------------------------------------------
 
+        print "dlanalyze::open_output"
+        
         # Make output directory.
         dir = output_file.mkdir('dlana')
         dir.cd()
