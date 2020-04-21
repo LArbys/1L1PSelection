@@ -177,6 +177,13 @@ class DLAnalyze(RootAnalyze):
             print "Loaded Shower CNN Model"
             print self.showercnn
 
+        # Setup LArbysMC utility, if MC
+        if self.ismc:
+            self.larbysmc = larlitecv.LArbysMC()
+        else:
+            self.larbysmc = None
+
+
         return
 
 
@@ -213,9 +220,13 @@ class DLAnalyze(RootAnalyze):
         dir = output_file.mkdir('dlana')
         dir.cd()
 
-        # Done.
+        # output finalvertexvariable (FVV) tree
         self.anatreeclass = DLanaTree()
         self.output_file = output_file
+
+        if self.ismc:
+            # we bind the MC truth variables to it, too
+            self.larbysmc.bindAnaVariables( self.anatreeclass.outTree )
 
         # Make MPID tree
         self.mpid_data, self.mpid_anatree = mpidutil.make_mpid_anatree(output_file)
@@ -294,6 +305,17 @@ class DLAnalyze(RootAnalyze):
         self.anatreeclass._bdtscore_1mu1p_cosmic[0] = probs_1mu1p_cosmic
         self.anatreeclass._bdtscore_1mu1p_nu[0]     = probs_1mu1p_nu
 
+        if self.ismc:
+            # load the right entry for the larlite
+            rse = (self.anatreeclass._run[0], self.anatreeclass._subrun[0], self.anatreeclass._event[0])
+            if rse in self.rse2entry:
+                entry = self.rse2entry[rse]
+                self.io_ll_formc.go_to( entry )
+                self.larbysmc.process(self.io_ll_formc)
+                self.larbysmc.printInteractionInfo()
+            else:
+                raise RuntimeError("Could not find {} in rse2entry dict".format(rse))
+
         self.anatreeclass.outTree.Fill()
 
     def analyze_larlite_and_larcv_entry(self, tree, entry):
@@ -310,6 +332,7 @@ class DLAnalyze(RootAnalyze):
         # Get a leaf from the main tree.
 
         rse_br = []
+
         for brname in ['_run_id','_subrun_id','_event_id']:
             br = tree.GetBranch(brname)
             leaves = br.GetListOfLeaves()
@@ -328,6 +351,7 @@ class DLAnalyze(RootAnalyze):
 
         # check run, subrun, event
         print "process: ",rse_br
+        self.rse2entry[ (self.io_ll.run_id(),self.io_ll.subrun_id(),self.io_ll.event_id()) ] = entry
 
         # run shower reco
         print 'run shower reco'
@@ -380,6 +404,7 @@ class DLAnalyze(RootAnalyze):
         self.io_ll.set_out_filename( "out_showerrecov2.root" )
         self.io_ll.set_data_to_read( larlite.data.kTrack, "trackReco" )
         self.io_ll.set_data_to_read( larlite.data.kMCShower, "mcreco" )
+        self.io_ll.set_data_to_read( larlite.data.kMCTrack,  "mcreco" )
         self.io_ll.set_data_to_read( larlite.data.kMCTruth,  "generator" )
         self.io_ll.set_data_to_read( larlite.data.kOpHit,    self.precutpars['ophittree'] )
         self.io_ll.set_data_to_read( larlite.data.kOpFlash,  self.crtveto_pars['opflash_producer'] )
@@ -445,6 +470,16 @@ class DLAnalyze(RootAnalyze):
         # We attach the MPID ana tree as well
         self.tree_obj.AddFriend(self.mpid_anatree)
 
+        if self.ismc:
+            print "[OPEN LARLITE MANAGER FOR MC]"
+            self.io_ll_formc = larlite.storage_manager( larlite.storage_manager.kREAD )
+            for  infile in self.input_file_list:
+                print " adding larlite input: ",infile
+                self.io_ll_formc.add_in_filename( infile )
+            self.io_ll_formc.set_data_to_read( larlite.data.kMCShower, "mcreco" )
+            self.io_ll_formc.set_data_to_read( larlite.data.kMCTrack,  "mcreco" )
+            self.io_ll_formc.set_data_to_read( larlite.data.kMCTruth,  "generator" )
+            self.io_ll_formc.open()
 
         print "[ End input tree prep ]"
         print "================================"
@@ -457,6 +492,7 @@ class DLAnalyze(RootAnalyze):
         # we create a dictionary where we will store shower reco variables
         self.dict_ShowerReco = {"entries":[]}
 
+        self.rse2entry = {}
         for entry in xrange(nentries):
             print "[DLAnalyze::Make_MoreReco_Variables] ENTRY ",entry," of ",nentries
             # load larlite entry
@@ -474,6 +510,8 @@ class DLAnalyze(RootAnalyze):
         """ close larcv and larlite files. larlite output file will write."""
         self.in_lcv.finalize()
         self.io_ll.close()
+        if self.ismc:
+            self.io_ll_formc.close()
         self.calibfile.Close()
         fout = open('dlanalyze_input_list.txt','w')
         for f in self.input_file_list:
