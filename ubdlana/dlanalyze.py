@@ -50,6 +50,9 @@ import bdtutil
 # ShowerCNN utils
 import showercnnutil
 
+# MC Information
+import mcutil
+
 # DL Final Vertex Variables
 from showerrecodata import ShowerRecoData # provides wrapper for shower reco info
 from dlanatree import DLanaTree
@@ -455,6 +458,7 @@ class DLAnalyze(RootAnalyze):
         self.dict_ShowerReco = {"entries":[]}
 
         for entry in xrange(nentries):
+            print "[DLAnalyze::Make_MoreReco_Variables] ENTRY ",entry," of ",nentries
             # load larlite entry
             self.larlite_id_tree.GetEntry(entry)
             # run extra
@@ -480,6 +484,8 @@ class DLAnalyze(RootAnalyze):
     def extract_showerreco_entry_vars(self,data,showerreco):
         """ get variables from showerreco class """
 
+        print "Num Vertices reconstructed: ",showerreco.numVertices()
+
         entrydata = { "run":self.in_lcv.event_id().run(),
                       "subrun":self.in_lcv.event_id().subrun(),
                       "event":self.in_lcv.event_id().event(),
@@ -493,6 +499,7 @@ class DLAnalyze(RootAnalyze):
                       "shower_opening_2d":[],
                       "shower_start_2d":[],
                       "shower_smallq":[],
+                      "pi0mass":[]
                       }
 
         # Save first shower output
@@ -518,7 +525,6 @@ class DLAnalyze(RootAnalyze):
             entrydata["secondshower_sumQs"] = []
             entrydata["secondshower_shlengths"] = []
             entrydata["secondshower_gap"] = []
-            entrydata["pi0mass"] = []
             entrydata["opening_angle_3d"] = []
             entrydata["shower_impact"] = []
             entrydata["secondshower_impact"] =[]
@@ -553,6 +559,11 @@ class DLAnalyze(RootAnalyze):
             entrydata["haspi0"] = []
             entrydata["truefid"] = []
             entrydata["numtrueshowers"] =[]
+            if showerreco.numVertices()==0:
+                entrydata["ccnc"].append(showerreco.getCCNC())
+                entrydata["haspi0"].append(showerreco.getHasPi0())
+                entrydata["truefid"].append(showerreco.getTrueFid())
+                entrydata["numtrueshowers"].append(showerreco.getNumTrueShowers())                
 
             for ivtx in xrange(showerreco.numVertices()):
                 entrydata["ccnc"].append(showerreco.getCCNC())
@@ -562,7 +573,7 @@ class DLAnalyze(RootAnalyze):
 
 
             if (showerreco.getTrueFid()==1 and (showerreco.getNumTrueShowers() ==1 or showerreco.getNumTrueShowers() ==2)):
-                print "Num showers: ",showerreco.getNumTrueShowers()
+                print "Num true showers: ",showerreco.getNumTrueShowers()
                 entrydata["shower_energy_true"]=[]
                 entrydata["shower_recotrue_dist"]=[]
                 entrydata["first_direction_true"]=[]

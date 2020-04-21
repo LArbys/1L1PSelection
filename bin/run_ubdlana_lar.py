@@ -22,11 +22,10 @@ args = parser.parse_args()
 # ------------------------------------------------------------------------------- #
 # IMPORT MODULES
 #from root_analyze import RootAnalyze
-import ROOT as rt
 import ubdlana
 import ubdlana.dlanalyze
 from ubdlana.dlanalyze import DLAnalyze
-
+import ROOT as rt
 
 if args.sample_type=="Overlay":
     ismc = True

@@ -96,7 +96,11 @@ def run_mpid_on_larcv_entry( cfg, mpid, iom, rd, outtree ):
         rd.vtxid[0] = int(ix)
    
         pgr = ev_pgr.PGraphArray().at(ix)
-        cindex_v = np.array(pgr.ClusterIndexArray())
+        cluster_array = pgr.ClusterIndexArray()
+        if cluster_array.size()==0:
+            cindex_v = []
+        else:
+            cindex_v = np.array(pgr.ClusterIndexArray())
         
         pixel2d_par_vv = ev_par.Pixel2DClusterArray()
         pixel2d_pix_vv = ev_pix.Pixel2DClusterArray()
@@ -273,7 +277,11 @@ def main(IMAGE_FILE,OUT_DIR,CFG,FILEID=0):
             rd.vtxid[0] = int(ix)
    
             pgr = ev_pgr.PGraphArray().at(ix)
-            cindex_v = np.array(pgr.ClusterIndexArray())
+            cluster_array = pgr.ClusterIndexArray()
+            if cluster_array.size()==0:
+                cindex_v = []
+            else:
+                cindex_v = np.array(pgr.ClusterIndexArray())
             
             pixel2d_par_vv = ev_par.Pixel2DClusterArray()
             pixel2d_pix_vv = ev_pix.Pixel2DClusterArray()
