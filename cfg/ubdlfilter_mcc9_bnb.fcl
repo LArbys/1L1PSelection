@@ -7,8 +7,8 @@ loop_over_entries : True
 dump_every: 1
 modules : { sam_metadata: {}
 	    dlfilter: { filter_type:"numu-sideband"
-                        rerun_precuts: True 
+                        rerun_precuts: True
                         precut_ophits: "ophitBeamCalib"
-                        sample_type: "EXT"
+                        sample_type: "BNB"
                       }
           }

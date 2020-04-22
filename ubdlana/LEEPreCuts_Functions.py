@@ -97,7 +97,7 @@ def performPMTPrecuts(s_dlmerged,
     fout.close()
 
     pset = fcllite.CreatePSetFromFile("precut.cfg","PMTPreCut")
-    #print pset.dump()
+    print pset.dump()
 
     pset = fcllite.PSet("PMTPreCut",cfg)
     precutalgo = larlite.LEEPreCut()
@@ -122,11 +122,11 @@ def performPMTPrecuts(s_dlmerged,
 
         ev_ophits   = ll_manager.get_data(larlite.data.kOpHit,ophittree)
         print "[event {}] number of ophits: {}".format( id_rse, ev_ophits.size() )
-        passcuts = precutalgo.apply( ev_ophits )
+        ok = precutalgo.apply( ev_ophits )
         PMTPrecutDict[id_rse] = dict(_totpe=precutalgo.beamPE(),
                                      _porchtotpe=precutalgo.vetoPE(),
                                      _maxpefrac=precutalgo.maxFrac(),
-                                     _passpmtprecut=passcuts,
+                                     _passpmtprecut=precutalgo.passes(),
                                      _beamFirstTick=precutalgo.beamFirstTick(),
                                      _vetoFirstTick=precutalgo.vetoFirstTick() )
 

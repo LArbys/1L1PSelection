@@ -8,7 +8,7 @@
 # Created: 15-Apr-2020, T. Wongjirad
 #
 ###############################################################################
-import sys, os
+import sys, os, array
 from root_analyze import RootAnalyze
 from ROOT import TFile
 
@@ -29,6 +29,8 @@ sys.argv = myargv
 from larlite import larlite,larutil
 from larcv import larcv
 from larlitecv import larlitecv
+
+from LEEPreCuts_Functions import makePMTpars,performPMTPrecuts,getPMTPrecutDict
 
 def make(config):
     #----------------------------------------------------------------------
@@ -58,6 +60,15 @@ class DLFilter(RootAnalyze):
         self.input_file_list = [] # gets append to during open_input function
         self.filter_pars = config['modules']['dlfilter']
         self.filter_type = self.filter_pars['filter_type']
+        self.sample_type = self.filter_pars['sample_type']
+
+        if bool(self.filter_pars['rerun_precuts']):
+            self.rerun_pmtprecuts = True
+            self.precutpars = makePMTpars( self.sample_type )
+            self.precutpars['ophittree'] = self.filter_pars['precut_ophits']
+        else:
+            self.rerun_pmtprecuts = False
+
         return
 
 
@@ -151,6 +162,10 @@ class DLFilter(RootAnalyze):
         #input_file.ls()
         self.input_file_list.append(input_file.GetName())
 
+        # rerun precuts
+        if self.rerun_pmtprecuts:
+            self.PMTPrecut_Dict = performPMTPrecuts( input_file.GetName(), **self.precutpars )
+
         # we need to get the event and vertex trees
         larlite_id_tree = input_file.Get("larlite_id_tree") # provides event-indexing tree
         finalvertextree = input_file.Get("dlana/FinalVertexVariables")
@@ -160,6 +175,8 @@ class DLFilter(RootAnalyze):
         self.vertex_indexed_trees = []
         self.event_indexed_trees  = []
         self.other_trees = []
+
+        fvv_tree = None
 
         dirlist = [None]
 
@@ -183,6 +200,9 @@ class DLFilter(RootAnalyze):
                         self.event_indexed_trees.append(atree)
                     elif nentries==nvertex_entries:
                         self.vertex_indexed_trees.append(atree)
+                        if treename=="dlana/FinalVertexVariables":
+                            # save pointer to this tree in case we want to modify it
+                            fvv_tree = atree
                     else:
                         print "A tree that does not match either event or vertex indexed entries: ",treename
                         self.other_trees.append(atree)
@@ -207,32 +227,65 @@ class DLFilter(RootAnalyze):
         self.out_vertex_indexed_trees = []
 
         self.output_file.cd()
+        outfvv_tree = None
         for tree in self.event_indexed_trees:
             self.out_event_indexed_trees.append( tree.CloneTree(0) )
         for tree in self.vertex_indexed_trees:
             self.out_vertex_indexed_trees.append( tree.CloneTree(0) )
+            if tree==fvv_tree:
+                outfvv_tree = self.out_vertex_indexed_trees[-1]
         
 
+        neventsout = 0
+        nverticesout = 0
         for ientry in xrange( larlite_id_tree.GetEntries() ):
             larlite_id_tree.GetEntry(ientry)
             rse = ( larlite_id_tree._run_id, larlite_id_tree._subrun_id, larlite_id_tree._event_id )
             if rse in self.rse_dict and self.rse_dict[rse]:
+                neventsout+=1
                 for tree in self.event_indexed_trees:
                     tree.GetEntry(ientry)
                 for tree in self.out_event_indexed_trees:
                     tree.Fill()
 
+        # if rerunning steps, we have to replace the branch addresses with new ones
+        if self.rerun_pmtprecuts:
+            rerun_totpe      = array.array('f',[0.0])
+            rerun_maxpefrac  = array.array('f',[0.0])
+            rerun_porchtotpe = array.array('f',[0.0])
+            rerun_pass       = array.array('i',[0])
+            outfvv_tree.SetBranchAddress( "TotPE", rerun_totpe )
+            outfvv_tree.SetBranchAddress( "PorchTotPE", rerun_porchtotpe )
+            outfvv_tree.SetBranchAddress( "MaxPEFrac", rerun_maxpefrac )
+            outfvv_tree.SetBranchAddress( "PassPMTPrecut", rerun_pass )
+
+
         for ientry in xrange( finalvertextree.GetEntries() ):
             finalvertextree.GetEntry(ientry)
             rse  = ( finalvertextree.run, finalvertextree.subrun, finalvertextree.event)            
             if rse in self.rse_dict and self.rse_dict[rse]:
+                nverticesout+=1
+
                 for tree in self.vertex_indexed_trees:
                     tree.GetEntry(ientry)
+
+                if self.rerun_pmtprecuts:
+                    print 'replacing precut results with those from rerun of rse[',rse,']: '
+                    print ' totpe old=',fvv_tree.TotPE,' new=',self.PMTPrecut_Dict[rse]['_totpe']
+                    print ' maxpefrac old=',fvv_tree.MaxPEFrac,' new=',self.PMTPrecut_Dict[rse]['_maxpefrac']
+                    rerun_totpe[0]      = self.PMTPrecut_Dict[rse]['_totpe']
+                    rerun_porchtotpe[0] = self.PMTPrecut_Dict[rse]['_porchtotpe']
+                    rerun_maxpefrac[0]  = self.PMTPrecut_Dict[rse]['_maxpefrac']
+                    rerun_pass[0]       = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
+
                 for tree in self.out_vertex_indexed_trees:
+
                     tree.Fill()
 
         print "Num of event-indexed trees: ",len(self.event_indexed_trees)
         print "Num of vertex-indexed trees: ",len(self.vertex_indexed_trees)
+        print "Num of events saved: ",neventsout
+        print "Num of vertices saved: ",nverticesout
         print "[ End input tree prep ]"
         print "================================"
 
@@ -266,7 +319,14 @@ class DLFilter(RootAnalyze):
             rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
             rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
 
-            if ( dlanatree.PassPMTPrecut==1
+            passprecuts = int(dlanatree.PassPMTPrecut)
+            if self.rerun_pmtprecuts:
+                passrerun = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
+                print "replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
+                print self.PMTPrecut_Dict[rse]['_passpmtprecut']
+                passprecuts = passrerun
+
+            if ( passprecuts==1
                  and dlanatree.PassSimpleCuts==1
                  and dlanatree.MaxShrFrac<0.2
                  and dlanatree.OpenAng>0.5
@@ -277,8 +337,9 @@ class DLFilter(RootAnalyze):
                  and dlanatree.BDTscore_1mu1p_cosmic>0.0
                  and dlanatree.BDTscore_1mu1p_nu>0.0 ):
                 passes = True
-
-            if ientry in [2,5]:
+            
+            # for debug: make something pass in order to check
+            if True:
                 passes = True # for debug
                 
             if rse not in self.rse_dict:
