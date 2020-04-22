@@ -114,8 +114,9 @@ class DLAnalyze(RootAnalyze):
         self.dqdxbuilder = larlitecv.DQDXBuilder()
 
         # SETUP MPID
-        mpid_cfg = os.environ["UBMPIDNET_DIR"]+"/production_cfg/inference_config_tufts_WC.cfg"
-        self.mpid, self.mpid_cfg = mpidutil.load_mpid_model( mpid_cfg )
+        self.mpid_cfg_path = os.environ["UBMPIDNET_DIR"]+"/production_cfg/inference_config_tufts_WC.cfg"
+        # lazy load
+        #self.mpid, self.mpid_cfg = mpidutil.load_mpid_model( mpid_cfg )
 
         # SETUP PMT Precuts module
         self.precutpars = makePMTpars( self.sample_type )
@@ -152,9 +153,14 @@ class DLAnalyze(RootAnalyze):
         self.weights_1e1p_nu      = config['modules']['dlanalyze']['bdt_1e1p_weights']
         self.weights_1mu1p_nu     = config['modules']['dlanalyze']['bdt_1mu1p_nu_weights']
         self.weights_1mu1p_cosmic = config['modules']['dlanalyze']['bdt_1mu1p_cosmic_weights']
-        self.bdt_model_1e1p = bdtutil.load_1e1p_model( self.weights_1e1p_nu )
-        self.bdt_model_1mu1p_cosmic, self.bdt_model_1mu1p_nu = bdtutil.load_1mu1p_models( self.weights_1mu1p_cosmic )
-        print "Loaded BDT models"
+        
+        # lazy load the model
+        self.bdt_model_1e1p = None
+        self.bdt_model_1mu1p_cosmic = None
+        self.bdt_model_1mu1p_nu     = None
+        #self.bdt_model_1e1p = bdtutil.load_1e1p_model( self.weights_1e1p_nu )
+        #self.bdt_model_1mu1p_cosmic, self.bdt_model_1mu1p_nu = bdtutil.load_1mu1p_models( self.weights_1mu1p_cosmic )
+        #print "Loaded BDT models"
 
         # Setup Shower CNN
         self.weights_showercnn = config['modules']['dlanalyze']['showercnn_weights'] 
@@ -257,6 +263,14 @@ class DLAnalyze(RootAnalyze):
         #
         #----------------------------------------------------------------------
         """ this is a loop over vertex entries """
+
+        # lazy load bdts
+        if self.bdt_model_1e1p is None:
+            self.bdt_model_1e1p = bdtutil.load_1e1p_model( self.weights_1e1p_nu )
+        if self.bdt_model_1mu1p_cosmic is None:
+            self.bdt_model_1mu1p_cosmic, self.bdt_model_1mu1p_nu = bdtutil.load_1mu1p_models( self.weights_1mu1p_cosmic )
+
+
         entry = tree.GetReadEntry()
         self.tree_obj.GetEntry(entry)
 
@@ -400,7 +414,14 @@ class DLAnalyze(RootAnalyze):
         self.larlite_id_tree = input_file.Get("larlite_id_tree")
 
         # make mpid and showerreco data
+        # load mpid now
+        print "[load the mpid]"
+        self.mpid, self.mpid_cfg = mpidutil.load_mpid_model( self.mpid_cfg_path )
         self.make_morereco_variables()
+        # done with the mpid
+        print "[clean up the mpid]"
+        del self.mpid
+        self.mpid = None
 
         # make precut data
         self.PMTPrecut_Dict = performPMTPrecuts( input_file.GetName(), **self.precutpars )
@@ -432,6 +453,12 @@ class DLAnalyze(RootAnalyze):
         # We attach the MPID ana tree as well
         self.tree_obj.AddFriend(self.mpid_anatree)
 
+        # we are done with larlite?
+        print "[close larcv and larlite iomanagers to save memory]"
+        self.in_lcv.finalize()
+        self.io_ll.close()        
+        self.in_lcv = None
+        self.io_ll  = None
 
         print "[ End input tree prep ]"
         print "================================"
@@ -452,14 +479,12 @@ class DLAnalyze(RootAnalyze):
             # get showerreco energy, intermediary before storing in dlanatree
             self.extract_showerreco_entry_vars(self.dict_ShowerReco,self.showerreco)
 
-            
-
         self.df_ShowerReco = ShowerRecoData( self.dict_ShowerReco )
 
     def end_job(self):
         """ close larcv and larlite files. larlite output file will write."""
-        self.in_lcv.finalize()
-        self.io_ll.close()
+        #self.in_lcv.finalize()
+        #self.io_ll.close()
         self.calibfile.Close()
         fout = open('dlanalyze_input_list.txt','w')
         for f in self.input_file_list:

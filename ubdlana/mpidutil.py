@@ -340,15 +340,16 @@ def main(IMAGE_FILE,OUT_DIR,CFG,FILEID=0):
                 '''
                 #score
 
-                if (img_pix_arr.sum().cpu() < 100):
-                    score_pix_v = torch.zeros([5])
-                else:
-                    score_pix_v = nn.Sigmoid()(mpid(img_pix_arr)).cpu().detach().numpy()[0]                    
+                with torch.no_grad():
+                    if (img_pix_arr.sum().cpu() < 100):
+                        score_pix_v = torch.zeros([5])
+                    else:
+                        score_pix_v = nn.Sigmoid()(mpid(img_pix_arr)).cpu().detach().numpy()[0]                    
 
-                if (img_int_arr.sum().cpu() < 100):
-                    score_int_v = torch.zeros([5])
-                else:
-                    score_int_v = nn.Sigmoid()(mpid(img_int_arr)).cpu().detach().numpy()[0]
+                    if (img_int_arr.sum().cpu() < 100):
+                        score_int_v = torch.zeros([5])
+                    else:
+                        score_int_v = nn.Sigmoid()(mpid(img_int_arr)).cpu().detach().numpy()[0]
 
                 '''
                 #Plot the image from pgraph
