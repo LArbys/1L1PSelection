@@ -434,6 +434,11 @@ class DLAnalyze(RootAnalyze):
             self.tree_obj = obj
             print
 
+        print "HACK: disable tracker branches that are broken!!"
+        self.tree_obj.SetBranchStatus('trackAvg15cm_x',0)
+        self.tree_obj.SetBranchStatus('trackAvg15cm_y',0)
+        self.tree_obj.SetBranchStatus('trackAvg15cm_z',0)
+
         # LARLITE ID TREE: governs loop to make MPID, Showerreco and Precut variables
         self.larlite_id_tree = input_file.Get("larlite_id_tree")
 
