@@ -96,7 +96,11 @@ def run_mpid_on_larcv_entry( cfg, mpid, iom, rd, outtree ):
         rd.vtxid[0] = int(ix)
    
         pgr = ev_pgr.PGraphArray().at(ix)
-        cindex_v = np.array(pgr.ClusterIndexArray())
+        cluster_array = pgr.ClusterIndexArray()
+        if cluster_array.size()==0:
+            cindex_v = []
+        else:
+            cindex_v = np.array(pgr.ClusterIndexArray())
         
         pixel2d_par_vv = ev_par.Pixel2DClusterArray()
         pixel2d_pix_vv = ev_pix.Pixel2DClusterArray()
@@ -109,9 +113,13 @@ def run_mpid_on_larcv_entry( cfg, mpid, iom, rd, outtree ):
                 rd.npar[plane] = 0
                 pixel2d_par_v = pixel2d_par_vv.at(plane)
                 for cidx in cindex_v:
-                    pixel2d_par = pixel2d_par_v.at(cidx)
-                    if pixel2d_par.size()>0:
-                        rd.npar[plane] += 1;
+                    print "@cindex_v=",cidx," of ",pixel2d_par_v.size()
+                    try:
+                        pixel2d_par = pixel2d_par_v.at(cidx)
+                        if pixel2d_par.size()>0:
+                            rd.npar[plane] += 1;
+                    except:
+                        print "error opening particle pixel2d"
 				                  
 
             pixel2d_pix_v = pixel2d_pix_vv.at(plane)
@@ -269,7 +277,11 @@ def main(IMAGE_FILE,OUT_DIR,CFG,FILEID=0):
             rd.vtxid[0] = int(ix)
    
             pgr = ev_pgr.PGraphArray().at(ix)
-            cindex_v = np.array(pgr.ClusterIndexArray())
+            cluster_array = pgr.ClusterIndexArray()
+            if cluster_array.size()==0:
+                cindex_v = []
+            else:
+                cindex_v = np.array(pgr.ClusterIndexArray())
             
             pixel2d_par_vv = ev_par.Pixel2DClusterArray()
             pixel2d_pix_vv = ev_pix.Pixel2DClusterArray()
@@ -291,9 +303,12 @@ def main(IMAGE_FILE,OUT_DIR,CFG,FILEID=0):
                     rd.npar[plane] = 0
                     pixel2d_par_v = pixel2d_par_vv.at(plane)
                     for cidx in cindex_v:
-			pixel2d_par = pixel2d_par_v.at(cidx)
-			if pixel2d_par.size()>0:
-			    rd.npar[plane] += 1;
+                        try:
+			    pixel2d_par = pixel2d_par_v.at(cidx)
+			    if pixel2d_par.size()>0:
+			        rd.npar[plane] += 1;
+                        except:
+                            print "error opening particle pixel2d container"
 				                  
                 ### Get 2D vertex Image
                 #meta = roi0.BB(plane)

@@ -9,7 +9,15 @@
 #
 ###############################################################################
 import sys, os
-from root_analyze import RootAnalyze
+try:    
+    from root_analyze import RootAnalyze
+except:
+    """ dumpy class """
+    print "No root_analyze. Making a dummy class"
+    class RootAnalyze:
+        def __init__(self):
+            pass
+    
 from ROOT import TFile
 
 # Prevent root from printing garbage on initialization.
@@ -41,6 +49,9 @@ import bdtutil
 
 # ShowerCNN utils
 import showercnnutil
+
+# MC Information
+import mcutil
 
 # DL Final Vertex Variables
 from showerrecodata import ShowerRecoData # provides wrapper for shower reco info
@@ -172,6 +183,13 @@ class DLAnalyze(RootAnalyze):
             print "Loaded Shower CNN Model"
             print self.showercnn
 
+        # Setup LArbysMC utility, if MC
+        if self.ismc:
+            self.larbysmc = larlitecv.LArbysMC()
+        else:
+            self.larbysmc = None
+
+
         return
 
 
@@ -202,13 +220,19 @@ class DLAnalyze(RootAnalyze):
         #
         #----------------------------------------------------------------------
 
+        print "dlanalyze::open_output"
+        
         # Make output directory.
         dir = output_file.mkdir('dlana')
         dir.cd()
 
-        # Done.
+        # output finalvertexvariable (FVV) tree
         self.anatreeclass = DLanaTree()
         self.output_file = output_file
+
+        if self.ismc:
+            # we bind the MC truth variables to it, too
+            self.larbysmc.bindAnaVariables( self.anatreeclass.outTree )
 
         # Make MPID tree
         self.mpid_data, self.mpid_anatree = mpidutil.make_mpid_anatree(output_file)
@@ -295,6 +319,17 @@ class DLAnalyze(RootAnalyze):
         self.anatreeclass._bdtscore_1mu1p_cosmic[0] = probs_1mu1p_cosmic
         self.anatreeclass._bdtscore_1mu1p_nu[0]     = probs_1mu1p_nu
 
+        if self.ismc:
+            # load the right entry for the larlite
+            rse = (self.anatreeclass._run[0], self.anatreeclass._subrun[0], self.anatreeclass._event[0])
+            if rse in self.rse2entry:
+                entry = self.rse2entry[rse]
+                self.io_ll_formc.go_to( entry )
+                self.larbysmc.process(self.io_ll_formc)
+                self.larbysmc.printInteractionInfo()
+            else:
+                raise RuntimeError("Could not find {} in rse2entry dict".format(rse))
+
         self.anatreeclass.outTree.Fill()
 
     def analyze_larlite_and_larcv_entry(self, tree, entry):
@@ -311,6 +346,7 @@ class DLAnalyze(RootAnalyze):
         # Get a leaf from the main tree.
 
         rse_br = []
+
         for brname in ['_run_id','_subrun_id','_event_id']:
             br = tree.GetBranch(brname)
             leaves = br.GetListOfLeaves()
@@ -329,6 +365,7 @@ class DLAnalyze(RootAnalyze):
 
         # check run, subrun, event
         print "process: ",rse_br
+        self.rse2entry[ (self.io_ll.run_id(),self.io_ll.subrun_id(),self.io_ll.event_id()) ] = entry
 
         # run shower reco
         print 'run shower reco'
@@ -381,6 +418,7 @@ class DLAnalyze(RootAnalyze):
         self.io_ll.set_out_filename( "out_showerrecov2.root" )
         self.io_ll.set_data_to_read( larlite.data.kTrack, "trackReco" )
         self.io_ll.set_data_to_read( larlite.data.kMCShower, "mcreco" )
+        self.io_ll.set_data_to_read( larlite.data.kMCTrack,  "mcreco" )
         self.io_ll.set_data_to_read( larlite.data.kMCTruth,  "generator" )
         self.io_ll.set_data_to_read( larlite.data.kOpHit,    self.precutpars['ophittree'] )
         self.io_ll.set_data_to_read( larlite.data.kOpFlash,  self.crtveto_pars['opflash_producer'] )
@@ -409,6 +447,11 @@ class DLAnalyze(RootAnalyze):
 
             self.tree_obj = obj
             print
+
+        print "HACK: disable tracker branches that are broken!!"
+        self.tree_obj.SetBranchStatus('trackAvg15cm_x',0)
+        self.tree_obj.SetBranchStatus('trackAvg15cm_y',0)
+        self.tree_obj.SetBranchStatus('trackAvg15cm_z',0)
 
         # LARLITE ID TREE: governs loop to make MPID, Showerreco and Precut variables
         self.larlite_id_tree = input_file.Get("larlite_id_tree")
@@ -453,12 +496,25 @@ class DLAnalyze(RootAnalyze):
         # We attach the MPID ana tree as well
         self.tree_obj.AddFriend(self.mpid_anatree)
 
+
         # we are done with larlite?
         print "[close larcv and larlite iomanagers to save memory]"
         self.in_lcv.finalize()
         self.io_ll.close()        
         self.in_lcv = None
         self.io_ll  = None
+
+        if self.ismc:
+            print "[OPEN LARLITE MANAGER FOR MC]"
+            self.io_ll_formc = larlite.storage_manager( larlite.storage_manager.kREAD )
+            for  infile in self.input_file_list:
+                print " adding larlite input: ",infile
+                self.io_ll_formc.add_in_filename( infile )
+            self.io_ll_formc.set_data_to_read( larlite.data.kMCShower, "mcreco" )
+            self.io_ll_formc.set_data_to_read( larlite.data.kMCTrack,  "mcreco" )
+            self.io_ll_formc.set_data_to_read( larlite.data.kMCTruth,  "generator" )
+            self.io_ll_formc.open()
+
 
         print "[ End input tree prep ]"
         print "================================"
@@ -471,7 +527,9 @@ class DLAnalyze(RootAnalyze):
         # we create a dictionary where we will store shower reco variables
         self.dict_ShowerReco = {"entries":[]}
 
+        self.rse2entry = {}
         for entry in xrange(nentries):
+            print "[DLAnalyze::Make_MoreReco_Variables] ENTRY ",entry," of ",nentries
             # load larlite entry
             self.larlite_id_tree.GetEntry(entry)
             # run extra
@@ -483,8 +541,12 @@ class DLAnalyze(RootAnalyze):
 
     def end_job(self):
         """ close larcv and larlite files. larlite output file will write."""
+
         #self.in_lcv.finalize()
         #self.io_ll.close()
+        if self.ismc:
+            self.io_ll_formc.close()
+
         self.calibfile.Close()
         fout = open('dlanalyze_input_list.txt','w')
         for f in self.input_file_list:
@@ -494,6 +556,8 @@ class DLAnalyze(RootAnalyze):
 
     def extract_showerreco_entry_vars(self,data,showerreco):
         """ get variables from showerreco class """
+
+        print "Num Vertices reconstructed: ",showerreco.numVertices()
 
         entrydata = { "run":self.in_lcv.event_id().run(),
                       "subrun":self.in_lcv.event_id().subrun(),
@@ -508,6 +572,7 @@ class DLAnalyze(RootAnalyze):
                       "shower_opening_2d":[],
                       "shower_start_2d":[],
                       "shower_smallq":[],
+                      "pi0mass":[]
                       }
 
         # Save first shower output
@@ -533,7 +598,6 @@ class DLAnalyze(RootAnalyze):
             entrydata["secondshower_sumQs"] = []
             entrydata["secondshower_shlengths"] = []
             entrydata["secondshower_gap"] = []
-            entrydata["pi0mass"] = []
             entrydata["opening_angle_3d"] = []
             entrydata["shower_impact"] = []
             entrydata["secondshower_impact"] =[]
@@ -568,6 +632,11 @@ class DLAnalyze(RootAnalyze):
             entrydata["haspi0"] = []
             entrydata["truefid"] = []
             entrydata["numtrueshowers"] =[]
+            if showerreco.numVertices()==0:
+                entrydata["ccnc"].append(showerreco.getCCNC())
+                entrydata["haspi0"].append(showerreco.getHasPi0())
+                entrydata["truefid"].append(showerreco.getTrueFid())
+                entrydata["numtrueshowers"].append(showerreco.getNumTrueShowers())                
 
             for ivtx in xrange(showerreco.numVertices()):
                 entrydata["ccnc"].append(showerreco.getCCNC())
@@ -577,7 +646,7 @@ class DLAnalyze(RootAnalyze):
 
 
             if (showerreco.getTrueFid()==1 and (showerreco.getNumTrueShowers() ==1 or showerreco.getNumTrueShowers() ==2)):
-                print "Num showers: ",showerreco.getNumTrueShowers()
+                print "Num true showers: ",showerreco.getNumTrueShowers()
                 entrydata["shower_energy_true"]=[]
                 entrydata["shower_recotrue_dist"]=[]
                 entrydata["first_direction_true"]=[]

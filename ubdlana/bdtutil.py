@@ -35,6 +35,8 @@ def apply_1e1p_model( model, dlvars ):
     score [float] 1e1p score
     """
 
+    shower_charge_ratio = dlvars._shower1_smallq_Y[0]/dlvars._shower1_sumq_Y[0] if dlvars._shower1_sumq_Y[0]>0 else 0.0
+
     # make input vars
     input_vars = [[
         dlvars._enu_1e1p[0],    # Enu_1e1p
@@ -58,7 +60,7 @@ def apply_1e1p_model( model, dlvars ):
         dlvars._lepton_phi[0],    # Lepton_PhiReco,
         max(dlvars._minshrFrac[0],-1), # MinShrFrac
         max(dlvars._maxshrFrac[0],-1), # MaxShrFrac
-        max(dlvars._shower1_smallq_Y[0]/dlvars._shower1_sumq_Y[0],-1.0), # SHOWER_CHARGE_IN_SHOWER_CLUSTER/SHOWER_CHARGE_IN_IMAGE
+        max(shower_charge_ratio,-1.0), # SHOWER_CHARGE_IN_SHOWER_CLUSTER/SHOWER_CHARGE_IN_IMAGE
         dlvars._openAng[0] ]] #OpenAng ]
 
     vars_np = np.asarray( input_vars )
