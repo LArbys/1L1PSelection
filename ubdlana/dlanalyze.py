@@ -118,6 +118,7 @@ class DLAnalyze(RootAnalyze):
         else:
             print "[DLAnalyze::NOT MC]"
             self.showerreco.use_mc( False )
+        self.showerreco.set_SSNet_threshold(0.5)
 
         self.showerreco.set_output_treename( shr_ana )
 
@@ -557,7 +558,7 @@ class DLAnalyze(RootAnalyze):
     def extract_showerreco_entry_vars(self,data,showerreco):
         """ get variables from showerreco class """
 
-        print "Num Vertices reconstructed: ",showerreco.numVertices()
+        print "[extract_showerreco_entry_vars ] Num Vertices reconstructed: ",showerreco.numVertices()
 
         entrydata = { "run":self.in_lcv.event_id().run(),
                       "subrun":self.in_lcv.event_id().subrun(),
@@ -587,10 +588,14 @@ class DLAnalyze(RootAnalyze):
             entrydata["shower_opening_2d"].append( [ showerreco.getVertexShowerOpening2D(ivtx,dir) for dir in xrange(3) ])
             entrydata["shower_smallq"].append( [ showerreco.getVertexCropSumQ(ivtx,p) for p in xrange(3) ] )
             # showerstart also needs a loop over x,y,z
+            start_2d = []
             for p in xrange(3):
-                entrydata["shower_start_2d"].append( [ showerreco.getShowerStart2D(ivtx,p,dir) for dir in xrange(3) ])
+                start_2d.append( [ showerreco.getShowerStart2D(ivtx,p,dir) for dir in xrange(2) ])
+            entrydata["shower_start_2d"].append( start_2d )
 
-        print "SHOWER START!",entrydata["shower_start_2d"]
+
+        print "[extract_showerreco_entry_vars ] start2d: ",entrydata["shower_start_2d"]
+        print "[extract_showerreco_entry_vars ] energies: ",entrydata["shower_energies"]
 
         if self.second_shr:
             # Save second shower output
@@ -621,8 +626,10 @@ class DLAnalyze(RootAnalyze):
                 entrydata["secondshower_opening_2d"].append( [ showerreco.getVertexSecondShowerOpening2D(ivtx,dir) for dir in xrange(3) ])
                 entrydata["secondshower_direction_3d"].append( [ showerreco.getSecondDirection(ivtx,dir) for dir in xrange(3) ])
                 # showerstart also needs a loop over x,y,z
+                start2_2d = []
                 for p in xrange(3):
-                    entrydata["secondshower_start_2d"].append( [ showerreco.getSecondShowerStart2D(ivtx,p,dir) for dir in xrange(3) ])
+                    start2_2d.append( [ showerreco.getShowerStart2D(ivtx,p,dir) for dir in xrange(2) ])
+                entrydata["secondshower_start_2d"].append( start2_2d )
 
 
         # Below are MC-based truth metrics
