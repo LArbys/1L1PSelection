@@ -62,6 +62,14 @@ class DLFilter(RootAnalyze):
         self.filter_type = self.filter_pars['filter_type']
         self.sample_type = self.filter_pars['sample_type']
 
+        DEFINED_FILTERS = ["numu-sideband",
+                           "1e1p-highE-sideband",
+                           "1e1p-lowBDT-sideband",
+                           "1e1p-signal"]
+
+        if self.fitler_type not in DEFINED_FILTERS:
+            raise ValueError("Invalid filter type specified [{}]. Defined: {}".format(self.filter_type,DEFINED_FILTERS))
+
         if bool(self.filter_pars['rerun_precuts']):
             self.rerun_pmtprecuts = True
             self.precutpars = makePMTpars( self.sample_type )
@@ -217,9 +225,14 @@ class DLFilter(RootAnalyze):
 
         if self.filter_type=="numu-sideband":
             self.run_numu_filter(finalvertextree)
+        elif self.filter_type=="1e1p-highE-sideband":
+            self.run_1e1p_highE_filter(finalvertextree)
+        elif self.filter_type=="1e1p-lowBDT-sideband":
+            self.run_1e1p_lowBDT_filder(finalvertextree)
+        elif self.filter_type=="1e1p-signal":
+            self.run_1e1p_signal_filter(finalvertextree)
         else:
             raise ValueError("unrecognized filter type: ",self.filter_type)
-
 
         print "Cloning output trees"
 
@@ -336,6 +349,148 @@ class DLFilter(RootAnalyze):
                  and dlanatree.Proton_EdgeDist>15.0
                  and dlanatree.BDTscore_1mu1p_cosmic>0.0
                  and dlanatree.BDTscore_1mu1p_nu>0.0 ):
+                passes = True
+            
+            # for debug: make something pass in order to check
+            if True:
+                passes = True # for debug
+                
+            if rse not in self.rse_dict:
+                self.rse_dict[rse]   = passes
+            elif rse in self.rse_dict and passes:
+                self.rse_dict[rse]   = passes
+            self.rsev_dict[rsev] = passes
+
+        # for debug only
+        #rsekeys = self.rsev_dict.keys()
+        #rsekeys.sort()
+        #for k in rsekeys:
+        #    print k,": ",self.rsev_dict[k]
+
+        return
+
+    def run_1e1p_highE_filter(self, dlanatree ):
+        """ use the final vertex tree to make selection 
+        we create an RSE and RSEV dict
+        """
+        print "run numu filter"
+        self.rse_dict = {}
+        self.rsev_dict = {}
+
+        for ientry in xrange(dlanatree.GetEntries()):
+            dlanatree.GetEntry(ientry)
+
+            passes = False
+            rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
+            rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
+
+            passprecuts = int(dlanatree.PassPMTPrecut)
+            if self.rerun_pmtprecuts:
+                passrerun = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
+                print "replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
+                print self.PMTPrecut_Dict[rse]['_passpmtprecut']
+                passprecuts = passrerun
+
+            if ( passprecuts==1
+                 and dlanatree.PassSimpleCuts==1
+                 and dlanatree.PassShowerReco==1
+                 and dlanatree.Proton_Edep > 60 ,
+                 and dlanatree.Electron_Edep > 35
+                 and max(dlanatree.MaxShrFrac,-1) > 0.2
+                 and dlanatree.BDTscore_1e1p>0.8 
+                 and dlanatree.Enu_1e1p>700.0 ):
+                passes = True
+            
+            # for debug: make something pass in order to check
+            if False:
+                passes = True # for debug
+                
+            if rse not in self.rse_dict:
+                self.rse_dict[rse]   = passes
+            elif rse in self.rse_dict and passes:
+                self.rse_dict[rse]   = passes
+            self.rsev_dict[rsev] = passes
+
+        return
+
+    def run_1e1p_lowBDT_filter(self, dlanatree ):
+        """ use the final vertex tree to make selection 
+        we create an RSE and RSEV dict
+        """
+        print "run numu filter"
+        self.rse_dict = {}
+        self.rsev_dict = {}
+
+        for ientry in xrange(dlanatree.GetEntries()):
+            dlanatree.GetEntry(ientry)
+
+            passes = False
+            rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
+            rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
+
+            passprecuts = int(dlanatree.PassPMTPrecut)
+            if self.rerun_pmtprecuts:
+                passrerun = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
+                print "replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
+                print self.PMTPrecut_Dict[rse]['_passpmtprecut']
+                passprecuts = passrerun
+
+            if ( passprecuts==1
+                 and dlanatree.PassSimpleCuts==1
+                 and dlanatree.PassShowerReco==1
+                 and dlanatree.Proton_Edep > 60 ,
+                 and dlanatree.Electron_Edep > 35
+                 and max(dlanatree.MaxShrFrac,-1) > 0.2
+                 and dlanatree.BDTscore_1e1p<=0.8 ):
+                passes = True
+            
+            # for debug: make something pass in order to check
+            if True:
+                passes = True # for debug
+                
+            if rse not in self.rse_dict:
+                self.rse_dict[rse]   = passes
+            elif rse in self.rse_dict and passes:
+                self.rse_dict[rse]   = passes
+            self.rsev_dict[rsev] = passes
+
+        # for debug only
+        #rsekeys = self.rsev_dict.keys()
+        #rsekeys.sort()
+        #for k in rsekeys:
+        #    print k,": ",self.rsev_dict[k]
+
+        return
+
+    def run_1e1p_signal_filter(self, dlanatree ):
+        """ use the final vertex tree to make selection 
+        we create an RSE and RSEV dict
+        """
+        print "run numu filter"
+        self.rse_dict = {}
+        self.rsev_dict = {}
+
+        for ientry in xrange(dlanatree.GetEntries()):
+            dlanatree.GetEntry(ientry)
+
+            passes = False
+            rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
+            rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
+
+            passprecuts = int(dlanatree.PassPMTPrecut)
+            if self.rerun_pmtprecuts:
+                passrerun = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
+                print "replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
+                print self.PMTPrecut_Dict[rse]['_passpmtprecut']
+                passprecuts = passrerun
+
+            if ( passprecuts==1
+                 and dlanatree.PassSimpleCuts==1
+                 and dlanatree.PassShowerReco==1
+                 and dlanatree.Proton_Edep > 60 ,
+                 and dlanatree.Electron_Edep > 35
+                 and max(dlanatree.MaxShrFrac,-1) > 0.2
+                 and dlanatree.BDTscore_1e1p>0.8 ):
                 passes = True
             
             # for debug: make something pass in order to check
