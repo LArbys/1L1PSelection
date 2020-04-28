@@ -418,6 +418,8 @@ def make_selection_vars( indo, ismc,
     dlanavars._porchTotPE[0] = PMTPrecut_Dict[IDev]['_porchtotpe']
     dlanavars._maxPEFrac[0] = PMTPrecut_Dict[IDev]['_maxpefrac']
     dlanavars._passPMTPrecut[0] = PMTPrecut_Dict[IDev]['_passpmtprecut']
+    dlanavars._precutBeamFirstTick[0] = PMTPrecut_Dict[IDev]['_beamFirstTick']
+    dlanavars._precutVetoFirstTick[0] = PMTPrecut_Dict[IDev]['_vetoFirstTick']
     dlanavars._parentPDG[0] = MC_dict[IDev]['parentPDG']                  if ismc else -99998
     dlanavars._energyInit[0] = MC_dict[IDev]['energyInit']                if ismc else -99998
     dlanavars._nproton[0] = MC_dict[IDev]['nproton']                      if ismc else -99998
