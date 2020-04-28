@@ -34,8 +34,8 @@ def make_selection_vars( indo, ismc,
 
     vtxShowerData  = df_ShowerReco.get_vertex( run, subrun, event, vtxid )
     print "[make selection vars] ",run," ",subrun," ",event
-    print " shower data: "
-    print vtxShowerData
+    #print " shower data: "
+    #print vtxShowerData
 
     # These are for passing simple precuts
     length_v       = ev.Length_v
@@ -49,6 +49,8 @@ def make_selection_vars( indo, ismc,
     PassShowerReco = True
     PassSecondShower = True
     FailBoost = False
+    FailBoost_1m1p = False
+    FailBoost_1e1p = False
 
     vtxPhi_v       = ev.vertexPhi
     vtxTheta_v     = ev.vertexTheta
@@ -172,10 +174,10 @@ def make_selection_vars( indo, ismc,
             phiTB_1m1p           = GetPhiT(mEB_1m1p,pEB_1m1p,mThB_1m1p,pThB_1m1p,mPhB_1m1p,pPhB_1m1p,'muon')
             pTB_1m1p             = pTrans(mEB_1m1p,pEB_1m1p,mThB_1m1p,pThB_1m1p,mPhB_1m1p,pPhB_1m1p,'muon')
             alphTB_1m1p          = alphaT(mEB_1m1p,pEB_1m1p,mThB_1m1p,pThB_1m1p,mPhB_1m1p,pPhB_1m1p,'muon')
-            FailBoost = False
+            FailBoost_1m1p = False
         except:
-            FailBoost = True
-            print 'BADBOOST: ',mE,pE,lTh,pTh,lPh,pPh
+            FailBoost_1m1p = True
+            print 'BADBOOST (1M1P): ',mE,pE,lTh,pTh,lPh,pPh
 
         #Now, let's hack in the electron stuff for now... this'll need to be changed later, but it'll suffice for the time being
         if PassShowerReco:
@@ -215,11 +217,12 @@ def make_selection_vars( indo, ismc,
                 phiTB_1e1p           = GetPhiT(eEB_1e1p,pEB_1e1p,eThB_1e1p,pThB_1e1p,ePhB_1e1p,pPhB_1e1p,'electron')
                 pTB_1e1p             = pTrans(eEB_1e1p,pEB_1e1p,eThB_1e1p,pThB_1e1p,ePhB_1e1p,pPhB_1e1p,'electron')
                 alphTB_1e1p          = alphaT(eEB_1e1p,pEB_1e1p,eThB_1e1p,pThB_1e1p,ePhB_1e1p,pPhB_1e1p,'electron')
-                FailBoost = False
+                FailBoost_1e1p = False
             except:
-                FailBoost = True
-                print 'BADBOOST: ',eE,pE,lTh,pTh,lPh,pPh
+                FailBoost_1e1p = True
+                print 'BADBOOST (1e1p): ',eE,pE,lTh,pTh,lPh,pPh
 
+    FailBoost = FailBoost_1m1p and FailBoost_1e1p
     dlanavars._run[0]          = run
     dlanavars._subrun[0]       = subrun
     dlanavars._event[0]        = event
@@ -254,13 +257,13 @@ def make_selection_vars( indo, ismc,
     dlanavars._lepton_dqdx_uncalibrated[0] = float(dqdx_v_uncalibrated[lid])  if PassSimpleCuts else -99999
     dlanavars._lepton_edge_dist[0] = float(wallLepton)                    if PassSimpleCuts else -99999
     dlanavars._muon_E[0] = float(mE)                                      if PassSimpleCuts else -99999
-    dlanavars._electron_E[0] = float(eE)                                  if PassSimpleCuts else -99999
-    dlanavars._muon_phiB_1m1p[0] = float(mPhB_1m1p)                       if PassSimpleCuts and not FailBoost else -99999
-    dlanavars._muon_thetaB_1m1p[0] = float(mThB_1m1p)                     if PassSimpleCuts and not FailBoost else -99999
-    dlanavars._muon_EB_1m1p[0] = float(mEB_1m1p)                          if PassSimpleCuts and not FailBoost else -99999
-    dlanavars._electron_phiB_1e1p[0] = float(ePhB_1e1p)                   if PassSimpleCuts and PassShowerReco and not FailBoost else -99999
-    dlanavars._electron_thetaB_1e1p[0] = float(eThB_1e1p)                 if PassSimpleCuts and PassShowerReco and not FailBoost else -99999
-    dlanavars._electron_EB_1e1p[0] = float(eEB_1e1p)                      if PassSimpleCuts and PassShowerReco and not FailBoost else -99999
+    dlanavars._electron_E[0] = float(eE)                                  if PassSimpleCuts else -99999 
+    dlanavars._muon_phiB_1m1p[0] = float(mPhB_1m1p)                       if PassSimpleCuts and not FailBoost_1m1p else -99999
+    dlanavars._muon_thetaB_1m1p[0] = float(mThB_1m1p)                     if PassSimpleCuts and not FailBoost_1m1p else -99999
+    dlanavars._muon_EB_1m1p[0] = float(mEB_1m1p)                          if PassSimpleCuts and not FailBoost_1m1p else -99999
+    dlanavars._electron_phiB_1e1p[0] = float(ePhB_1e1p)                   if PassSimpleCuts and PassShowerReco and not FailBoost_1e1p else -99999
+    dlanavars._electron_thetaB_1e1p[0] = float(eThB_1e1p)                 if PassSimpleCuts and PassShowerReco and not FailBoost_1e1p else -99999
+    dlanavars._electron_EB_1e1p[0] = float(eEB_1e1p)                      if PassSimpleCuts and PassShowerReco and not FailBoost_1e1p else -99999
     dlanavars._proton_id[0] = int(pid)                                    if PassSimpleCuts else -99999
     dlanavars._proton_phi[0] = float(pPh)                                 if PassSimpleCuts else -99999
     dlanavars._proton_theta[0] = float(pTh)                               if PassSimpleCuts else -99999
@@ -269,12 +272,12 @@ def make_selection_vars( indo, ismc,
     dlanavars._proton_dqdx_uncalibrated[0] = float(dqdx_v_uncalibrated[pid])  if PassSimpleCuts else -99999
     dlanavars._proton_edge_dist[0] = float(wallProton)                    if PassSimpleCuts else -99999
     dlanavars._proton_E[0] = float(pE)                                    if PassSimpleCuts else -99999
-    dlanavars._proton_phiB_1m1p[0] = float(pPhB_1m1p)                     if PassSimpleCuts and not FailBoost else -99999
-    dlanavars._proton_thetaB_1m1p[0] = float(pThB_1m1p)                   if PassSimpleCuts and not FailBoost else -99999
-    dlanavars._proton_EB_1m1p[0] = float(pEB_1m1p)                        if PassSimpleCuts and not FailBoost else -99999
-    dlanavars._proton_phiB_1e1p[0] = float(pPhB_1e1p)                     if PassSimpleCuts and PassShowerReco and not FailBoost else -99999
-    dlanavars._proton_thetaB_1e1p[0] = float(pThB_1e1p)                   if PassSimpleCuts and PassShowerReco and not FailBoost else -99999
-    dlanavars._proton_EB_1e1p[0] = float(pEB_1e1p)                        if PassSimpleCuts and PassShowerReco and not FailBoost else -99999
+    dlanavars._proton_phiB_1m1p[0] = float(pPhB_1m1p)                     if PassSimpleCuts and not FailBoost_1m1p else -99999
+    dlanavars._proton_thetaB_1m1p[0] = float(pThB_1m1p)                   if PassSimpleCuts and not FailBoost_1m1p else -99999
+    dlanavars._proton_EB_1m1p[0] = float(pEB_1m1p)                        if PassSimpleCuts and not FailBoost_1m1p else -99999
+    dlanavars._proton_phiB_1e1p[0] = float(pPhB_1e1p)                     if PassSimpleCuts and PassShowerReco and not FailBoost_1e1p else -99999
+    dlanavars._proton_thetaB_1e1p[0] = float(pThB_1e1p)                   if PassSimpleCuts and PassShowerReco and not FailBoost_1e1p else -99999
+    dlanavars._proton_EB_1e1p[0] = float(pEB_1e1p)                        if PassSimpleCuts and PassShowerReco and not FailBoost_1e1p else -99999
 
     dlanavars._CCQE_energy_shift_1m1p[0] = CCQE_energy_shift_1m1p         if PassSimpleCuts else -99999
     dlanavars._enu_1m1p[0]          = Ecal_1m1p                           if PassSimpleCuts else -99999
@@ -289,16 +292,16 @@ def make_selection_vars( indo, ismc,
     dlanavars._q0_1m1p[0]           = Q0_1m1p                             if PassSimpleCuts else -99999
     dlanavars._q3_1m1p[0]           = Q3_1m1p                             if PassSimpleCuts else -99999
     dlanavars._bjY_1m1p[0]          = y_1m1p                              if PassSimpleCuts else -99999
-    dlanavars._openAngB_1m1p[0]     = openAngB_1m1p                       if PassSimpleCuts and not FailBoost else -99995
-    dlanavars._thetasB_1m1p[0]      = thetasB_1m1p                        if PassSimpleCuts and not FailBoost else -99995
-    dlanavars._phisB_1m1p[0]        = phisB_1m1p                          if PassSimpleCuts and not FailBoost else -99995
-    dlanavars._phiTB_1m1p[0]        = phiTB_1m1p                          if PassSimpleCuts and not FailBoost else -99995
-    dlanavars._alphaTB_1m1p[0]      = alphTB_1m1p                         if PassSimpleCuts and not FailBoost else -99995
-    dlanavars._pTB_1m1p[0]          = pTB_1m1p                            if PassSimpleCuts and not FailBoost else -99995
-    dlanavars._bjXB_1m1p[0]         = xB_1m1p                             if PassSimpleCuts and not FailBoost else -99995
-    dlanavars._sphB_1m1p[0]         = sphB_1m1p                           if PassSimpleCuts and not FailBoost else -99995
-    dlanavars._q2B_1m1p[0]          = Q2calB_1m1p                         if PassSimpleCuts and not FailBoost else -99995
-    dlanavars._bjYB_1m1p[0]         = yB_1m1p                             if PassSimpleCuts and not FailBoost else -99995
+    dlanavars._openAngB_1m1p[0]     = openAngB_1m1p                       if PassSimpleCuts and not FailBoost_1m1p else -99995
+    dlanavars._thetasB_1m1p[0]      = thetasB_1m1p                        if PassSimpleCuts and not FailBoost_1m1p else -99995
+    dlanavars._phisB_1m1p[0]        = phisB_1m1p                          if PassSimpleCuts and not FailBoost_1m1p else -99995
+    dlanavars._phiTB_1m1p[0]        = phiTB_1m1p                          if PassSimpleCuts and not FailBoost_1m1p else -99995
+    dlanavars._alphaTB_1m1p[0]      = alphTB_1m1p                         if PassSimpleCuts and not FailBoost_1m1p else -99995
+    dlanavars._pTB_1m1p[0]          = pTB_1m1p                            if PassSimpleCuts and not FailBoost_1m1p else -99995
+    dlanavars._bjXB_1m1p[0]         = xB_1m1p                             if PassSimpleCuts and not FailBoost_1m1p else -99995
+    dlanavars._sphB_1m1p[0]         = sphB_1m1p                           if PassSimpleCuts and not FailBoost_1m1p else -99995
+    dlanavars._q2B_1m1p[0]          = Q2calB_1m1p                         if PassSimpleCuts and not FailBoost_1m1p else -99995
+    dlanavars._bjYB_1m1p[0]         = yB_1m1p                             if PassSimpleCuts and not FailBoost_1m1p else -99995
 
     dlanavars._CCQE_energy_shift_1e1p[0] = CCQE_energy_shift_1e1p         if PassSimpleCuts and PassShowerReco else -99999
     dlanavars._enu_1e1p[0]          = Ecal_1e1p                           if PassSimpleCuts and PassShowerReco else -99999
@@ -313,16 +316,16 @@ def make_selection_vars( indo, ismc,
     dlanavars._q0_1e1p[0]           = Q0_1e1p                             if PassSimpleCuts and PassShowerReco else -99999
     dlanavars._q3_1e1p[0]           = Q3_1e1p                             if PassSimpleCuts and PassShowerReco else -99999
     dlanavars._bjY_1e1p[0]          = y_1e1p                              if PassSimpleCuts and PassShowerReco else -99999
-    dlanavars._openAngB_1e1p[0]     = openAngB_1e1p                       if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
-    dlanavars._thetasB_1e1p[0]      = thetasB_1e1p                        if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
-    dlanavars._phisB_1e1p[0]        = phisB_1e1p                          if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
-    dlanavars._phiTB_1e1p[0]        = phiTB_1e1p                          if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
-    dlanavars._alphaTB_1e1p[0]      = alphTB_1e1p                         if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
-    dlanavars._pTB_1e1p[0]          = pTB_1e1p                            if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
-    dlanavars._bjXB_1e1p[0]         = xB_1e1p                             if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
-    dlanavars._sphB_1e1p[0]         = sphB_1e1p                           if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
-    dlanavars._q2B_1e1p[0]          = Q2calB_1e1p                         if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
-    dlanavars._bjYB_1e1p[0]         = yB_1e1p                             if PassSimpleCuts and PassShowerReco and not FailBoost else -99995
+    dlanavars._openAngB_1e1p[0]     = openAngB_1e1p                       if PassSimpleCuts and PassShowerReco and not FailBoost_1e1p else -99995
+    dlanavars._thetasB_1e1p[0]      = thetasB_1e1p                        if PassSimpleCuts and PassShowerReco and not FailBoost_1e1p else -99995
+    dlanavars._phisB_1e1p[0]        = phisB_1e1p                          if PassSimpleCuts and PassShowerReco and not FailBoost_1e1p else -99995
+    dlanavars._phiTB_1e1p[0]        = phiTB_1e1p                          if PassSimpleCuts and PassShowerReco and not FailBoost_1e1p else -99995
+    dlanavars._alphaTB_1e1p[0]      = alphTB_1e1p                         if PassSimpleCuts and PassShowerReco and not FailBoost_1e1p else -99995
+    dlanavars._pTB_1e1p[0]          = pTB_1e1p                            if PassSimpleCuts and PassShowerReco and not FailBoost_1e1p else -99995
+    dlanavars._bjXB_1e1p[0]         = xB_1e1p                             if PassSimpleCuts and PassShowerReco and not FailBoost_1e1p else -99995
+    dlanavars._sphB_1e1p[0]         = sphB_1e1p                           if PassSimpleCuts and PassShowerReco and not FailBoost_1e1p else -99995
+    dlanavars._q2B_1e1p[0]          = Q2calB_1e1p                         if PassSimpleCuts and PassShowerReco and not FailBoost_1e1p else -99995
+    dlanavars._bjYB_1e1p[0]         = yB_1e1p                             if PassSimpleCuts and PassShowerReco and not FailBoost_1e1p else -99995
 
     # shower reco variables
     dlanavars._shower1_E_U[0]       = float(vtxShowerData["shower_energies"][0])       if PassSimpleCuts and PassShowerReco else -99999
