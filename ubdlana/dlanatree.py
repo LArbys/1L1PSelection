@@ -227,6 +227,9 @@ class DLanaTree:
         self._porchTotPE = MakeTreeBranch(outTree,'PorchTotPE','float')
         self._maxPEFrac = MakeTreeBranch(outTree,'MaxPEFrac','float')
         self._passPMTPrecut = MakeTreeBranch(outTree,'PassPMTPrecut','int')
+        self._precutBeamFirstTick = MakeTreeBranch(outTree,'PrecutBeamFirstTick','int')
+        self._precutVetoFirstTick = MakeTreeBranch(outTree,'PrecutVetoFirstTick','int')
+
 
         # BDT output
         self._bdtscore_1e1p         = MakeTreeBranch(outTree,'BDTscore_1e1p','float')
