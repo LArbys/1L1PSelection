@@ -87,6 +87,7 @@ class DLAnalyze(RootAnalyze):
         self.tracker_treename = config['modules']['dlanalyze']['tracker_tree']
         self.ismc             = config['modules']['dlanalyze']['ismc']
         self.sample_type      = config['modules']['dlanalyze']['sample_type']
+        self.start_entry      = 0
 
         another_tree = config['modules']['dlanalyze']['another_tree']
         print 'DLAnalyze constructed with second tree = %s' % another_tree
@@ -124,6 +125,8 @@ class DLAnalyze(RootAnalyze):
 
         # SETUP DQDX module
         self.dqdxbuilder = larlitecv.DQDXBuilder()
+        # true for debug
+        self.dqdxbuilder.set_verbose(False)
 
         # SETUP MPID
         self.mpid_cfg_path = os.environ["UBMPIDNET_DIR"]+"/production_cfg/inference_config_tufts_WC.cfg"
@@ -193,7 +196,9 @@ class DLAnalyze(RootAnalyze):
 
         return
 
-
+    def set_start_entry(self,start):
+        self.start_entry = start
+    
     def branches(self):
         #----------------------------------------------------------------------
         #
@@ -426,7 +431,10 @@ class DLAnalyze(RootAnalyze):
         self.io_ll.set_data_to_read( larlite.data.kCRTHit,   self.crtveto_pars['crthit_producer'] )
 
         self.io_ll.open()
-        self.io_ll.next_event() # go to first entry
+        if self.start_entry==0:        
+            self.io_ll.next_event() # go to first entry
+        else:
+            self.io_ll.go_to( self.start_entry )
 
         self.in_lcv = larcv.IOManager(larcv.IOManager.kREAD,"input_larcv")
         self.in_lcv.add_in_file( input_file.GetName() )
@@ -529,7 +537,7 @@ class DLAnalyze(RootAnalyze):
         self.dict_ShowerReco = {"entries":[]}
 
         self.rse2entry = {}
-        for entry in xrange(nentries):
+        for entry in xrange(self.start_entry,nentries):
             print "[DLAnalyze::Make_MoreReco_Variables] ENTRY ",entry," of ",nentries
             # load larlite entry
             self.larlite_id_tree.GetEntry(entry)

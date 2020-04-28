@@ -17,6 +17,7 @@ parser.add_argument('-g','--tag',default="test",type=str,help="Tag: used to name
 parser.add_argument('--ismc',help='are we looking at montecarlo?',action="store_true")
 parser.add_argument('-pmt','--run-precuts',action='store_true',default=False,help="if true, will run precut code on ophits in file")
 parser.add_argument('-oh','--ophits',type=str,default="ophitBeam",help="tree name to use if running PMT precuts. [default: ophitBeam]")
+parser.add_argument('-se','--start-entry',type=int,default=0,help="starting entry")
 args = parser.parse_args()
 
 # ------------------------------------------------------------------------------- #
@@ -56,6 +57,7 @@ config = {"modules":{"dlanalyze":dlanalyze_cfg}}
 
 print "Load module"
 dlanalyze = DLAnalyze(config)
+dlanalyze.set_start_entry(args.start_entry)
 
 # Load input file
 tfinput = rt.TFile( args.dlmerged, "open" )
@@ -69,13 +71,13 @@ tree = tfinput.Get( dlanalyze_cfg['tracker_tree'] )
 dlanalyze.open_input(tfinput)
 
 
-ientry = 0
-bytes = tree.GetEntry(ientry)
+ientry = args.start_entry
+bytes_read = tree.GetEntry(ientry)
 
-while bytes>0:
+while bytes_read>0:
     dlanalyze.analyze_entry(tree)
     ientry+=1 
-    bytes = tree.GetEntry(ientry)
+    bytes_read = tree.GetEntry(ientry)
 
 dlanalyze.end_job()
 
