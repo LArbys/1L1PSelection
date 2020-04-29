@@ -7,7 +7,7 @@ from SelectionDefs import ECCQE_mom, Boost, BoostTracks, Getpz, GetCCQEDiff, Sen
 def make_selection_vars( indo, ismc,
                          ev, df_ShowerReco, PMTPrecut_Dict, MC_dict,
                          dlanavars, calibMap_v,
-                         sce=None ):
+                         sce=None, showercnn_results=None ):
     """
     inputs
     -------
@@ -418,6 +418,13 @@ def make_selection_vars( indo, ismc,
         dlanavars._secondshower_recotrue_dist[0]      = float(vtxShowerData["secondshower_recotrue_dist"][0]) if (dlanavars._numshowers[0] == 2 and dlanavars._truefid[0]) else -9999
 
 
+    # cnn shower variable
+    if showercnn_results is not None and IDvtx in showercnn_results:
+        dlanavars._cnn_shower_energy[0] = showercnn_results[IDvtx]
+    else:
+        dlanavars._cnn_shower_energy[0] = -9999
+        
+        
     dlanavars._totPE[0] = PMTPrecut_Dict[IDev]['_totpe']
     dlanavars._porchTotPE[0] = PMTPrecut_Dict[IDev]['_porchtotpe']
     dlanavars._maxPEFrac[0] = PMTPrecut_Dict[IDev]['_maxpefrac']

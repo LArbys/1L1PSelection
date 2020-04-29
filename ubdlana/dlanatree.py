@@ -199,6 +199,8 @@ class DLanaTree:
         self._shower2_sumq_V = MakeTreeBranch(outTree,'shower2_sumQ_V','float')
         self._shower2_sumq_Y = MakeTreeBranch(outTree,'shower2_sumQ_Y','float')
 
+        # CNN Shower variables
+        self._cnn_shower_energy = MakeTreeBranch(outTree,'cnn_shower_energy','float')
 
         # mc shower Variables
         self._haspi0 = MakeTreeBranch(outTree,'haspi0','int')

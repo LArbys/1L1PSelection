@@ -15,7 +15,7 @@ modules : { sam_metadata : {}
                              bdt_1e1p_weights: "bdtweights_1e1p_MissingLowEPatch_4-28-20.pickle"
                              bdt_1mu1p_cosmic_weights: "bdtweights_1mu1p_WC_apr1.pickle"
                              bdt_1mu1p_nu_weights: "x"
-                             #showercnn_weights: "ResNet18_nueintrinsic_JoshImages_epoch120.pytorch_weights"
+			     #showercnn_weights: "ResNet18_nueintrinsic_JoshImages_epoch120.pytorch_weights"
                              showercnn_weights: "DoNotRun"
                              ismc : True
                              showerreco: { out_larlite_tree: "ssnetshowerrecov2"
