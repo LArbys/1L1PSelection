@@ -4,6 +4,16 @@ import torch.nn as nn
 from functools import partial
 
 
+try:
+    from nn import Identity
+except:
+    print "No pytorch nn.Identity. Define one ourselves."
+    class Identity(nn.Module):
+        def __init__(self, *args, **kwargs):
+            super(Identity,self).__init__()
+        def forward(self, x):
+            return x
+
 class Conv2dAuto(nn.Conv2d):
     def __init__(self, *args, **kwargs):
         super(Conv2dAuto,self).__init__(*args, **kwargs)
@@ -16,16 +26,16 @@ def activation_func(activation):
         ['relu', nn.ReLU(inplace=True)],
         ['leaky_relu', nn.LeakyReLU(negative_slope=0.01, inplace=True)],
         ['selu', nn.SELU(inplace=True)],
-        ['none', nn.Identity()]
+        ['none', Identity()]
     ])[activation]
 
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels, activation='relu'):
         super(ResidualBlock,self).__init__()
         self.in_channels, self.out_channels, self.activation = in_channels, out_channels, activation
-        self.blocks = nn.Identity()
+        self.blocks = Identity()
         self.activate = activation_func(activation)
-        self.shortcut = nn.Identity()
+        self.shortcut = Identity()
 
     def forward(self, x):
         residual = x

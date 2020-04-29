@@ -312,7 +312,7 @@ class DLAnalyze(RootAnalyze):
         make_selection_vars( entry, self.ismc,
                              self.tree_obj, self.df_ShowerReco, self.PMTPrecut_Dict, self.MC_dict,
                              self.anatreeclass, self.calibMap_v,
-                             sce = self.sce )
+                             sce = self.sce, showercnn_results=self.dict_showercnn_results )
 
 
         print "Apply BDT[1e1p]"
@@ -377,6 +377,13 @@ class DLAnalyze(RootAnalyze):
         print 'run shower reco'
         self.showerreco.process( self.in_lcv, self.io_ll, entry )
         self.showerreco.store_in_larlite(self.io_ll)
+
+        # run CNN shower reco
+        if self.showercnn is not None:
+            outputs = showercnnutil.run_showercnn_event( self.in_lcv, self.showercnn )
+            print "shower cnn run: outputs=",outputs
+            for vtxid,energy_mev in enumerate(outputs):
+                self.dict_showercnn_results[ (self.io_ll.run_id(),self.io_ll.subrun_id(),self.io_ll.event_id(),vtxid) ] = energy_mev
 
         # run crtveto
         crtveto_result = self.crtveto.analyze( self.io_ll )
@@ -535,6 +542,7 @@ class DLAnalyze(RootAnalyze):
 
         # we create a dictionary where we will store shower reco variables
         self.dict_ShowerReco = {"entries":[]}
+        self.dict_showercnn_results = {}
 
         self.rse2entry = {}
         for entry in xrange(self.start_entry,nentries):
