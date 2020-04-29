@@ -361,7 +361,7 @@ class DLFilter(RootAnalyze):
                  and dlanatree.MaxShrFrac<0.2
                  and dlanatree.OpenAng>0.5
                  and dlanatree.ChargeNearTrunk>0
-                 and dlanatree.FailedBoost!=1
+                 and dlanatree.FailedBoost_1m1p!=1
                  and dlanatree.Lepton_EdgeDist>15.0
                  and dlanatree.Proton_EdgeDist>15.0
                  and dlanatree.BDTscore_1mu1p_cosmic>0.0

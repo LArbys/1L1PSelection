@@ -2,7 +2,7 @@ import numpy as np
 from math import sqrt
 from SelectionDefs import NewAng, VtxInSimpleFid, VtxInFid, GetPhiT, pTrans,pTransRat
 from SelectionDefs import alphaT, ECCQE, ECal, Q2, OpenAngle, PhiDiff, edgeCut
-from SelectionDefs import ECCQE_mom, Boost, BoostTracks, Getpz, GetCCQEDiff, SensibleMinimize, Getq3q0,GetTotPE, CorrectionFactor
+from SelectionDefs import ECCQE_mom, Boost, BoostTracks, Getpz, GetCCQEDiff, SensibleMinimize, Getq3q0,GetTotPE, CorrectionFactor, CorrectionFactorPoint
 
 def make_selection_vars( indo, ismc,
                          ev, df_ShowerReco, PMTPrecut_Dict, MC_dict,
@@ -118,6 +118,7 @@ def make_selection_vars( indo, ismc,
 
         openAng        = OpenAngle(pTh,lTh,pPh,lPh)
 
+        qcorrfactor_vtx = CorrectionFactorPoint(vtxX,vtxY,vtxZ,calibMap_v)
         if ismc:
             for i in xrange(0,len(dqdx_v_uncalibrated)):
                 dqdx_v_calibrated[i] = dqdx_v_uncalibrated[i] * CorrectionFactor(vtxX,vtxY,vtxZ,vtxTheta_v[i],vtxPhi_v[i],length_v[i],calibMap_v)
@@ -238,12 +239,15 @@ def make_selection_vars( indo, ismc,
     dlanavars._passShowerReco[0] = PassShowerReco
     dlanavars._passSecShr[0]   = PassSecondShower
     dlanavars._failBoost[0]    = FailBoost
+    dlanavars._failBoost_1m1p[0]  = FailBoost_1m1p
+    dlanavars._failBoost_1e1p[0]  = FailBoost_1e1p
     dlanavars._good3DReco[0]   = Good3DReco
     dlanavars._eta[0]          = eta                                      if PassSimpleCuts else -99999
     dlanavars._openAng[0]      = openAng                                  if PassSimpleCuts else -99999
     dlanavars._thetas[0]       = thetas                                   if PassSimpleCuts else -99999
     dlanavars._phis[0]         = phis                                     if PassSimpleCuts else -99999
-    dlanavars._charge_near_trunk[0] = ldq + pdq                           if PassSimpleCuts else -99999
+    dlanavars._qcorrection_factor_vtx[0] = qcorrfactor_vtx                if PassSimpleCuts else 1.0
+    dlanavars._charge_near_trunk[0]  = ldq + pdq                          if PassSimpleCuts else -99999
     dlanavars._longtracklen[0]   = longtracklen                           if PassSimpleCuts else -99999
     dlanavars._shorttracklen[0]  = shorttracklen                          if PassSimpleCuts else -99999
     dlanavars._maxshrFrac[0]     = maxshrFrac                             if PassSimpleCuts else -99999

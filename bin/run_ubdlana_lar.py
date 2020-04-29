@@ -16,7 +16,7 @@ parser.add_argument('-o','--outfile',default=".",type=str,help="Output file name
 parser.add_argument('-g','--tag',default="test",type=str,help="Tag: used to name files. [default: 'test']")
 parser.add_argument('--ismc',help='are we looking at montecarlo?',action="store_true")
 parser.add_argument('-pmt','--run-precuts',action='store_true',default=False,help="if true, will run precut code on ophits in file")
-parser.add_argument('-oh','--ophits',type=str,default="ophitBeam",help="tree name to use if running PMT precuts. [default: ophitBeam]")
+parser.add_argument('-oh','--ophits',type=str,default="ophitBeamCalib",help="tree name to use if running PMT precuts. [default: ophitBeamCalib]")
 parser.add_argument('-se','--start-entry',type=int,default=0,help="starting entry")
 args = parser.parse_args()
 
@@ -38,7 +38,7 @@ dlanalyze_cfg = {"tracker_tree":"_recoTree",
                  "ismc":ismc,
                  "sample_type":args.sample_type,
                  "another_tree":"DLAnaTree",
-                 "precut_ophits":"ophitBeamCalib",
+                 "precut_ophits":args.ophits,
                  "crtveto":{"opflash_producer":"simpleFlashBeam",
                             "crthit_producer":"crthitcorr"},
                  "bdt_1e1p_weights":"Selection_Weights_1e1p_3-24-20.pickle",
