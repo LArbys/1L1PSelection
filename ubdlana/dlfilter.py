@@ -87,7 +87,12 @@ class DLFilter(RootAnalyze):
         """
         tree that is passed is suppose to be 'larlite_id_tree'
         """
-        return tree._run_id,tree._subrun_id,tree._event_id
+        rse = (tree._run_id,tree._subrun_id,tree._event_id)
+        if rse in self.rse_dict and self.rse_dict[rse]:
+            return tree._run_id,tree._subrun_id,tree._event_id
+        if rse not in self.rse_dict:
+            print "[ dlfilter::event_info ] rse=",rse," not found in self.rse_dict"
+        return None
 
     def open_output(self, output_file):
         #----------------------------------------------------------------------
@@ -143,6 +148,7 @@ class DLFilter(RootAnalyze):
         entry = tree.GetReadEntry()
 
         print "----- ANALYZE ENTRY [%d] ---------------------------------"%(entry)
+
         #for branch in self.tree_obj.GetListOfBranches():
         #    if self.tree_obj.GetBranchStatus(branch.GetName()):
         #        print '  %s' % branch.GetName()
