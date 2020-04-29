@@ -25,6 +25,12 @@ def run_showercnn_event( iolcv, model  ):
     vtx_img_v = shrutil.process_event_get_ndarray( iolcv )
     vtx_shr_energy_mev_v = []
     for vtx_id, img_dict in enumerate(vtx_img_v):
+
+        if len(img_dict["adc"])!=3:
+            print "[showercnnutil::run_showercnn_event] no image crops for vtxid[",vtx_id,"]"
+            vtx_shr_energy_mev_v.append(-9999.0)
+            continue
+        
         img_arrU = np.log(img_dict["adc"][0] + 1)
         img_arrV = np.log(img_dict["adc"][1] + 1)
         img_arrY = np.log(img_dict["adc"][2] + 1)
