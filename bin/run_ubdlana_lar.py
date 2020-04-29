@@ -18,6 +18,7 @@ parser.add_argument('--ismc',help='are we looking at montecarlo?',action="store_
 parser.add_argument('-pmt','--run-precuts',action='store_true',default=False,help="if true, will run precut code on ophits in file")
 parser.add_argument('-oh','--ophits',type=str,default="ophitBeamCalib",help="tree name to use if running PMT precuts. [default: ophitBeamCalib]")
 parser.add_argument('-se','--start-entry',type=int,default=0,help="starting entry")
+parser.add_argument("-cnn","--run-cnn",action='store_true',default=False,help="if true, run shower cnn")
 args = parser.parse_args()
 
 # ------------------------------------------------------------------------------- #
@@ -28,7 +29,7 @@ import ubdlana.dlanalyze
 from ubdlana.dlanalyze import DLAnalyze
 import ROOT as rt
 
-if args.sample_type=="Overlay":
+if args.ismc:
     ismc = True
 else:
     ismc = False
@@ -51,6 +52,9 @@ dlanalyze_cfg = {"tracker_tree":"_recoTree",
                                  "second_shower": True,
                                  "use_calib": False }
 }
+
+if args.run_cnn:
+    dlanalyze_cfg['showercnn_weights'] = "ResNet18_nueintrinsic_JoshImages_epoch120.pytorch_weights"
 
 config = {"modules":{"dlanalyze":dlanalyze_cfg}}
 

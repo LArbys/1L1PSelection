@@ -13,6 +13,7 @@ def load_1e1p_model( weightfile_name ):
     weight_path = os.environ["UBDLANA_DIR"]+"/bdt_models/"+weightfile_name
     with open(weight_path,"rb") as handle: 
         MyBDT = pickle.load(handle)
+    print "[bdtutil::load_1e1p_model] loaded ",weight_path
     return MyBDT
 
 def load_1mu1p_models( weightfile_name ):
@@ -20,6 +21,7 @@ def load_1mu1p_models( weightfile_name ):
     weight_path = os.environ["UBDLANA_DIR"]+"/bdt_models/"+weightfile_name
     with open(weight_path,"rb") as handle: 
         cosmicBDT,nubkgBDT = pickle.load(handle)
+    print "[bdtutil::load_1mu1p_model] loaded ",weight_path        
     return cosmicBDT,nubkgBDT
 
 def apply_1e1p_model( model, dlvars ):
@@ -46,7 +48,7 @@ def apply_1e1p_model( model, dlvars ):
         dlvars._alphaT_1e1p[0], # AlphaT_1e1p,
         dlvars._sphB_1e1p[0],   # SphB_1e1p,
         dlvars._pzEnu_1e1p[0],  # PzEnu_1e1p,
-        dlvars._charge_near_trunk[0], #ChargeNearTrunk_UniformityCalibrated,  #!!! calibrated?
+        dlvars._charge_near_trunk[0]*dlvars._qcorrection_factor_vtx[0], #ChargeNearTrunk_UniformityCalibrated,  #!!! calibrated?
         dlvars._q0_1e1p[0],     # Q0_1e1p,
         dlvars._q3_1e1p[0],     # Q3_1e1p,
         dlvars._thetas[0],      # Thetas,
