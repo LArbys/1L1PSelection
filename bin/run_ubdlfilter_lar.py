@@ -52,13 +52,12 @@ dlfilter.open_output( tfout )
 tree = tfinput.Get( "dlana/FinalVertexVariables" )
 dlfilter.open_input(tfinput)
 
-ientry = 0
-bytes_read = tree.GetEntry(ientry)
-
-while bytes_read>0:
-    dlfilter.analyze_entry(tree)
-    ientry+=1 
-    bytes_read = tree.GetEntry(ientry)
+#ientry = 0
+#bytes_read = tree.GetEntry(ientry)
+#while bytes_read>0:
+#    dlfilter.analyze_entry(tree)
+#    ientry+=1 
+#    bytes_read = tree.GetEntry(ientry)
 
 dlfilter.end_job()
 

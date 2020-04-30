@@ -38,6 +38,7 @@ from larcv import larcv
 from larlitecv import larlitecv
 
 from LEEPreCuts_Functions import makePMTpars,performPMTPrecuts,getPMTPrecutDict
+from event_indexed_trees_util import is_tree_event_indexed
 
 def make(config):
     #----------------------------------------------------------------------
@@ -203,7 +204,8 @@ class DLFilter(RootAnalyze):
         fvv_tree = None
 
         dirlist = [None]
-
+        dirdict = {}
+        
         # this is fragile. if vertex and event tree are the same number of entries, what happens?
         
         while len(dirlist)>0:
@@ -215,23 +217,29 @@ class DLFilter(RootAnalyze):
             tree_keys = tdir.GetListOfKeys()
             nkeys = tree_keys.GetEntries()
             for ikey in xrange(nkeys):
-                treename = tree_keys.At(ikey).GetName()
+                basetreename = tree_keys.At(ikey).GetName()
                 if dirname is not None:
-                    treename = dirname+"/"+treename
+                    treename = dirname+"/"+basetreename
+                    dirdict[basetreename] = dirname
+                else:
+                    treename = basetreename
+                    
                 atree = input_file.Get(treename)
                 if atree is not None and atree.ClassName()=="TTree":
                     print "Tree: ",treename," ",atree.ClassName()
                     nentries = atree.GetEntries()
-                    if nentries==nvertex_entries:
+                    if is_tree_event_indexed( basetreename ):
+                        self.event_indexed_trees.append(atree)
+                        if nevent_entries>0 and nentries!=nevent_entries:
+                            raise RuntimeError("Event-indexed tree({}) nentries ({}) does not seem to match known event-indexed tree entries ({})".format(basetreename,nentries,nevent_entries))
+                    else:
                         self.vertex_indexed_trees.append(atree)
+                        if nentries!=nvertex_entries:
+                            raise RuntimeError("Vertex-indexed tree({}) nentries ({}) does not seem to match known vertex-indexed tree entries ({})".format(basetreename,nentries,nvertex_entries))
                         if treename=="dlana/FinalVertexVariables":
                             # save pointer to this tree in case we want to modify it
                             fvv_tree = atree
-                    elif nentries==nevent_entries:
-                        self.event_indexed_trees.append(atree)                            
-                    else:
-                        print "A tree that does not match either event or vertex indexed entries: ",treename
-                        self.other_trees.append(atree)
+
                 elif atree is not None and atree.ClassName()=="TDirectoryFile":
                     dirlist.append(treename)
                 else:
@@ -240,6 +248,15 @@ class DLFilter(RootAnalyze):
             print "directories remaining: ",len(dirlist)
             #raw_input()
 
+        # FOR DEBUG
+        if False:
+            print "[EVENT-INDEXED TREES]"
+            for atree in self.event_indexed_trees:
+                print atree.GetName()
+        if True:
+            print "[VERTEX-INDEXED TREES]"
+            for atree in self.vertex_indexed_trees:
+                print atree.GetName()
 
         # rerun precuts
         if self.rerun_pmtprecuts and nevent_entries>0:
@@ -265,11 +282,19 @@ class DLFilter(RootAnalyze):
         self.output_file.cd()
         outfvv_tree = None
         for tree in self.event_indexed_trees:
+            if str(tree.GetName()) in dirdict:
+                rootdir = self.output_file.mkdir( dirdict[str(tree.GetName())] )
+                rootdir.cd()
             self.out_event_indexed_trees.append( tree.CloneTree(0) )
+            self.output_file.cd()
         for tree in self.vertex_indexed_trees:
+            if str(tree.GetName()) in dirdict:
+                rootdir = self.output_file.mkdir( dirdict[str(tree.GetName())] )
+                rootdir.cd()            
             self.out_vertex_indexed_trees.append( tree.CloneTree(0) )
             if tree==fvv_tree:
                 outfvv_tree = self.out_vertex_indexed_trees[-1]
+            self.output_file.cd()
         
 
         neventsout = 0
@@ -396,7 +421,7 @@ class DLFilter(RootAnalyze):
         """ use the final vertex tree to make selection 
         we create an RSE and RSEV dict
         """
-        print "run numu filter"
+        print "[ dlfilter::run_1e1p_highE_filter ]"
         self.rse_dict = {}
         self.rsev_dict = {}
 
@@ -420,7 +445,6 @@ class DLFilter(RootAnalyze):
                  and dlanatree.Proton_Edep > 60
                  and dlanatree.Electron_Edep > 35
                  and max(dlanatree.MaxShrFrac,-1) > 0.2
-                 and dlanatree.BDTscore_1e1p>0.8 
                  and dlanatree.Enu_1e1p>700.0 ):
                 passes = True
             
@@ -440,7 +464,7 @@ class DLFilter(RootAnalyze):
         """ use the final vertex tree to make selection 
         we create an RSE and RSEV dict
         """
-        print "run numu filter"
+        print "[ dlfilter::run_1e1p_lowBDT_filter ]"
         self.rse_dict = {}
         self.rsev_dict = {}
 
@@ -489,7 +513,7 @@ class DLFilter(RootAnalyze):
         """ use the final vertex tree to make selection 
         we create an RSE and RSEV dict
         """
-        print "run numu filter"
+        print "[ dlfilter::run_1e1p_signal_filter ]"
         self.rse_dict = {}
         self.rsev_dict = {}
 
