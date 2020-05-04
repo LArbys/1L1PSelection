@@ -105,12 +105,12 @@ class DLFilter(RootAnalyze):
         """
         tree that is passed is suppose to be 'larlite_id_tree'
         """
-        rse = (tree._run_id,tree._subrun_id,tree._event_id)
-        if rse in self.rse_dict and self.rse_dict[rse]:
-            return tree._run_id,tree._subrun_id,tree._event_id
-        if rse not in self.rse_dict:
-            print "[ dlfilter::event_info ] rse=",rse," not found in self.rse_dict"
-        return None
+        if not self._use_ubdlana_idtree:
+            rse = (tree._run_id,tree._subrun_id,tree._event_id)
+        else:
+            rse = (tree.run,tree.subrun,tree.event)
+        print "DLFilter::event_info = ",rse
+        return rse
 
     def open_output(self, output_file):
         #----------------------------------------------------------------------
@@ -187,14 +187,28 @@ class DLFilter(RootAnalyze):
         self.input_file_list.append(input_file.GetName())
 
         # we need to get the event and vertex trees
-        larlite_id_tree = input_file.Get("larlite_id_tree")
+        larlite_id_tree = input_file.Get("dlana/ubdlana_id_tree")
         finalvertextree = input_file.Get("dlana/FinalVertexVariables")
+        self._use_ubdlana_idtree = False
         try:
             nevent_entries  = larlite_id_tree.GetEntries()
+            self._use_ubdlana_idtree = True
         except:
-            print "DLFilter::Run without Event-based trees"
+            print "DLFilter::Could not load ubdlana. try larlite_id_tree"
             larlite_id_tree = None
             nevent_entries = 0
+            self._use_ubdlana_idtree = False
+        if larlite_id_tree is None:
+            larlite_id_tree = input_file.Get("larlite_id_tree")
+            try:
+                nevent_entries = larlite_id_tree.GetEntries()
+                print "DLFilter: using larlite_id_tree"
+                self._use_ubdlana_idtree = False
+            except:
+                print "DLFilter::Could not load ubdlana_id_tree either"
+                larlite_id_tree = None
+                nevent_entries = 0
+
         nvertex_entries = finalvertextree.GetEntries()
             
         self.vertex_indexed_trees = []
@@ -207,6 +221,7 @@ class DLFilter(RootAnalyze):
         dirdict = {}
         
         # this is fragile. if vertex and event tree are the same number of entries, what happens?
+        self.pot_sum_tree = None
         
         while len(dirlist)>0:
             dirname = dirlist.pop(0)
@@ -228,6 +243,11 @@ class DLFilter(RootAnalyze):
                 if atree is not None and atree.ClassName()=="TTree":
                     print "Tree: ",treename," ",atree.ClassName()
                     nentries = atree.GetEntries()
+                    if treename=="potsummary_generator_tree":
+                        print "Found potsummary_generator_tree. special case."
+                        self.pot_sum_tree = atree
+                        continue
+
                     if is_tree_event_indexed( basetreename ):
                         self.event_indexed_trees.append(atree)
                         if nevent_entries>0 and nentries!=nevent_entries:
@@ -268,7 +288,7 @@ class DLFilter(RootAnalyze):
         elif self.filter_type=="1e1p-highE-sideband":
             self.run_1e1p_highE_filter(finalvertextree)
         elif self.filter_type=="1e1p-lowBDT-sideband":
-            self.run_1e1p_lowBDT_filder(finalvertextree)
+            self.run_1e1p_lowBDT_filter(finalvertextree)
         elif self.filter_type=="1e1p-signal":
             self.run_1e1p_signal_filter(finalvertextree)
         else:
@@ -283,14 +303,22 @@ class DLFilter(RootAnalyze):
         outfvv_tree = None
         for tree in self.event_indexed_trees:
             if str(tree.GetName()) in dirdict:
-                rootdir = self.output_file.mkdir( dirdict[str(tree.GetName())] )
+                try:
+                    rootdir = self.output_file.mkdir( dirdict[str(tree.GetName())] )
+                except:
+                    rootdir = self.output_file.Get( dirdict[str(tree.GetName())] )
                 rootdir.cd()
             self.out_event_indexed_trees.append( tree.CloneTree(0) )
             self.output_file.cd()
         for tree in self.vertex_indexed_trees:
             if str(tree.GetName()) in dirdict:
-                rootdir = self.output_file.mkdir( dirdict[str(tree.GetName())] )
-                rootdir.cd()            
+                rootdir = self.output_file.Get( dirdict[str(tree.GetName())] )
+                try:
+                    rootdir.cd()
+                except:
+                    rootdir = self.output_file.mkdir( dirdict[str(tree.GetName())] )
+                    rootdir.cd()
+
             self.out_vertex_indexed_trees.append( tree.CloneTree(0) )
             if tree==fvv_tree:
                 outfvv_tree = self.out_vertex_indexed_trees[-1]
@@ -301,13 +329,21 @@ class DLFilter(RootAnalyze):
         nverticesout = 0
         for ientry in xrange( nevent_entries ):
             larlite_id_tree.GetEntry(ientry)
-            rse = ( larlite_id_tree._run_id, larlite_id_tree._subrun_id, larlite_id_tree._event_id )
+            if not self._use_ubdlana_idtree:
+                rse = ( larlite_id_tree._run_id, larlite_id_tree._subrun_id, larlite_id_tree._event_id )
+            else:
+                rse = (larlite_id_tree.run,larlite_id_tree.subrun,larlite_id_tree.event)
             if rse in self.rse_dict and self.rse_dict[rse]:
                 neventsout+=1
                 for tree in self.event_indexed_trees:
                     tree.GetEntry(ientry)
                 for tree in self.out_event_indexed_trees:
                     tree.Fill()
+            else:
+                if rse in self.rse_dict:
+                    print "[do not save event] ",rse," ",self.rse_dict[rse]
+                else:
+                    print "[do not save event] ",rse," not in RSE dict"
 
         # if rerunning steps, we have to replace the branch addresses with new ones
         if self.rerun_pmtprecuts and nevent_entries>0:
@@ -326,7 +362,7 @@ class DLFilter(RootAnalyze):
             rse  = ( finalvertextree.run, finalvertextree.subrun, finalvertextree.event)            
             if rse in self.rse_dict and self.rse_dict[rse]:
                 nverticesout+=1
-
+                print "[Vertex passes]",rse," vtxid=",finalvertextree.vtxid
                 for tree in self.vertex_indexed_trees:
                     tree.GetEntry(ientry)
 
@@ -340,8 +376,17 @@ class DLFilter(RootAnalyze):
                     rerun_pass[0]       = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
 
                 for tree in self.out_vertex_indexed_trees:
-
                     tree.Fill()
+
+        if self.pot_sum_tree is not None:
+            print "Copy POT summary tree"
+            outpot = self.pot_sum_tree.CloneTree(0)
+            abytes = self.pot_sum_tree.GetEntry(0)
+            ii = 0
+            while abytes>0:
+                outpot.Fill()
+                ii += 1
+                abytes = self.pot_sum_tree.GetEntry(ii)
 
         print "Num of event-indexed trees: ",len(self.event_indexed_trees)
         print "Num of vertex-indexed trees: ",len(self.vertex_indexed_trees)
@@ -378,7 +423,7 @@ class DLFilter(RootAnalyze):
 
             passes = False
             rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
-            rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
+            rsev = (dlanatree.run,dlanavtree.subrun,dlanatree.event,dlanatree.vtxid)
 
             passprecuts = int(dlanatree.PassPMTPrecut)
             if self.rerun_pmtprecuts:
@@ -403,11 +448,28 @@ class DLFilter(RootAnalyze):
             if self._DEBUG_MODE_:
                 passes = True # for debug
                 
+            # update RSE dictionary if
+            #  no previous entry
+            #  previous entry and this passes
             if rse not in self.rse_dict:
                 self.rse_dict[rse]   = passes
             elif rse in self.rse_dict and passes:
                 self.rse_dict[rse]   = passes
+            # add to RSEV dictionary
             self.rsev_dict[rsev] = passes
+
+            print "RSE=",rse," RSEV=",rsev," Passes=",passes
+            print "  precuts: ",passprecuts==1
+            print "  simplecuts: ",dlanatree.PassSimpleCuts==1
+            print "  maxshrfrac: ",dlanatree.MaxShrFrac<0.2," (",dlanatree.MaxShrFrac,")"
+            print "  opening angle: ",dlanatree.OpenAng>0.5," (",dlanatree.OpenAng,")"
+            print "  chargeneartrunk: ",dlanatree.ChargeNearTrunk>0," (",dlanatree.ChargeNearTrunk,")"
+            print "  failedboost_1m1p: ",dlanatree.FailedBoost_1m1p!=1," (",dlanatree.FailedBoost_1m1p,")"
+            print "  lepton edgedist: ",dlanatree.Lepton_EdgeDist>15.0," (",dlanatree.Lepton_EdgeDist,")"
+            print "  proton edgedist: ",dlanatree.Proton_EdgeDist>15.0," (",dlanatree.Proton_EdgeDist,")"
+            print "  bdt cosmic: ",dlanatree.BDTscore_1mu1p_cosmic>0.0," (",dlanatree.BDTscore_1mu1p_cosmic,")"
+            print "  bdt nu: ",dlanatree.BDTscore_1mu1p_nu>0.0," (",dlanatree.BDTscore_1mu1p_nu,")"
+
 
         # for debug only
         #rsekeys = self.rsev_dict.keys()
@@ -500,6 +562,16 @@ class DLFilter(RootAnalyze):
             elif rse in self.rse_dict and passes:
                 self.rse_dict[rse]   = passes
             self.rsev_dict[rsev] = passes
+
+            print "RSE=",rse," RSEV=",rsev," Passes=",passes
+            print "  precuts: ",passprecuts==1
+            print "  simplecuts: ",dlanatree.PassSimpleCuts==1
+            print "  showerreco: ",dlanatree.PassShowerReco==1
+            print "  maxshrfrac: ",max(dlanatree.MaxShrFrac,-1)>0.2," (",dlanatree.MaxShrFrac,")"
+            print "  electron edep: ",dlanatree.Electron_Edep>35.0," (",dlanatree.Electron_Edep,")"
+            print "  proton edep: ",dlanatree.Proton_Edep>60.0," (",dlanatree.Proton_Edep,")"
+            print "  bdt 1e1p: ",dlanatree.BDTscore_1e1p<=0.8," (",dlanatree.BDTscore_1e1p,")"
+
 
         # for debug only
         #rsekeys = self.rsev_dict.keys()

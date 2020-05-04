@@ -16,16 +16,26 @@ STANDARD_EVENT_INDEXED_TREES_STR = """
     partroi_croimerge_clip_union_tree
     image2d_wcshower_tpc_tree
     image2d_wctrack_tpc_tree
+    image2d_segment_tree
+    image2d_instance_tree
+    image2d_ancestor_tree
+    image2d_larflow_tree
+    partroi_segment_tree
     NuFilterTree
     MCTree
     EventVertexTree
-    PGraphTruthMatch
     pgraph_inter_par_tree
     pixel2d_inter_par_pixel_tree
     pixel2d_inter_img_pixel_tree
     pixel2d_inter_int_pixel_tree
     larlite_id_tree
     daqheadertimeuboone_daq_tree
+    gtruth_generator_tree
+    mctruth_corsika_tree
+    mctruth_generator_tree
+    mcflux_generator_tree
+    mcshower_mcreco_tree
+    mctrack_mcreco_tree
     hit_gaushit_tree
     hit_portedThresholdhit_tree
     crthit_crthitcorr_tree
@@ -49,6 +59,7 @@ STANDARD_EVENT_INDEXED_TREES_STR = """
     vertex_inter_vertex_tree
     vertex_trackReco_tree
     trigger_daq_tree
+    trigger_triggersim_tree
     ass_inter_ass_tree
     ass_opflashBeam_tree
     ass_opflashCosmic_tree
@@ -72,6 +83,8 @@ STANDARD_EVENT_INDEXED_TREES_STR = """
     track_dqdx_Y_tree
     ssnetshowerrecov2ana_anatree
     crtveto_tree
+    ubdlana_id_tree
+    mceventweight_eventweight4to4aFix_tree
 """
 
 def make_event_indexed_trees_list():
@@ -94,7 +107,7 @@ def is_tree_event_indexed( treename ):
         return True
 
     # other checks
-    if len(strtreename.split("_"))>1 and strtreename.split("_")[0] in ["ass","ophit","opflash"]:
+    if len(strtreename.split("_"))>1 and strtreename.split("_")[0] in ["ass","ophit","opflash","mceventweight"]:
         return True
 
     return False

@@ -2,7 +2,7 @@
 
 process_name : dlfilter
 services : { FileCatalogMetadata: @local::art_file_catalog_data }
-input_tree : "larlite_id_tree"
+input_tree : "ubdlana_id_tree"
 loop_over_entries : True
 dump_every: 1
 modules : { sam_metadata: {}

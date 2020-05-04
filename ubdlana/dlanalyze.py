@@ -8,7 +8,7 @@
 # Created: 19-Mar-2020, H. Greenlee
 #
 ###############################################################################
-import sys, os
+import sys, os, array
 try:    
     from root_analyze import RootAnalyze
 except:
@@ -92,7 +92,7 @@ class DLAnalyze(RootAnalyze):
         another_tree = config['modules']['dlanalyze']['another_tree']
         print 'DLAnalyze constructed with second tree = %s' % another_tree
         self.tree_name = "_recoTree"
-        self.tree_obj = None
+        self._recoTree = None
 
         # SETUP SSNET Shower reco
         self.llout_name = config['modules']['dlanalyze']['showerreco']['out_larlite_tree']
@@ -212,9 +212,10 @@ class DLAnalyze(RootAnalyze):
 
     def event_info(self, tree):
         """
-        tree that is passed is suppose to tbe the _recoTree
+        tree that is passed is suppose to tbe the larlite_id_tree
         """
-        return tree.run,tree.subrun,tree.event
+        #return tree.run,tree.subrun,tree.event
+        return tree._run_id,tree._subrun_id,tree._event_id
 
     def open_output(self, output_file):
         #----------------------------------------------------------------------
@@ -235,6 +236,15 @@ class DLAnalyze(RootAnalyze):
         # output finalvertexvariable (FVV) tree
         self.anatreeclass = DLanaTree()
         self.output_file = output_file
+
+        # make RSE tree
+        self._idtree = ROOT.TTree("ubdlana_id_tree","RSE analyzed")
+        self._idtree_run = array.array('i',[0])
+        self._idtree_subrun = array.array('i',[0])
+        self._idtree_event = array.array('i',[0])
+        self._idtree.Branch("run",self._idtree_run,"run/I")
+        self._idtree.Branch("subrun",self._idtree_subrun,"subrun/I")
+        self._idtree.Branch("event",self._idtree_event,"event/I")
 
         if self.ismc:
             # we bind the MC truth variables to it, too
@@ -283,8 +293,26 @@ class DLAnalyze(RootAnalyze):
             result = leaves[0]
         return result
 
+    def analyze_entry(self,tree):
+        #----------------------------------------------------------------------
+        #
+        # Purpose: Analyze loaded tree (fill histograms).  Called by framework.
+        #
+        # Arguments: tree - Loaded tree.
+        #
+        #----------------------------------------------------------------------
+        entry = tree.GetReadEntry()
+        print "[DLAnalyze::analyze_entry] EVENT ENTRY ",entry
+        self.larlite_id_tree.GetEntry(entry)
+        self.analyze_larlite_and_larcv_entry( tree, entry )
+        self.extract_showerreco_entry_vars( self.dict_ShowerReco,self.showerreco)
+        self._idtree_run[0]    = tree._run_id
+        self._idtree_subrun[0] = tree._subrun_id
+        self._idtree_event[0]  = tree._event_id
+        self._idtree.Fill()
 
-    def analyze_entry(self, tree):
+
+    def analyze_vertex_entry(self, tree):
         #----------------------------------------------------------------------
         #
         # Purpose: Analyze loaded tree (fill histograms).  Called by framework.
@@ -302,15 +330,15 @@ class DLAnalyze(RootAnalyze):
 
 
         entry = tree.GetReadEntry()
-        self.tree_obj.GetEntry(entry)
+        self._recoTree.GetEntry(entry)
 
         print "----- ANALYZE ENTRY [%d] ---------------------------------"%(entry)
-        #for branch in self.tree_obj.GetListOfBranches():
-        #    if self.tree_obj.GetBranchStatus(branch.GetName()):
+        #for branch in self._recoTree.GetListOfBranches():
+        #    if self._recoTree.GetBranchStatus(branch.GetName()):
         #        print '  %s' % branch.GetName()
 
         make_selection_vars( entry, self.ismc,
-                             self.tree_obj, self.df_ShowerReco, self.PMTPrecut_Dict, self.MC_dict,
+                             self._recoTree, self.df_ShowerReco, self.PMTPrecut_Dict, self.MC_dict,
                              self.anatreeclass, self.calibMap_v,
                              sce = self.sce, showercnn_results=self.dict_showercnn_results )
 
@@ -404,11 +432,11 @@ class DLAnalyze(RootAnalyze):
             evout_dqdxtrack_v.push_back( dqdxtrack_v )
             evout_dqdxtrack_y.push_back( dqdxtrack_y )
 
-        # save larlite entry and go to next event
-        self.io_ll.next_event()        
-
         # run mpid reco
         nmpid_vertices = mpidutil.run_mpid_on_larcv_entry( self.mpid_cfg, self.mpid, self.in_lcv, self.mpid_data, self.mpid_anatree )
+
+        # save larlite entry and go to next event
+        self.io_ll.next_event()        
 
 
     def open_input(self, input_file):
@@ -461,13 +489,13 @@ class DLAnalyze(RootAnalyze):
             #    if obj.GetBranchStatus(branch.GetName()):
             #        print '  %s' % branch.GetName()
 
-            self.tree_obj = obj
+            self._recoTree = obj
             print
 
         print "HACK: disable tracker branches that are broken!!"
-        self.tree_obj.SetBranchStatus('trackAvg15cm_x',0)
-        self.tree_obj.SetBranchStatus('trackAvg15cm_y',0)
-        self.tree_obj.SetBranchStatus('trackAvg15cm_z',0)
+        self._recoTree.SetBranchStatus('trackAvg15cm_x',0)
+        self._recoTree.SetBranchStatus('trackAvg15cm_y',0)
+        self._recoTree.SetBranchStatus('trackAvg15cm_z',0)
 
         # LARLITE ID TREE: governs loop to make MPID, Showerreco and Precut variables
         self.larlite_id_tree = input_file.Get("larlite_id_tree")
@@ -476,11 +504,12 @@ class DLAnalyze(RootAnalyze):
         # load mpid now
         print "[load the mpid]"
         self.mpid, self.mpid_cfg = mpidutil.load_mpid_model( self.mpid_cfg_path )
-        self.make_morereco_variables()
+
+        #self.make_morereco_variables()
         # done with the mpid
-        print "[clean up the mpid]"
-        del self.mpid
-        self.mpid = None
+        #print "[clean up the mpid]"
+        #del self.mpid
+        #self.mpid = None
 
         # make precut data
         self.PMTPrecut_Dict = performPMTPrecuts( input_file.GetName(), **self.precutpars )
@@ -503,22 +532,22 @@ class DLAnalyze(RootAnalyze):
         else:
             self.MCTree = None
 
-        self.tree_obj.AddFriend(self.VtxTree)
-        self.tree_obj.AddFriend(self.ShpTree)
-        self.tree_obj.AddFriend(self.ShrTree)
+        self._recoTree.AddFriend(self.VtxTree)
+        self._recoTree.AddFriend(self.ShpTree)
+        self._recoTree.AddFriend(self.ShrTree)
         if self.ismc:
-            self.tree_obj.AddFriend(self.MCTree)
+            self._recoTree.AddFriend(self.MCTree)
 
         # We attach the MPID ana tree as well
-        self.tree_obj.AddFriend(self.mpid_anatree)
+        self._recoTree.AddFriend(self.mpid_anatree)
 
 
         # we are done with larlite?
-        print "[close larcv and larlite iomanagers to save memory]"
-        self.in_lcv.finalize()
-        self.io_ll.close()        
-        self.in_lcv = None
-        self.io_ll  = None
+        #print "[close larcv and larlite iomanagers to save memory]"
+        #self.in_lcv.finalize()
+        #self.io_ll.close()        
+        #self.in_lcv = None
+        #self.io_ll  = None
 
         if self.ismc:
             print "[OPEN LARLITE MANAGER FOR MC]"
@@ -531,6 +560,10 @@ class DLAnalyze(RootAnalyze):
             self.io_ll_formc.set_data_to_read( larlite.data.kMCTruth,  "generator" )
             self.io_ll_formc.open()
 
+        # create dictionary for shower reco results and for lining up vertex tree and event tree entries
+        self.dict_ShowerReco = {"entries":[]}
+        self.dict_showercnn_results = {}
+        self.rse2entry = {}
 
         print "[ End input tree prep ]"
         print "================================"
@@ -556,11 +589,22 @@ class DLAnalyze(RootAnalyze):
 
         self.df_ShowerReco = ShowerRecoData( self.dict_ShowerReco )
 
-    def end_job(self):
-        """ close larcv and larlite files. larlite output file will write."""
+    def close_input(self,input_file):
+        """ called just before input is closed. close larcv and larlite files. larlite output file will write."""
+        print "[dlanalyze::close_input] Run Vertex-tree loop. num vertices: ",self._recoTree.GetEntries()
 
-        #self.in_lcv.finalize()
-        #self.io_ll.close()
+        # make shower reco data interface
+        self.df_ShowerReco = ShowerRecoData( self.dict_ShowerReco )
+
+        for ientry in xrange(self._recoTree.GetEntries()):
+            self._recoTree.GetEntry(ientry)
+            self.analyze_vertex_entry( self._recoTree )
+        
+        print "[dlanalyze::end_job] Finished Vertex-tree loop."
+
+        print "[dlanalyze::end_job] finalize larlite and larcv output."
+        self.in_lcv.finalize()
+        self.io_ll.close()
         if self.ismc:
             self.io_ll_formc.close()
 
