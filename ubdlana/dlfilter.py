@@ -423,7 +423,7 @@ class DLFilter(RootAnalyze):
 
             passes = False
             rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
-            rsev = (dlanatree.run,dlanavtree.subrun,dlanatree.event,dlanatree.vtxid)
+            rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
 
             passprecuts = int(dlanatree.PassPMTPrecut)
             if self.rerun_pmtprecuts:
@@ -550,7 +550,7 @@ class DLFilter(RootAnalyze):
                  and dlanatree.Proton_Edep > 60 
                  and dlanatree.Electron_Edep > 35
                  and max(dlanatree.MaxShrFrac,-1) > 0.2
-                 and dlanatree.BDTscore_1e1p<=0.8 ):
+                 and dlanatree.BDTscore_1e1p<=0.7 ):
                 passes = True
             
             # for debug: make something pass in order to check
@@ -570,7 +570,7 @@ class DLFilter(RootAnalyze):
             print "  maxshrfrac: ",max(dlanatree.MaxShrFrac,-1)>0.2," (",dlanatree.MaxShrFrac,")"
             print "  electron edep: ",dlanatree.Electron_Edep>35.0," (",dlanatree.Electron_Edep,")"
             print "  proton edep: ",dlanatree.Proton_Edep>60.0," (",dlanatree.Proton_Edep,")"
-            print "  bdt 1e1p: ",dlanatree.BDTscore_1e1p<=0.8," (",dlanatree.BDTscore_1e1p,")"
+            print "  bdt 1e1p: ",dlanatree.BDTscore_1e1p<=0.7," (",dlanatree.BDTscore_1e1p,")"
 
 
         # for debug only
