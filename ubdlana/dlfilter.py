@@ -527,16 +527,18 @@ class DLFilter(RootAnalyze):
         we create an RSE and RSEV dict
         """
         print "[ dlfilter::run_1e1p_lowBDT_filter ]"
-        self.rse_dict = {}
-        self.rsev_dict = {}
+        #we first collect the highest bdtscore per RSE
+
+        max_rse = {}
+        rse_vtxid = {}
 
         for ientry in xrange(dlanatree.GetEntries()):
             dlanatree.GetEntry(ientry)
 
-            passes = False
             rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
             rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
-
+            
+            passes = False
             passprecuts = int(dlanatree.PassPMTPrecut)
             if self.rerun_pmtprecuts:
                 passrerun = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
@@ -549,20 +551,9 @@ class DLFilter(RootAnalyze):
                  and dlanatree.PassShowerReco==1
                  and dlanatree.Proton_Edep > 60 
                  and dlanatree.Electron_Edep > 35
-                 and max(dlanatree.MaxShrFrac,-1) > 0.2
-                 and dlanatree.BDTscore_1e1p<=0.7 ):
+                 and max(dlanatree.MaxShrFrac,-1) > 0.2 ):
                 passes = True
-            
-            # for debug: make something pass in order to check
-            if self._DEBUG_MODE_:
-                passes = True # for debug
                 
-            if rse not in self.rse_dict:
-                self.rse_dict[rse]   = passes
-            elif rse in self.rse_dict and passes:
-                self.rse_dict[rse]   = passes
-            self.rsev_dict[rsev] = passes
-
             print "RSE=",rse," RSEV=",rsev," Passes=",passes
             print "  precuts: ",passprecuts==1
             print "  simplecuts: ",dlanatree.PassSimpleCuts==1
@@ -571,6 +562,47 @@ class DLFilter(RootAnalyze):
             print "  electron edep: ",dlanatree.Electron_Edep>35.0," (",dlanatree.Electron_Edep,")"
             print "  proton edep: ",dlanatree.Proton_Edep>60.0," (",dlanatree.Proton_Edep,")"
             print "  bdt 1e1p: ",dlanatree.BDTscore_1e1p<=0.7," (",dlanatree.BDTscore_1e1p,")"
+
+            print "[first pass] RSE=",rse," RSEV=",rsev
+            if rse not in max_rse:
+                # provide default
+                max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":-1.0,"enu":dlanatree.Enu_1e1p,"passes":False}
+
+            if passes and max_rse[rse]["bdt"]<dlanatree.BDTscore_1e1p:
+                max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":dlanatree.BDTscore_1e1p,"enu":dlanatree.Enu_1e1p,"passes":True}
+
+
+
+        # next, save only those events, whose highest bdt score pass threshold
+        self.rse_dict = {}
+        self.rsev_dict = {}
+
+        for ientry in xrange(dlanatree.GetEntries()):
+            dlanatree.GetEntry(ientry)
+
+            passes = False
+            rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
+            rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
+
+            if rse not in max_rse:
+                # surprising
+                print "RSE ",rse," not in max_rse dict"
+                continue
+            if max_rse[rse]["vtxid"]!=dlanatree.vtxid:
+                # ignore non-max  BDT vertex
+                print "RSE ",rse,": ",max_rse[rse]," -- is not max BDT vertex: this=",dlanatree.BDTscore_1e1p," max=",max_rse[rse]["bdt"]
+                continue
+
+            if not max_rse[rse]["passes"] or max_rse[rse]["bdt"]>0.7:
+                print "RSE ",rse,": score max=",max_rse[rse]["bdt"]," is above threshold or did not pass (",max_rse[rse]["passes"],")"
+                continue
+            
+            # for debug: make something pass in order to check
+            if self._DEBUG_MODE_:
+                passes = True # for debug
+                
+            self.rse_dict[rse]   = True
+            self.rsev_dict[rsev] = True
 
 
         # for debug only

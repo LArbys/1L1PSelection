@@ -71,20 +71,22 @@ tfinput = rt.TFile( args.dlmerged, "open" )
 tfout = rt.TFile(args.outfile, "recreate" )
 dlanalyze.open_output( tfout )
 
-# get tree
-tree = tfinput.Get( dlanalyze_cfg['tracker_tree'] )
+# get tracker tree
+tracker_tree = tfinput.Get( dlanalyze_cfg['tracker_tree'] )
 dlanalyze.open_input(tfinput)
 
+# get the event tree
+event_tree = tfinput.Get( 'larlite_id_tree' )
 
 ientry = args.start_entry
-bytes_read = tree.GetEntry(ientry)
+bytes_read = event_tree.GetEntry(ientry)
 
 while bytes_read>0:
-    dlanalyze.analyze_entry(tree)
+    dlanalyze.analyze_entry(event_tree)
     ientry+=1 
-    bytes_read = tree.GetEntry(ientry)
+    bytes_read = event_tree.GetEntry(ientry)
 
-dlanalyze.end_job()
+dlanalyze.close_input(tfinput)
 
 tfout.Write()
 
