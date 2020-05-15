@@ -1,0 +1,26 @@
+#include "sam_microboone.fcl"
+
+process_name : dlrecotest
+services : { FileCatalogMetadata:@local::art_file_catalog_mc }
+input_tree : "larlite_id_tree"
+loop_over_entries : True
+dump_every: 1
+modules : { sam_metadata : {}
+	    dlanalyze    : { another_tree : "DLAnaTree"
+                             tracker_tree : "_recoTree"
+                             precut_ophits: "ophitBeamCalib"
+                             crtveto: { opflash_producer:"simpleFlashBeam"
+                                        crthit_producer:"crthitcorr" }
+                             sample_type: "Overlay"
+                             bdt_1e1p_weights: "bdtweights_1e1p_MissingLowEPatch_4-28-20.pickle"
+                             bdt_1mu1p_weights: "bdtweights_1m1p_run3_lowe_may13vars.pickle"
+			     #showercnn_weights: "ResNet18_nueintrinsic_JoshImages_epoch120.pytorch_weights"
+                             showercnn_weights: "DoNotRun"
+                             ismc : True
+                             showerreco: { out_larlite_tree: "ssnetshowerrecov2"
+                                           out_ana_tree: "ssnetshowerrecov2ana" 
+                                           adctree: "wire"
+                                           second_shower: True
+                                           use_calib: False } 
+                            }
+            }
