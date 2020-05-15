@@ -441,10 +441,8 @@ class DLFilter(RootAnalyze):
                  and dlanatree.OpenAng>0.5
                  and dlanatree.ChargeNearTrunk>0
                  and dlanatree.FailedBoost_1m1p!=1
-                 and dlanatree.Lepton_EdgeDist>15.0
-                 and dlanatree.Proton_EdgeDist>15.0
-                 and dlanatree.BDTscore_1mu1p_cosmic>0.0
-                 and dlanatree.BDTscore_1mu1p_nu>0.0 ):
+                 and dlanatree.BDTscore_1mu1p_cosmic<0.7
+                 and dlanatree.BDTscore_1mu1p_nu<0.7 ):
                 passes = True
             
             # for debug: make something pass in order to check
@@ -468,10 +466,8 @@ class DLFilter(RootAnalyze):
             print "  opening angle: ",dlanatree.OpenAng>0.5," (",dlanatree.OpenAng,")"
             print "  chargeneartrunk: ",dlanatree.ChargeNearTrunk>0," (",dlanatree.ChargeNearTrunk,")"
             print "  failedboost_1m1p: ",dlanatree.FailedBoost_1m1p!=1," (",dlanatree.FailedBoost_1m1p,")"
-            print "  lepton edgedist: ",dlanatree.Lepton_EdgeDist>15.0," (",dlanatree.Lepton_EdgeDist,")"
-            print "  proton edgedist: ",dlanatree.Proton_EdgeDist>15.0," (",dlanatree.Proton_EdgeDist,")"
-            print "  bdt cosmic: ",dlanatree.BDTscore_1mu1p_cosmic>0.0," (",dlanatree.BDTscore_1mu1p_cosmic,")"
-            print "  bdt nu: ",dlanatree.BDTscore_1mu1p_nu>0.0," (",dlanatree.BDTscore_1mu1p_nu,")"
+            print "  bdt cosmic: ",dlanatree.BDTscore_1mu1p_cosmic<0.7," (",dlanatree.BDTscore_1mu1p_cosmic,")"
+            print "  bdt nu: ",dlanatree.BDTscore_1mu1p_nu<0.7," (",dlanatree.BDTscore_1mu1p_nu,")"
 
 
         # for debug only
