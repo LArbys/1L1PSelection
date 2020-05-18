@@ -349,8 +349,8 @@ class DLAnalyze(RootAnalyze):
                                                 self.bdt_model_1mu1p_nu,
                                                 self.anatreeclass )
         self.anatreeclass._bdtscore_1e1p[0]         = probs_1e1p[0]
-        self.anatreeclass._bdtscore_1mu1p_cosmic[0] = probs_1mu1p_cosmic
-        self.anatreeclass._bdtscore_1mu1p_nu[0]     = probs_1mu1p_nu
+        self.anatreeclass._bdtscore_1mu1p_cosmic[0] = probs_1mu1p_cosmic[0]
+        self.anatreeclass._bdtscore_1mu1p_nu[0]     = probs_1mu1p_nu[0]
 
         if self.ismc:
             # load the right entry for the larlite
