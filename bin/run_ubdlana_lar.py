@@ -10,7 +10,6 @@ from sys import argv
 parser = argparse.ArgumentParser(description="Run 1L1P FVV Compiler")
 parser.add_argument('-d','--dlmerged',required=True,type=str,help="dlmerged file [REQUIRED]")
 parser.add_argument('-c','--calibmap',required=True,type=str,help="calibration map file [REQUIRED]")
-#parser.add_argument('-m','--mpid',required=True,type=str,help="mpid file [REQUIRED]")
 parser.add_argument('-t','--sample-type',required=True,type=str,help="Sample type. choices: BNB,EXT,Overlay")
 parser.add_argument('-o','--outfile',default=".",type=str,help="Output file name")
 parser.add_argument('-g','--tag',default="test",type=str,help="Tag: used to name files. [default: 'test']")
@@ -19,6 +18,7 @@ parser.add_argument('-pmt','--run-precuts',action='store_true',default=False,hel
 parser.add_argument('-oh','--ophits',type=str,default="ophitBeamCalib",help="tree name to use if running PMT precuts. [default: ophitBeamCalib]")
 parser.add_argument('-se','--start-entry',type=int,default=0,help="starting entry")
 parser.add_argument("-cnn","--run-cnn",action='store_true',default=False,help="if true, run shower cnn")
+parser.add_argument("--bdt-1m1p",default=None,type=str,help="Specify 1m1p BDT weight file [if not using, default]")
 args = parser.parse_args()
 
 # ------------------------------------------------------------------------------- #
@@ -43,9 +43,7 @@ dlanalyze_cfg = {"tracker_tree":"_recoTree",
                  "crtveto":{"opflash_producer":"simpleFlashBeam",
                             "crthit_producer":"crthitcorr"},
                  "bdt_1e1p_weights":"bdtweights_1e1p_MissingLowEPatch_4-28-20.pickle",
-                 #"bdt_1e1p_weights":"Selection_Weights_1e1p_3-24-20.pickle",
-                 "bdt_1mu1p_cosmic_weights":"bdtweights_1mu1p_WC_apr1.pickle",
-                 "bdt_1mu1p_nu_weights":"x",
+                 "bdt_1mu1p_weights":"bdtweights_1m1p_run1_lowe_may13vars.pickle",
                  "showercnn_weights":"DoNotRun",
                  "showerreco": { "out_larlite_tree": "ssnetshowerrecov2",
                                  "out_ana_tree": "ssnetshowerrecov2ana",
@@ -56,6 +54,11 @@ dlanalyze_cfg = {"tracker_tree":"_recoTree",
 
 if args.run_cnn:
     dlanalyze_cfg['showercnn_weights'] = "ResNet18_nueintrinsic_JoshImages_epoch120.pytorch_weights"
+
+if args.bdt_1m1p is not None:
+    if not os.path.exists(args.bdt_1m1p):
+        raise ValueError("could not find 1m1p BDT weightfile: ",args.bdt_1m1p)
+    dlanalyze_cfg['bdt_1mu1p_weights'] = args.bdt_1m1p
 
 config = {"modules":{"dlanalyze":dlanalyze_cfg}}
 

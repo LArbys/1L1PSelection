@@ -73,6 +73,7 @@ class DLFilter(RootAnalyze):
         DEFINED_FILTERS = ["numu-sideband",
                            "pi0-lowBDT-sideband",
                            "1e1p-highE-sideband",
+                           "1e1p-nearE-sideband",
                            "1e1p-lowBDT-sideband",
                            "1e1p-signal"]
 
@@ -288,6 +289,8 @@ class DLFilter(RootAnalyze):
             self.run_numu_filter(finalvertextree)
         elif self.filter_type=="1e1p-highE-sideband":
             self.run_1e1p_highE_filter(finalvertextree)
+        elif self.filter_type=="1e1p-nearE-sideband":
+            self.run_1e1p_nearE_filter(finalvertextree)
         elif self.filter_type=="1e1p-lowBDT-sideband":
             self.run_1e1p_lowBDT_filter(finalvertextree)
         elif self.filter_type=="1e1p-signal":
@@ -518,6 +521,91 @@ class DLFilter(RootAnalyze):
             elif rse in self.rse_dict and passes:
                 self.rse_dict[rse]   = passes
             self.rsev_dict[rsev] = passes
+
+        return
+
+    def run_1e1p_nearE_filter(self, dlanatree ):
+        """ use the final vertex tree to make selection 
+        we create an RSE and RSEV dict
+        """
+        print "[ dlfilter::run_1e1p_highE_filter ]"
+
+        # we first collect the highest energy vertex
+        max_rse = {}
+        rse_vtxid = {}
+
+        for ientry in xrange(dlanatree.GetEntries()):
+            dlanatree.GetEntry(ientry)
+
+            rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
+            rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
+            
+            passes = False
+            passprecuts = int(dlanatree.PassPMTPrecut)
+            if self.rerun_pmtprecuts:
+                passrerun = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
+                print "replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
+                print self.PMTPrecut_Dict[rse]['_passpmtprecut']
+                passprecuts = passrerun
+
+            if ( passprecuts==1
+                 and dlanatree.PassSimpleCuts==1
+                 and dlanatree.PassShowerReco==1
+                 and dlanatree.Proton_Edep > 60 
+                 and dlanatree.Electron_Edep > 35
+                 and max(dlanatree.MaxShrFrac,-1) > 0.2 ):
+                passes = True
+                
+            print "RSE=",rse," RSEV=",rsev," Passes=",passes
+            print "  precuts: ",passprecuts==1
+            print "  simplecuts: ",dlanatree.PassSimpleCuts==1
+            print "  showerreco: ",dlanatree.PassShowerReco==1
+            print "  maxshrfrac: ",max(dlanatree.MaxShrFrac,-1)>0.2," (",dlanatree.MaxShrFrac,")"
+            print "  electron edep: ",dlanatree.Electron_Edep>35.0," (",dlanatree.Electron_Edep,")"
+            print "  proton edep: ",dlanatree.Proton_Edep>60.0," (",dlanatree.Proton_Edep,")"
+
+            print "[first pass] RSE=",rse," RSEV=",rsev
+            if rse not in max_rse:
+                # provide default
+                max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":-1.0,"enu":0.0,"passes":False}
+
+            if passes and max_rse[rse]["enu"]<dlanatree.Enu_1e1p:
+                # update if energy is larger
+                max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":dlanatree.BDTscore_1e1p,"enu":dlanatree.Enu_1e1p,"passes":True}
+
+
+
+        # next, save only those events, whose highest bdt score pass threshold
+        self.rse_dict = {}
+        self.rsev_dict = {}
+
+        for ientry in xrange(dlanatree.GetEntries()):
+            dlanatree.GetEntry(ientry)
+
+            passes = False
+            rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
+            rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
+
+            if rse not in max_rse:
+                print "RSE ",rse," not in max_rse dict"
+                continue
+            if max_rse[rse]["vtxid"]!=dlanatree.vtxid:
+                # ignore non-max  BDT vertex
+                print "RSE ",rse,": ",max_rse[rse]," -- is not max energy vertex: this=",dlanatree.Enu_1e1p," max=",max_rse[rse]["enu"]
+                continue
+
+            if not max_rse[rse]["passes"] or max_rse[rse]["enu"]<500.0:
+                print "RSE ",rse,": energy max=",max_rse[rse]["enu"]," is below energy threshold or did not pass (",max_rse[rse]["passes"],")"
+                continue
+            
+            # for debug: make something pass in order to check
+            if self._DEBUG_MODE_:
+                passes = True # for debug
+                
+            # PASSES, MARK EVENT AND VERTEX TO BE SAVED
+            self.rse_dict[rse]   = True
+            self.rsev_dict[rsev] = True
+
 
         return
 

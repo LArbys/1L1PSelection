@@ -97,10 +97,10 @@ vars_may13 = ['OpenAng','Phis','ChargeNearTrunk','Enu_1m1p','PhiT_1m1p','AlphaT_
         dlvars._openAng[0],				#opening angle
         dlvars._phis[0],          # Phis,
         dlvars._charge_near_trunk[0], #ChargeNearTrunk_UniformityCalibrated,  #!!! calibrated?
-        dlvars._enu_1m1p[0]				# reco nu energy
+        dlvars._enu_1m1p[0],				# reco nu energy
         dlvars._phiT_1m1p[0],     # PhiT_1m1p
         dlvars._alphaT_1m1p[0],   # AlphaT_1m1p,
-				dlvars._pT_1m1p[0],       # PT_1m1p,
+        dlvars._pT_1m1p[0],       # PT_1m1p,
         dlvars._pTRat_1m1p[0],    # PTRat_1m1p,
         dlvars._bjX_1m1p[0],
         dlvars._bjY_1m1p[0],
@@ -111,6 +111,7 @@ vars_may13 = ['OpenAng','Phis','ChargeNearTrunk','Enu_1m1p','PhiT_1m1p','AlphaT_
         dlvars._lepton_length[0], # Lepton_TrackLength,
         dlvars._proton_phi[0],    # Proton_PhiReco,
         dlvars._proton_theta[0], # Proton_ThetaReco,
+        ]]
 
     vars_np = np.asarray( input_vars )
     #print vars_np
