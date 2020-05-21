@@ -88,7 +88,7 @@ class SimpleHisto:
             myweight = CV(temp_df)
         elif self.iwgt == 0:
             myweight = np.ones(len(temp_df))
-        return temp_df[s_varname],self.mycolor,self.mylabel,myweight,temp_df['myscale']
+        return temp_df[s_varname].values,self.mycolor,self.mylabel,myweight,temp_df['myscale'].values
 
 
 class StackedHisto:
@@ -239,14 +239,16 @@ def distplot_wratio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,legpos=0,
         if vals_mc_raw[i] > 0:
             ndof += 1
             if vals_data[i] > 0:
-                yerrsq_data[i] += (3.0*vals_data[i]*vals_mc[i]*normshift)/(vals_mc[i]*normshift+2.0*vals_data[i])
+                yerrsq_data[i] += (3.0*vals_data_raw[i]*vals_mc[i]*normshift)/(vals_mc[i]*normshift+2.0*vals_data_raw[i])
             else:
                 yerrsq_data[i] += vals_mc[i]*normshift/2.0
-            m_cov[i][i] += yerrsq_data[i]
+            m_cov[i][i] += yerrsq_data[i]*np.power(data_scale[0],2)
         else:
             m_cov[i][i] += 999
 
-    yerr_data = np.sqrt(yerrsq_data)
+    yerr_data = np.sqrt(yerrsq_data)*data_scale[0]
+
+    print('test',data_scale)
 
     gs = gridspec.GridSpec(2, 1, height_ratios=[3, .75])
     ax0 = plt.subplot(gs[0])
