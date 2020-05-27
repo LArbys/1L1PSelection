@@ -88,8 +88,12 @@ def apply_1mu1p_models( cosmicBDT, nuBDT, dlvars ):
     """
 
     """
-vars_may13 = ['OpenAng','Phis','ChargeNearTrunk','Enu_1m1p','PhiT_1m1p','AlphaT_1m1p','PT_1m1p','PTRat_1m1p','BjX_1m1p','BjY_1m1p','Sph_1m1p','Q0_1m1p','Q3_1m1p','Lepton_PhiReco','Lepton_TrackLength','Proton_PhiReco','Proton_ThetaReco']
-
+vars_may13 = ['OpenAng','Phis','ChargeNearTrunk',
+    'Enu_1m1p','PhiT_1m1p','AlphaT_1m1p',
+    'PT_1m1p','PTRat_1m1p','BjX_1m1p',
+    'BjY_1m1p','Sph_1m1p','Q0_1m1p',
+    'Q3_1m1p','Lepton_PhiReco','Lepton_TrackLength',
+    'Proton_PhiReco','Proton_ThetaReco']
     """
 
     # make input vars
@@ -122,3 +126,68 @@ vars_may13 = ['OpenAng','Phis','ChargeNearTrunk','Enu_1m1p','PhiT_1m1p','AlphaT_
     print "BDT[1mu1p-cosmic] output: ",cosmic_probs," ",cosmic_probs.shape
     print "BDT[1mu1p-nu]     output: ",nu_probs," ",nu_probs.shape
     return cosmic_probs,nu_probs
+
+def rerun_1mu1p_models( cosmicBDT, nuBDT, fvv ):
+    """ apply the 1mu1p cosmic and nu BDTs
+    
+    inputs
+    ------
+    cosmicBDT: xgboost model loaded from pickle file
+    nuBDT:     xgboost model loaded from pickle file
+    dlvars:    finalvertexvariable tree (the DL ana tree)
+
+    outputs
+    -------
+    score [float] 1m1p cosmic score
+    score [float] 1m1p nu score
+    """
+
+    """
+vars_may13 = ['OpenAng','Phis','ChargeNearTrunk',
+    'Enu_1m1p','PhiT_1m1p','AlphaT_1m1p',
+    'PT_1m1p','PTRat_1m1p','BjX_1m1p',
+    'BjY_1m1p','Sph_1m1p','Q0_1m1p',
+    'Q3_1m1p','Lepton_PhiReco','Lepton_TrackLength',
+    'Proton_PhiReco','Proton_ThetaReco']
+    """
+
+    bdtout_dict = {}
+    nentries = fvv.GetEntries()
+    print "[bdtutil::rerun_1mu1p_models] rerun on ",nentries
+    for ientry in range(nentries):
+        fvv.GetEntry(ientry)
+
+        rsev = (fvv.run,fvv.subrun,fvv.event,fvv.vtxid)
+        
+        # make input vars
+        input_vars = [[
+            fvv.OpenAng,
+            fvv.Phis,
+            fvv.ChargeNearTrunk,
+            fvv.Enu_1m1p,
+            fvv.PhiT_1m1p,
+            fvv.AlphaT_1m1p,
+            fvv.PT_1m1p,      
+            fvv.PTRat_1m1p,
+            fvv.BjX_1m1p,        
+            fvv.BjY_1m1p,
+            fvv.Sph_1m1p,
+            fvv.Q0_1m1p,
+            fvv.Q3_1m1p,        
+            fvv.Lepton_PhiReco,
+            fvv.Lepton_TrackLength,
+            fvv.Proton_PhiReco,
+            fvv.Proton_ThetaReco,
+        ]]
+
+        vars_np = np.asarray( input_vars )
+        #print vars_np
+
+        cosmic_probs   = cosmicBDT.predict_proba(vars_np)[0]
+        nu_probs       = nuBDT.predict_proba(vars_np)[0]
+        print "[bdtutil::rerun_1m1p_bdt] rsev=(",rsev,")"
+        print "  BDT[1mu1p-cosmic] output: ",cosmic_probs[0]," ",cosmic_probs.shape
+        print "  BDT[1mu1p-nu]     output: ",nu_probs[0]," ",nu_probs.shape
+        bdtout_dict[rsev] = {"cosmic":cosmic_probs[0],"nu":nu_probs[0]}
+        
+    return bdtout_dict

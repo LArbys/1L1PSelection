@@ -39,6 +39,7 @@ from larlitecv import larlitecv
 
 from LEEPreCuts_Functions import makePMTpars,performPMTPrecuts,getPMTPrecutDict
 from event_indexed_trees_util import is_tree_event_indexed
+import bdtutil
 
 def make(config):
     #----------------------------------------------------------------------
@@ -69,12 +70,17 @@ class DLFilter(RootAnalyze):
         self.filter_pars = config['modules']['dlfilter']
         self.filter_type = self.filter_pars['filter_type']
         self.sample_type = self.filter_pars['sample_type']
+        if 'event_tree' in self.filter_pars:
+            self.event_tree  = self.filter_pars['event_tree']
+        else:
+            self.event_tree  = "dlana/ubdlana_id_tree"
 
         DEFINED_FILTERS = ["numu-sideband",
                            "pi0-lowBDT-sideband",
                            "1e1p-highE-sideband",
                            "1e1p-nearE-sideband",
                            "1e1p-lowBDT-sideband",
+                           "1e1p-midBDT-sideband",                           
                            "1e1p-signal"]
 
         if self.filter_type not in DEFINED_FILTERS:
@@ -86,6 +92,15 @@ class DLFilter(RootAnalyze):
             self.precutpars['ophittree'] = self.filter_pars['precut_ophits']
         else:
             self.rerun_pmtprecuts = False
+
+        if bool(self.filter_pars["rerun_1mu1p_bdt"]):
+            self.rerun_1mu1p_bdt = True
+            self.bdt_1mu1p_weightfile = self.filter_pars["bdt_weights_1mu1p"]
+            self.bdt_model_1mu1p_cosmic, self.bdt_model_1mu1p_nu = bdtutil.load_1mu1p_models( self.bdt_1mu1p_weightfile )
+            print "DLFilter: RERUN 1MU1P BDT"
+        else:
+            self.rerun_1mu1p_bdt = False
+            
 
         self._DEBUG_MODE_ = False
             
@@ -189,18 +204,18 @@ class DLFilter(RootAnalyze):
         self.input_file_list.append(input_file.GetName())
 
         # we need to get the event and vertex trees
-        larlite_id_tree = input_file.Get("dlana/ubdlana_id_tree")
+        larlite_id_tree = input_file.Get(self.event_tree)
         finalvertextree = input_file.Get("dlana/FinalVertexVariables")
-        self._use_ubdlana_idtree = False
-        try:
-            nevent_entries  = larlite_id_tree.GetEntries()
-            self._use_ubdlana_idtree = True
-        except:
-            print "DLFilter::Could not load ubdlana. try larlite_id_tree"
-            larlite_id_tree = None
-            nevent_entries = 0
-            self._use_ubdlana_idtree = False
-        if larlite_id_tree is None:
+        if self.event_tree=="dlana/ubdlana_id_tree":
+            try:
+                nevent_entries  = larlite_id_tree.GetEntries()
+                self._use_ubdlana_idtree = True                
+            except:
+                print "DLFilter::Could not load ubdlana. try larlite_id_tree"
+                larlite_id_tree = None
+                nevent_entries = 0
+                self._use_ubdlana_idtree = False
+        if self.event_tree=="larlite_id_tree" or larlite_id_tree is None:
             larlite_id_tree = input_file.Get("larlite_id_tree")
             try:
                 nevent_entries = larlite_id_tree.GetEntries()
@@ -211,6 +226,7 @@ class DLFilter(RootAnalyze):
                 larlite_id_tree = None
                 nevent_entries = 0
 
+        nevent_entries  = larlite_id_tree.GetEntries()
         nvertex_entries = finalvertextree.GetEntries()
             
         self.vertex_indexed_trees = []
@@ -222,7 +238,6 @@ class DLFilter(RootAnalyze):
         dirlist = [None]
         dirdict = {}
         
-        # this is fragile. if vertex and event tree are the same number of entries, what happens?
         self.pot_sum_tree = None
         
         while len(dirlist)>0:
@@ -252,7 +267,7 @@ class DLFilter(RootAnalyze):
 
                     if is_tree_event_indexed( basetreename ):
                         self.event_indexed_trees.append(atree)
-                        if nevent_entries>0 and nentries!=nevent_entries:
+                        if nevent_entries>0 and nentries!=nevent_entries and basetreename!="ubdlana_id_tree":
                             raise RuntimeError("Event-indexed tree({}) nentries ({}) does not seem to match known event-indexed tree entries ({})".format(basetreename,nentries,nevent_entries))
                     else:
                         self.vertex_indexed_trees.append(atree)
@@ -284,7 +299,16 @@ class DLFilter(RootAnalyze):
         if self.rerun_pmtprecuts and nevent_entries>0:
             self.PMTPrecut_Dict = performPMTPrecuts( input_file.GetName(), **self.precutpars )
 
+        # rerun the 1mu1p
+        # we get back a dictionary indexed by (run,subrun,event,vertex)
+        # which stores replacement values for the BDT variables and BDT score
+        if self.rerun_1mu1p_bdt:
+            self.bdtoutput_1mu1p = bdtutil.rerun_1mu1p_models( self.bdt_model_1mu1p_cosmic, self.bdt_model_1mu1p_nu, finalvertextree )
+        else:
+            self.bdtoutput_1mu1p = {}
 
+        # We run the filter on the finalvariablevertex trees
+        # Produces a list of run,subrun,event,vertexid indicating if events pass
         if self.filter_type=="numu-sideband":
             self.run_numu_filter(finalvertextree)
         elif self.filter_type=="1e1p-highE-sideband":
@@ -293,6 +317,8 @@ class DLFilter(RootAnalyze):
             self.run_1e1p_nearE_filter(finalvertextree)
         elif self.filter_type=="1e1p-lowBDT-sideband":
             self.run_1e1p_lowBDT_filter(finalvertextree)
+        elif self.filter_type=="1e1p-midBDT-sideband":
+            self.run_1e1p_midBDT_filter(finalvertextree)
         elif self.filter_type=="1e1p-signal":
             self.run_1e1p_signal_filter(finalvertextree)
         elif self.filter_type=="pi0-lowBDT-sideband":
@@ -361,11 +387,17 @@ class DLFilter(RootAnalyze):
             outfvv_tree.SetBranchAddress( "PorchTotPE", rerun_porchtotpe )
             outfvv_tree.SetBranchAddress( "MaxPEFrac", rerun_maxpefrac )
             outfvv_tree.SetBranchAddress( "PassPMTPrecut", rerun_pass )
+        if self.rerun_1mu1p_bdt:
+            rerun_1mu1p_cosmic = array.array('f',[0.0])
+            rerun_1mu1p_nu     = array.array('f',[0.0])
+            outfvv_tree.SetBranchAddress("BDTscore_1mu1p_cosmic",rerun_1mu1p_cosmic)
+            outfvv_tree.SetBranchAddress("BDTscore_1mu1p_nu",rerun_1mu1p_nu)
 
 
         for ientry in xrange( finalvertextree.GetEntries() ):
             finalvertextree.GetEntry(ientry)
-            rse  = ( finalvertextree.run, finalvertextree.subrun, finalvertextree.event)            
+            rse  = ( finalvertextree.run, finalvertextree.subrun, finalvertextree.event)
+            rsev = ( finalvertextree.run, finalvertextree.subrun, finalvertextree.event, finalvertextree.vtxid)
             if rse in self.rse_dict and self.rse_dict[rse]:
                 nverticesout+=1
                 print "[Vertex passes]",rse," vtxid=",finalvertextree.vtxid
@@ -380,6 +412,10 @@ class DLFilter(RootAnalyze):
                     rerun_porchtotpe[0] = self.PMTPrecut_Dict[rse]['_porchtotpe']
                     rerun_maxpefrac[0]  = self.PMTPrecut_Dict[rse]['_maxpefrac']
                     rerun_pass[0]       = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
+                if self.rerun_1mu1p_bdt:
+                    print 'replacing 1mu1p results from rerun of rsev[',rsev,']'
+                    rerun_1mu1p_cosmic[0] = self.bdtoutput_1mu1p[rsev]["cosmic"]
+                    rerun_1mu1p_nu[0]     = self.bdtoutput_1mu1p[rsev]["nu"]
 
                 for tree in self.out_vertex_indexed_trees:
                     tree.Fill()
@@ -438,14 +474,24 @@ class DLFilter(RootAnalyze):
                 print self.PMTPrecut_Dict[rse]['_passpmtprecut']
                 passprecuts = passrerun
 
+            if self.rerun_1mu1p_bdt:
+                print "replaced bdt scores with recalculated ones"
+                print "  cosmic: old=",dlanatree.BDTscore_1mu1p_cosmic," new=",self.bdtoutput_1mu1p[rsev]["cosmic"]
+                print "  nu: old=",dlanatree.BDTscore_1mu1p_nu," new=",self.bdtoutput_1mu1p[rsev]["nu"]
+                bdtscore_1mu1p_cosmic = self.bdtoutput_1mu1p[rsev]["cosmic"]
+                bdtscore_1mu1p_nu     = self.bdtoutput_1mu1p[rsev]["nu"]
+            else:
+                bdtscore_1mu1p_cosmic = dlanatree.BDTscore_1mu1p_cosmic
+                bdtscore_1mu1p_nu = dlanatree.BDTscore_1mu1p_nu
+
             if ( passprecuts==1
                  and dlanatree.PassSimpleCuts==1
                  and dlanatree.MaxShrFrac<0.2
                  and dlanatree.OpenAng>0.5
                  and dlanatree.ChargeNearTrunk>0
                  and dlanatree.FailedBoost_1m1p!=1
-                 and dlanatree.BDTscore_1mu1p_cosmic<0.7
-                 and dlanatree.BDTscore_1mu1p_nu<0.7 ):
+                 and bdtscore_1mu1p_cosmic<0.7
+                 and bdtscore_1mu1p_nu<0.7 ):
                 passes = True
             
             # for debug: make something pass in order to check
@@ -469,8 +515,8 @@ class DLFilter(RootAnalyze):
             print "  opening angle: ",dlanatree.OpenAng>0.5," (",dlanatree.OpenAng,")"
             print "  chargeneartrunk: ",dlanatree.ChargeNearTrunk>0," (",dlanatree.ChargeNearTrunk,")"
             print "  failedboost_1m1p: ",dlanatree.FailedBoost_1m1p!=1," (",dlanatree.FailedBoost_1m1p,")"
-            print "  bdt cosmic: ",dlanatree.BDTscore_1mu1p_cosmic<0.7," (",dlanatree.BDTscore_1mu1p_cosmic,")"
-            print "  bdt nu: ",dlanatree.BDTscore_1mu1p_nu<0.7," (",dlanatree.BDTscore_1mu1p_nu,")"
+            print "  bdt cosmic: ",bdtscore_1mu1p_cosmic<0.7," (",bdtscore_1mu1p_cosmic,")"
+            print "  bdt nu: ",bdtscore_1mu1p_nu<0.7," (",bdtscore_1mu1p_nu,")"
 
 
         # for debug only
@@ -681,6 +727,97 @@ class DLFilter(RootAnalyze):
                 continue
 
             if not max_rse[rse]["passes"] or max_rse[rse]["bdt"]>0.7:
+                print "RSE ",rse,": score max=",max_rse[rse]["bdt"]," is above threshold or did not pass (",max_rse[rse]["passes"],")"
+                continue
+            
+            # for debug: make something pass in order to check
+            if self._DEBUG_MODE_:
+                passes = True # for debug
+                
+            self.rse_dict[rse]   = True
+            self.rsev_dict[rsev] = True
+
+
+        # for debug only
+        #rsekeys = self.rsev_dict.keys()
+        #rsekeys.sort()
+        #for k in rsekeys:
+        #    print k,": ",self.rsev_dict[k]
+
+        return
+
+    def run_1e1p_midBDT_filter(self, dlanatree ):
+        """ use the final vertex tree to make selection 
+        we create an RSE and RSEV dict
+        """
+        print "[ dlfilter::run_1e1p_lowBDT_filter ]"
+        #we first collect the highest bdtscore per RSE
+
+        max_rse = {}
+        rse_vtxid = {}
+
+        for ientry in xrange(dlanatree.GetEntries()):
+            dlanatree.GetEntry(ientry)
+
+            rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
+            rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
+            
+            passes = False
+            passprecuts = int(dlanatree.PassPMTPrecut)
+            if self.rerun_pmtprecuts:
+                passrerun = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
+                print "replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
+                print self.PMTPrecut_Dict[rse]['_passpmtprecut']
+                passprecuts = passrerun
+
+            if ( passprecuts==1
+                 and dlanatree.PassSimpleCuts==1
+                 and dlanatree.PassShowerReco==1
+                 and dlanatree.Proton_Edep > 60 
+                 and dlanatree.Electron_Edep > 35
+                 and max(dlanatree.MaxShrFrac,-1) > 0.2 ):
+                passes = True
+                
+            print "RSE=",rse," RSEV=",rsev," Passes=",passes
+            print "  precuts: ",passprecuts==1
+            print "  simplecuts: ",dlanatree.PassSimpleCuts==1
+            print "  showerreco: ",dlanatree.PassShowerReco==1
+            print "  maxshrfrac: ",max(dlanatree.MaxShrFrac,-1)>0.2," (",dlanatree.MaxShrFrac,")"
+            print "  electron edep: ",dlanatree.Electron_Edep>35.0," (",dlanatree.Electron_Edep,")"
+            print "  proton edep: ",dlanatree.Proton_Edep>60.0," (",dlanatree.Proton_Edep,")"
+            print "  bdt 1e1p: ",dlanatree.BDTscore_1e1p<=0.7," (",dlanatree.BDTscore_1e1p,")"
+
+            print "[first pass] RSE=",rse," RSEV=",rsev
+            if rse not in max_rse:
+                # provide default
+                max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":-1.0,"enu":dlanatree.Enu_1e1p,"passes":False}
+
+            if passes and max_rse[rse]["bdt"]<dlanatree.BDTscore_1e1p:
+                max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":dlanatree.BDTscore_1e1p,"enu":dlanatree.Enu_1e1p,"passes":True}
+
+
+
+        # next, save only those events, whose highest bdt score pass threshold
+        self.rse_dict = {}
+        self.rsev_dict = {}
+
+        for ientry in xrange(dlanatree.GetEntries()):
+            dlanatree.GetEntry(ientry)
+
+            passes = False
+            rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
+            rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
+
+            if rse not in max_rse:
+                # surprising
+                print "RSE ",rse," not in max_rse dict"
+                continue
+            if max_rse[rse]["vtxid"]!=dlanatree.vtxid:
+                # ignore non-max  BDT vertex
+                print "RSE ",rse,": ",max_rse[rse]," -- is not max BDT vertex: this=",dlanatree.BDTscore_1e1p," max=",max_rse[rse]["bdt"]
+                continue
+
+            if not max_rse[rse]["passes"] or max_rse[rse]["bdt"]>0.7 or max_rse[rse]["bdt"]<0.4:
                 print "RSE ",rse,": score max=",max_rse[rse]["bdt"]," is above threshold or did not pass (",max_rse[rse]["passes"],")"
                 continue
             
