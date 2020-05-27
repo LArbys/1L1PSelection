@@ -1,0 +1,16 @@
+#include "sam_microboone.fcl"
+
+process_name : dlfilter
+services : { FileCatalogMetadata: @local::art_file_catalog_data }
+input_tree : "larlite_id_tree"
+loop_over_entries : True
+dump_every: 1
+modules : { sam_metadata: {}
+	    dlfilter: { filter_type:"numu-sideband"
+                        rerun_precuts: False
+                        precut_ophits: "ophitBeamCalib"
+                        sample_type: "BNB"
+			rerun_1mu1p_bdt: True
+			bdt_weights_1mu1p: "bdtweights_1m1p_run1_lowe_may13vars.pickle"
+                      }
+          }

@@ -10,5 +10,7 @@ modules : { sam_metadata: {}
                         rerun_precuts: False
                         precut_ophits: "ophitBeamCalib"
                         sample_type: "BNB"
+			rerun_1mu1p_bdt: True
+			bdt_weights_1mu1p: "bdtweights_1m1p_run3_lowe_may13vars.pickle"
                       }
           }
