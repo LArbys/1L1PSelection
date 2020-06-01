@@ -81,7 +81,8 @@ class DLFilter(RootAnalyze):
                            "1e1p-nearE-sideband",
                            "1e1p-lowBDT-sideband",
                            "1e1p-midBDT-sideband",                           
-                           "1e1p-signal"]
+                           "1e1p-signal",
+                           "rse-list"]
 
         if self.filter_type not in DEFINED_FILTERS:
             raise ValueError("Invalid filter type specified [{}]. Defined: {}".format(self.filter_type,DEFINED_FILTERS))
@@ -323,6 +324,8 @@ class DLFilter(RootAnalyze):
             self.run_1e1p_signal_filter(finalvertextree)
         elif self.filter_type=="pi0-lowBDT-sideband":
             self.run_lowBDT_pi0_filter(finalvertextree)
+        elif self.filter_type=="rse-list":
+            self.run_rse_filter(finalvertextree)
         else:
             raise ValueError("unrecognized filter type: ",self.filter_type)
 
@@ -985,5 +988,38 @@ class DLFilter(RootAnalyze):
         #rsekeys.sort()
         #for k in rsekeys:
         #    print k,": ",self.rsev_dict[k]
+
+        return
+
+    def run_rse_filter(self, dlanatree ):
+        """ use a (run,subrun,event) list to filter """
+        print "[ dlfilter::RSE filter ]"
+        self.rse_dict = {}
+        self.rsev_dict = {}
+
+        flist = open(self.filter_pars["rse-list"],'r')
+        llist = flist.readlines()
+        rse_list = []
+        for l in llist:
+            info = l.strip().split()
+            rse = (int(info[0]),int(info[1]),int(info[2]))
+            rse_list.append(rse)
+        rse_list.sort()
+        print "[ flfilter::RSE filter ] number of (rse) in list: ",len(rse_list)
+
+        for ientry in xrange(dlanatree.GetEntries()):
+            dlanatree.GetEntry(ientry)
+
+            passes = False
+            rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
+            rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
+            if rse in rse_list:
+                self.rse_dict[rse] = True
+                self.rsev_dict[rsev] = True
+            elif rse in self.rse_dict:
+                pass
+            else:
+                self.rse_dict[rse] = False
+
 
         return

@@ -19,6 +19,7 @@ parser.add_argument('-oh','--ophits',type=str,default="ophitBeamCalib",help="tre
 parser.add_argument("--rerun-1mu1p-bdt",action='store_true',default=False,help="if true, will rerun 1mu1p BDT")
 parser.add_argument("--bdt-weightfile-1mu1p",type=str,default=None,help="Must be set if rerunning 1mu1p BDT")
 parser.add_argument("--use-ubdlana-eventtree",action='store_true',default=False,help="if true, will use ubdlana event tree instead of defaul larlite_id_tree")
+parser.add_argument("--rse-list",type=str,default=None,help="Must provide RSE list path if filter-type set to rse-list")
 #parser.add_argument('-se','--start-entry',type=int,default=0,help="starting entry")
 
 args = parser.parse_args()
@@ -51,6 +52,11 @@ if args.rerun_1mu1p_bdt:
 if args.use_ubdlana_eventtree:
     print "USE UBDLANA ID TREE"
     dlfilter_cfg["event_tree"] = "dlana/ubdlana_id_tree"
+
+if args.filter_type=="rse-list":
+    if args.rse_list is None or not os.path.exists(args.rse_list):
+        raise ValueError("Must provide valid path to RSE list if running rse-list filter")
+    dlfilter_cfg['rse-list'] = args.rse_list
 
 config = {"modules":{"dlfilter":dlfilter_cfg}}
 
