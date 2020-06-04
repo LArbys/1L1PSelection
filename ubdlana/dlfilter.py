@@ -425,21 +425,14 @@ class DLFilter(RootAnalyze):
             rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
             rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
 
-            passprecuts = int(dlanatree.PassPMTPrecut)
-            if self.rerun_pmtprecuts:
-                passrerun = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
-                print "replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
-                print self.PMTPrecut_Dict[rse]['_passpmtprecut']
-                passprecuts = passrerun
+						# get rid of pmtprecuts to rely entirely on common optical filter (basically only getting rid of maxfrac requirement)
 
-            if ( passprecuts==1
-                 and dlanatree.PassSimpleCuts==1
+            if (dlanatree.PassSimpleCuts==1
                  and dlanatree.MaxShrFrac<0.2
                  and dlanatree.OpenAng>0.5
                  and dlanatree.ChargeNearTrunk>0
                  and dlanatree.FailedBoost_1m1p!=1
-                 and dlanatree.BDTscore_1mu1p_cosmic<0.7
-                 and dlanatree.BDTscore_1mu1p_nu<0.7 ):
+                 and dlanatree.BDTscore_1mu1p <0.7 ):
                 passes = True
             
             # for debug: make something pass in order to check
@@ -463,8 +456,7 @@ class DLFilter(RootAnalyze):
             print "  opening angle: ",dlanatree.OpenAng>0.5," (",dlanatree.OpenAng,")"
             print "  chargeneartrunk: ",dlanatree.ChargeNearTrunk>0," (",dlanatree.ChargeNearTrunk,")"
             print "  failedboost_1m1p: ",dlanatree.FailedBoost_1m1p!=1," (",dlanatree.FailedBoost_1m1p,")"
-            print "  bdt cosmic: ",dlanatree.BDTscore_1mu1p_cosmic<0.7," (",dlanatree.BDTscore_1mu1p_cosmic,")"
-            print "  bdt nu: ",dlanatree.BDTscore_1mu1p_nu<0.7," (",dlanatree.BDTscore_1mu1p_nu,")"
+            print "  bdt score: ",dlanatree.BDTscore_1mu1p<0.7," (",dlanatree.BDTscore_1mu1p,")"
 
 
         # for debug only

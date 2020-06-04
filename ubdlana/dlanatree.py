@@ -238,8 +238,7 @@ class DLanaTree:
 
         # BDT output
         self._bdtscore_1e1p         = MakeTreeBranch(outTree,'BDTscore_1e1p','float')
-        self._bdtscore_1mu1p_cosmic = MakeTreeBranch(outTree,'BDTscore_1mu1p_cosmic','float')
-        self._bdtscore_1mu1p_nu     = MakeTreeBranch(outTree,'BDTscore_1mu1p_nu','float')
+        self._bdtscore_1mu1p     = MakeTreeBranch(outTree,'BDTscore_1mu1p','float')
 
         # MC stuff
         self._parentPDG = MakeTreeBranch(outTree,'MC_parentPDG','int')
