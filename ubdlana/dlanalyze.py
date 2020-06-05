@@ -170,8 +170,7 @@ class DLAnalyze(RootAnalyze):
         
         # lazy load the model
         self.bdt_model_1e1p = None
-        self.bdt_model_1mu1p_cosmic = None
-        self.bdt_model_1mu1p_nu     = None
+        self.bdt_model_1mu1p = None 
         #self.bdt_model_1e1p = bdtutil.load_1e1p_model( self.weights_1e1p_nu )
         #self.bdt_model_1mu1p_cosmic, self.bdt_model_1mu1p_nu = bdtutil.load_1mu1p_models( self.weights_1mu1p_cosmic )
         #print "Loaded BDT models"
@@ -323,10 +322,9 @@ class DLAnalyze(RootAnalyze):
 
         # lazy load bdts
         if self.bdt_model_1e1p is None:
-            self.bdt_model_1e1p = bdtutil.load_1e1p_model( self.weights_1e1p_nu )
-        if self.bdt_model_1mu1p_cosmic is None:
-            self.bdt_model_1mu1p_cosmic, self.bdt_model_1mu1p_nu = bdtutil.load_1mu1p_models( self.weights_1mu1p )
-
+            self.bdt_model_1e1p = bdtutil.load_BDT_model( self.weights_1e1p_nu )
+        if self.bdt_model_1mu1p is None:
+            self.bdt_model_1mu1p = bdtutil.load_BDT_model( self.weights_1mu1p )
 
         entry = tree.GetReadEntry()
         self._recoTree.GetEntry(entry)
@@ -342,15 +340,12 @@ class DLAnalyze(RootAnalyze):
                              sce = self.sce, showercnn_results=self.dict_showercnn_results )
 
 
-        print "Apply BDT[1e1p]"
+        print "Apply BDT"
         probs_1e1p         = bdtutil.apply_1e1p_model( self.bdt_model_1e1p, self.anatreeclass )
-        probs_1mu1p_cosmic, probs_1mu1p_nu = \
-                    bdtutil.apply_1mu1p_models( self.bdt_model_1mu1p_cosmic,
-                                                self.bdt_model_1mu1p_nu,
-                                                self.anatreeclass )
+        probs_1mu1p        = bdtutil.apply_1mu1p_model( self.bdt_model_1mu1p, self.anatreeclass )
         self.anatreeclass._bdtscore_1e1p[0]         = probs_1e1p[0]
-        self.anatreeclass._bdtscore_1mu1p_cosmic[0] = probs_1mu1p_cosmic[0]
-        self.anatreeclass._bdtscore_1mu1p_nu[0]     = probs_1mu1p_nu[0]
+        self.anatreeclass._bdtscore_1mu1p_cosmic[0] = 0.0
+        self.anatreeclass._bdtscore_1mu1p_nu[0]     = probs_1mu1p[0]
 
         if self.ismc:
             # load the right entry for the larlite

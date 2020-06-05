@@ -470,19 +470,13 @@ class DLFilter(RootAnalyze):
             rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
             rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
 
-            passprecuts = int(dlanatree.PassPMTPrecut)
-            if self.rerun_pmtprecuts:
-                passrerun = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
-                print "replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
-                print self.PMTPrecut_Dict[rse]['_passpmtprecut']
-                passprecuts = passrerun
+						# get rid of pmtprecuts to rely entirely on common optical filter (basically only getting rid of maxfrac requirement)
 
             if self.rerun_1mu1p_bdt:
                 print "replaced bdt scores with recalculated ones"
-                print "  cosmic: old=",dlanatree.BDTscore_1mu1p_cosmic," new=",self.bdtoutput_1mu1p[rsev]["cosmic"]
-                print "  nu: old=",dlanatree.BDTscore_1mu1p_nu," new=",self.bdtoutput_1mu1p[rsev]["nu"]
-                bdtscore_1mu1p_cosmic = self.bdtoutput_1mu1p[rsev]["cosmic"]
-                bdtscore_1mu1p_nu     = self.bdtoutput_1mu1p[rsev]["nu"]
+                print "  nu: old=",dlanatree.BDTscore_1mu1p_nu," new=",self.bdtoutput_1mu1p[rsev]
+                bdtscore_1mu1p_cosmic = 0.0
+                bdtscore_1mu1p_nu     = self.bdtoutput_1mu1p[rsev]
             else:
                 bdtscore_1mu1p_cosmic = dlanatree.BDTscore_1mu1p_cosmic
                 bdtscore_1mu1p_nu = dlanatree.BDTscore_1mu1p_nu
@@ -493,7 +487,6 @@ class DLFilter(RootAnalyze):
                  and dlanatree.OpenAng>0.5
                  and dlanatree.ChargeNearTrunk>0
                  and dlanatree.FailedBoost_1m1p!=1
-                 and bdtscore_1mu1p_cosmic<0.7
                  and bdtscore_1mu1p_nu<0.7 ):
                 passes = True
             
@@ -518,9 +511,7 @@ class DLFilter(RootAnalyze):
             print "  opening angle: ",dlanatree.OpenAng>0.5," (",dlanatree.OpenAng,")"
             print "  chargeneartrunk: ",dlanatree.ChargeNearTrunk>0," (",dlanatree.ChargeNearTrunk,")"
             print "  failedboost_1m1p: ",dlanatree.FailedBoost_1m1p!=1," (",dlanatree.FailedBoost_1m1p,")"
-            print "  bdt cosmic: ",bdtscore_1mu1p_cosmic<0.7," (",bdtscore_1mu1p_cosmic,")"
-            print "  bdt nu: ",bdtscore_1mu1p_nu<0.7," (",bdtscore_1mu1p_nu,")"
-
+            print "  bdt score: ",bdtscore_1mu1p_nu<0.7," (",bdtscore_1mu1p_nu,")"
 
         # for debug only
         #rsekeys = self.rsev_dict.keys()
