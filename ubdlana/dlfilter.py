@@ -97,7 +97,7 @@ class DLFilter(RootAnalyze):
         if bool(self.filter_pars["rerun_1mu1p_bdt"]):
             self.rerun_1mu1p_bdt = True
             self.bdt_1mu1p_weightfile = self.filter_pars["bdt_weights_1mu1p"]
-            self.bdt_model_1mu1p_cosmic, self.bdt_model_1mu1p_nu = bdtutil.load_1mu1p_models( self.bdt_1mu1p_weightfile )
+            self.bdt_model_1mu1p = bdtutil.load_BDT_model( self.bdt_1mu1p_weightfile )            
             print "DLFilter: RERUN 1MU1P BDT"
         else:
             self.rerun_1mu1p_bdt = False
@@ -304,7 +304,7 @@ class DLFilter(RootAnalyze):
         # we get back a dictionary indexed by (run,subrun,event,vertex)
         # which stores replacement values for the BDT variables and BDT score
         if self.rerun_1mu1p_bdt:
-            self.bdtoutput_1mu1p = bdtutil.rerun_1mu1p_models( self.bdt_model_1mu1p_cosmic, self.bdt_model_1mu1p_nu, finalvertextree )
+            self.bdtoutput_1mu1p = bdtutil.rerun_1mu1p_models( self.bdt_model_1mu1p, finalvertextree )
         else:
             self.bdtoutput_1mu1p = {}
 
@@ -470,30 +470,22 @@ class DLFilter(RootAnalyze):
             rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
             rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
 
-            passprecuts = int(dlanatree.PassPMTPrecut)
-            if self.rerun_pmtprecuts:
-                passrerun = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
-                print "replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
-                print self.PMTPrecut_Dict[rse]['_passpmtprecut']
-                passprecuts = passrerun
+	    # get rid of pmtprecuts to rely entirely on common optical filter (basically only getting rid of maxfrac requirement)
 
             if self.rerun_1mu1p_bdt:
                 print "replaced bdt scores with recalculated ones"
-                print "  cosmic: old=",dlanatree.BDTscore_1mu1p_cosmic," new=",self.bdtoutput_1mu1p[rsev]["cosmic"]
-                print "  nu: old=",dlanatree.BDTscore_1mu1p_nu," new=",self.bdtoutput_1mu1p[rsev]["nu"]
-                bdtscore_1mu1p_cosmic = self.bdtoutput_1mu1p[rsev]["cosmic"]
-                bdtscore_1mu1p_nu     = self.bdtoutput_1mu1p[rsev]["nu"]
+                print "  nu: old=",dlanatree.BDTscore_1mu1p_nu," new=",self.bdtoutput_1mu1p[rsev]
+                bdtscore_1mu1p_cosmic = 0.0
+                bdtscore_1mu1p_nu     = self.bdtoutput_1mu1p[rsev]
             else:
                 bdtscore_1mu1p_cosmic = dlanatree.BDTscore_1mu1p_cosmic
                 bdtscore_1mu1p_nu = dlanatree.BDTscore_1mu1p_nu
 
-            if ( passprecuts==1
-                 and dlanatree.PassSimpleCuts==1
+            if ( dlanatree.PassSimpleCuts==1
                  and dlanatree.MaxShrFrac<0.2
                  and dlanatree.OpenAng>0.5
                  and dlanatree.ChargeNearTrunk>0
                  and dlanatree.FailedBoost_1m1p!=1
-                 and bdtscore_1mu1p_cosmic<0.7
                  and bdtscore_1mu1p_nu<0.7 ):
                 passes = True
             
@@ -512,15 +504,12 @@ class DLFilter(RootAnalyze):
             self.rsev_dict[rsev] = passes
 
             print "RSE=",rse," RSEV=",rsev," Passes=",passes
-            print "  precuts: ",passprecuts==1
             print "  simplecuts: ",dlanatree.PassSimpleCuts==1
             print "  maxshrfrac: ",dlanatree.MaxShrFrac<0.2," (",dlanatree.MaxShrFrac,")"
             print "  opening angle: ",dlanatree.OpenAng>0.5," (",dlanatree.OpenAng,")"
             print "  chargeneartrunk: ",dlanatree.ChargeNearTrunk>0," (",dlanatree.ChargeNearTrunk,")"
             print "  failedboost_1m1p: ",dlanatree.FailedBoost_1m1p!=1," (",dlanatree.FailedBoost_1m1p,")"
-            print "  bdt cosmic: ",bdtscore_1mu1p_cosmic<0.7," (",bdtscore_1mu1p_cosmic,")"
-            print "  bdt nu: ",bdtscore_1mu1p_nu<0.7," (",bdtscore_1mu1p_nu,")"
-
+            print "  bdt score: ",bdtscore_1mu1p_nu<0.7," (",bdtscore_1mu1p_nu,")"
 
         # for debug only
         #rsekeys = self.rsev_dict.keys()
