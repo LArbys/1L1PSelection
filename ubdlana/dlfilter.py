@@ -97,7 +97,7 @@ class DLFilter(RootAnalyze):
         if bool(self.filter_pars["rerun_1mu1p_bdt"]):
             self.rerun_1mu1p_bdt = True
             self.bdt_1mu1p_weightfile = self.filter_pars["bdt_weights_1mu1p"]
-            self.bdt_model_1mu1p_cosmic, self.bdt_model_1mu1p_nu = bdtutil.load_1mu1p_models( self.bdt_1mu1p_weightfile )
+            self.bdt_model_1mu1p = bdtutil.load_BDT_model( self.bdt_1mu1p_weightfile )            
             print "DLFilter: RERUN 1MU1P BDT"
         else:
             self.rerun_1mu1p_bdt = False
@@ -304,7 +304,7 @@ class DLFilter(RootAnalyze):
         # we get back a dictionary indexed by (run,subrun,event,vertex)
         # which stores replacement values for the BDT variables and BDT score
         if self.rerun_1mu1p_bdt:
-            self.bdtoutput_1mu1p = bdtutil.rerun_1mu1p_models( self.bdt_model_1mu1p_cosmic, self.bdt_model_1mu1p_nu, finalvertextree )
+            self.bdtoutput_1mu1p = bdtutil.rerun_1mu1p_models( self.bdt_model_1mu1p, finalvertextree )
         else:
             self.bdtoutput_1mu1p = {}
 
@@ -470,7 +470,7 @@ class DLFilter(RootAnalyze):
             rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
             rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
 
-						# get rid of pmtprecuts to rely entirely on common optical filter (basically only getting rid of maxfrac requirement)
+	    # get rid of pmtprecuts to rely entirely on common optical filter (basically only getting rid of maxfrac requirement)
 
             if self.rerun_1mu1p_bdt:
                 print "replaced bdt scores with recalculated ones"
@@ -481,8 +481,7 @@ class DLFilter(RootAnalyze):
                 bdtscore_1mu1p_cosmic = dlanatree.BDTscore_1mu1p_cosmic
                 bdtscore_1mu1p_nu = dlanatree.BDTscore_1mu1p_nu
 
-            if ( passprecuts==1
-                 and dlanatree.PassSimpleCuts==1
+            if ( dlanatree.PassSimpleCuts==1
                  and dlanatree.MaxShrFrac<0.2
                  and dlanatree.OpenAng>0.5
                  and dlanatree.ChargeNearTrunk>0
@@ -505,7 +504,6 @@ class DLFilter(RootAnalyze):
             self.rsev_dict[rsev] = passes
 
             print "RSE=",rse," RSEV=",rsev," Passes=",passes
-            print "  precuts: ",passprecuts==1
             print "  simplecuts: ",dlanatree.PassSimpleCuts==1
             print "  maxshrfrac: ",dlanatree.MaxShrFrac<0.2," (",dlanatree.MaxShrFrac,")"
             print "  opening angle: ",dlanatree.OpenAng>0.5," (",dlanatree.OpenAng,")"

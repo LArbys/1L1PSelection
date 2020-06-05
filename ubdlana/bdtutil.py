@@ -167,6 +167,7 @@ vars_june1 = ['Phis',
         
         # make input vars
         input_vars = [[
+            fvv.Phis,
             fvv.ChargeNearTrunk,
             fvv.Enu_1m1p,
             fvv.PhiT_1m1p,
@@ -190,6 +191,6 @@ vars_june1 = ['Phis',
         probs   = model.predict_proba(vars_np)[0]
         print "[bdtutil::rerun_1m1p_bdt] rsev=(",rsev,")"
         print "  BDT[1mu1p] output: ",probs
-        bdtout_dict[rsev] = probs
+        bdtout_dict[rsev] = probs[0]
         
     return bdtout_dict
