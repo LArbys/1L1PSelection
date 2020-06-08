@@ -417,8 +417,8 @@ class DLFilter(RootAnalyze):
                     rerun_pass[0]       = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
                 if self.rerun_1mu1p_bdt:
                     print 'replacing 1mu1p results from rerun of rsev[',rsev,']'
-                    rerun_1mu1p_cosmic[0] = self.bdtoutput_1mu1p[rsev]["cosmic"]
-                    rerun_1mu1p_nu[0]     = self.bdtoutput_1mu1p[rsev]["nu"]
+                    rerun_1mu1p_cosmic[0] = 0.0
+                    rerun_1mu1p_nu[0]     = self.bdtoutput_1mu1p[rsev]
 
                 for tree in self.out_vertex_indexed_trees:
                     tree.Fill()
