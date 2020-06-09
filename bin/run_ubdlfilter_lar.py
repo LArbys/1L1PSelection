@@ -12,7 +12,7 @@ parser.add_argument('-dl', '--dlmerged',required=True,type=str,help="dlmerged fi
 parser.add_argument('-c','--calibmap',required=True,type=str,help="calibration map file [REQUIRED]")
 parser.add_argument('-t','--sample-type',required=True,type=str,help="Sample type. choices: BNB,EXT,Overlay")
 parser.add_argument('-f','--filter-type',required=True,type=str,help="Filter type")
-parser.add_argument('-o','--outfile',default=".",type=str,help="Output file name")
+parser.add_argument('-o','--outfile',required=True,default=".",type=str,help="Output file name")
 parser.add_argument('--ismc',help='are we looking at montecarlo?',action="store_true")
 parser.add_argument('-pmt','--run-precuts',action='store_true',default=False,help="if true, will run precut code on ophits in file")
 parser.add_argument('-oh','--ophits',type=str,default="ophitBeamCalib",help="tree name to use if running PMT precuts. [default: ophitBeam]")
@@ -75,12 +75,14 @@ dlfilter.open_output( tfout )
 tree = tfinput.Get( "dlana/FinalVertexVariables" )
 dlfilter.open_input(tfinput)
 
-#ientry = 0
-#bytes_read = tree.GetEntry(ientry)
-#while bytes_read>0:
-#    dlfilter.analyze_entry(tree)
-#    ientry+=1 
-#    bytes_read = tree.GetEntry(ientry)
+print "EVENT LOOP"
+evtree = tfinput.Get( dlfilter_cfg["event_tree"] )
+ientry = 0
+bytes_read = evtree.GetEntry(ientry)
+while bytes_read>0:
+    dlfilter.event_info( evtree )
+    ientry+=1 
+    bytes_read = tree.GetEntry(ientry)
 
 dlfilter.end_job()
 
