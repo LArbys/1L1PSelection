@@ -12,5 +12,6 @@ modules : { sam_metadata: {}
                         sample_type: "BNB"
 			rerun_1mu1p_bdt: True
 			bdt_weights_1mu1p: "bdtweight_series2_june1_run3.pickle"
+			event_tree: "larlite_id_tree"
                       }
           }
