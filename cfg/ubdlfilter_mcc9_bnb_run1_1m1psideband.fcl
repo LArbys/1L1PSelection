@@ -8,7 +8,7 @@ dump_every: 1
 modules : { sam_metadata: {}
 	    dlfilter: { filter_type:"numu-sideband"
                         rerun_precuts: False
-                        precut_ophits: "ophitBeam"
+                        precut_ophits: "ophitBeamCalib"
                         sample_type: "BNB"
 			rerun_1mu1p_bdt: True
 			bdt_weights_1mu1p: "bdtweight_series2_june1_run1.pickle"			
