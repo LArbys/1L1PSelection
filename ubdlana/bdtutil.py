@@ -194,3 +194,89 @@ vars_june1 = ['Phis',
         bdtout_dict[rsev] = probs[0]
         
     return bdtout_dict
+
+def rerun_1e1p_models( model, fvv ):
+    """ apply the 1e1p BDT
+    
+    inputs
+    ------
+    1e1p:      xgboost model loaded from pickle file
+    dlvars:    finalvertexvariable tree (the DL ana tree)
+
+    outputs
+    -------
+    1e1p bdt score dictionary
+    """
+
+    """
+[Enu_1e1p,
+Electron_Edep,
+PT_1e1p,
+AlphaT_1e1p,
+SphB_1e1p,
+PzEnu_1e1p,
+ChargeNearTrunk,
+Q0_1e1p,
+Q3_1e1p,
+Thetas,
+Phis,
+PTRat_1e1p,
+Proton_TrackLength,
+Lepton_TrackLength,
+Proton_ThetaReco,
+Proton_PhiReco,
+Lepton_ThetaReco,
+Lepton_PhiReco,
+MinShrFrac,
+MaxShrFrac,
+shower1_smallQ_Y/shower1_sumQ_Y ,
+BjX_1e1p,
+BjY_1e1p]
+    """
+
+    bdtout_dict = {}
+    nentries = fvv.GetEntries()
+    print "[bdtutil::rerun_1e1p_models] rerun on ",nentries
+    for ientry in range(nentries):
+        fvv.GetEntry(ientry)
+
+        rsev = (fvv.run,fvv.subrun,fvv.event,fvv.vtxid)
+        
+        shower_charge_ratio = fvv.shower1_smallQ_Y/fvv.shower1_sumQ_Y if fvv.shower1_sumQ_Y>0 else 0.0
+
+        # make input vars
+        input_vars = [[
+                fvv.Enu_1e1p,
+                fvv.Electron_Edep,
+                fvv.PT_1e1p,
+                fvv.AlphaT_1e1p,
+                fvv.SphB_1e1p,
+                fvv.PzEnu_1e1p,
+                #fvv.ChargeNearTrunk*fvv.QCorrectionFactorVertex,
+                fvv.ChargeNearTrunk,
+                fvv.Q0_1e1p,
+                fvv.Q3_1e1p,
+                fvv.Thetas,
+                fvv.Phis,
+                fvv.PTRat_1e1p,
+                fvv.Proton_TrackLength,
+                fvv.Lepton_TrackLength,
+                fvv.Proton_ThetaReco,
+                fvv.Proton_PhiReco,
+                fvv.Lepton_ThetaReco,
+                fvv.Lepton_PhiReco,
+                fvv.MinShrFrac,
+                fvv.MaxShrFrac,
+                shower_charge_ratio,
+                fvv.BjX_1e1p,
+                fvv.BjY_1e1p]]
+
+        vars_np = np.asarray( input_vars )
+        #print vars_np
+
+        probs   = model.predict_proba(vars_np)[0]
+        print "[bdtutil::rerun_1e1p_bdt] rsev=(",rsev,")"
+        print "  BDT[1e1p] output: ",probs
+        bdtout_dict[rsev] = probs[0]
+        
+    return bdtout_dict

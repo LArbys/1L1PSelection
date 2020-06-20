@@ -94,13 +94,21 @@ class DLFilter(RootAnalyze):
         else:
             self.rerun_pmtprecuts = False
 
-        if bool(self.filter_pars["rerun_1mu1p_bdt"]):
+        if "rerun_1mu1p_bdt" in self.filter_pars and bool(self.filter_pars["rerun_1mu1p_bdt"]):
             self.rerun_1mu1p_bdt = True
             self.bdt_1mu1p_weightfile = self.filter_pars["bdt_weights_1mu1p"]
             self.bdt_model_1mu1p = bdtutil.load_BDT_model( self.bdt_1mu1p_weightfile )            
             print "DLFilter: RERUN 1MU1P BDT"
         else:
             self.rerun_1mu1p_bdt = False
+
+        if "rerun_1e1p_bdt" in self.filter_pars and bool(self.filter_pars["rerun_1e1p_bdt"]):
+            self.rerun_1e1p_bdt = True
+            self.bdt_1e1p_weightfile = self.filter_pars["bdt_weights_1e1p"]
+            self.bdt_model_1e1p = bdtutil.load_BDT_model( self.bdt_1e1p_weightfile )
+            print "DLFilter: RERUN 1e1P BDT"
+        else:
+            self.rerun_1e1p_bdt = False
             
 
         self._DEBUG_MODE_ = False
@@ -311,6 +319,14 @@ class DLFilter(RootAnalyze):
         else:
             self.bdtoutput_1mu1p = {}
 
+        # rerun the 1e1p
+        # we get back a dictionary indexed by (run,subrun,event,vertex)
+        # which stores replacement values for the BDT variables and BDT score
+        if self.rerun_1e1p_bdt:
+            self.bdtoutput_1e1p = bdtutil.rerun_1e1p_models( self.bdt_model_1e1p, finalvertextree )
+        else:
+            self.bdtoutput_1e1p = {}
+
         # We run the filter on the finalvariablevertex trees
         # Produces a list of run,subrun,event,vertexid indicating if events pass
         if self.filter_type=="numu-sideband":
@@ -398,6 +414,9 @@ class DLFilter(RootAnalyze):
             rerun_1mu1p_nu     = array.array('f',[0.0])
             outfvv_tree.SetBranchAddress("BDTscore_1mu1p_cosmic",rerun_1mu1p_cosmic)
             outfvv_tree.SetBranchAddress("BDTscore_1mu1p_nu",rerun_1mu1p_nu)
+        if self.rerun_1e1p_bdt:
+            rerun_1e1p = array.array('f',[0.0])
+            outfvv_tree.SetBranchAddress("BDTscore_1e1p",rerun_1e1p)
 
 
         for ientry in xrange( finalvertextree.GetEntries() ):
@@ -422,6 +441,10 @@ class DLFilter(RootAnalyze):
                     print 'replacing 1mu1p results from rerun of rsev[',rsev,']'
                     rerun_1mu1p_cosmic[0] = 0.0
                     rerun_1mu1p_nu[0]     = self.bdtoutput_1mu1p[rsev]
+
+                if self.rerun_1e1p_bdt:
+                    print 'replacing 1e1p results from rerun of rsev[',rsev,']'
+                    rerun_1e1p[0] = self.bdtoutput_1e1p[rsev]
 
                 for tree in self.out_vertex_indexed_trees:
                     tree.Fill()
@@ -658,7 +681,6 @@ class DLFilter(RootAnalyze):
         #we first collect the highest bdtscore per RSE
 
         max_rse = {}
-        rse_vtxid = {}
 
         for ientry in xrange(dlanatree.GetEntries()):
             dlanatree.GetEntry(ientry)
@@ -673,6 +695,14 @@ class DLFilter(RootAnalyze):
                 print "replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
                 print self.PMTPrecut_Dict[rse]['_passpmtprecut']
                 passprecuts = passrerun
+
+            if self.rerun_1e1p_bdt:
+                print "replacing 1e1p bdt scores with recalculated ones"
+                print "  nu: old=",dlanatree.BDTscore_1e1p," new=",self.bdtoutput_1e1p[rsev]
+                bdtscore_1e1p = self.bdtoutput_1e1p[rsev]
+            else:
+                bdtscore_1e1p = dlanatree.BDTscore_1e1p
+
 
             if ( passprecuts==1
                  and dlanatree.PassSimpleCuts==1
@@ -694,10 +724,10 @@ class DLFilter(RootAnalyze):
             print "[first pass] RSE=",rse," RSEV=",rsev
             if rse not in max_rse:
                 # provide default
-                max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":-1.0,"enu":dlanatree.Enu_1e1p,"passes":False}
+                max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":-1.0,"enu":bdtscore_1e1p,"passes":False}
 
-            if passes and max_rse[rse]["bdt"]<dlanatree.BDTscore_1e1p:
-                max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":dlanatree.BDTscore_1e1p,"enu":dlanatree.Enu_1e1p,"passes":True}
+            if passes and max_rse[rse]["bdt"]<bdtscore_1e1p:
+                max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":bdtscore_1e1p,"enu":dlanatree.Enu_1e1p,"passes":True}
 
 
 
@@ -718,7 +748,7 @@ class DLFilter(RootAnalyze):
                 continue
             if max_rse[rse]["vtxid"]!=dlanatree.vtxid:
                 # ignore non-max  BDT vertex
-                print "RSE ",rse,": ",max_rse[rse]," -- is not max BDT vertex: this=",dlanatree.BDTscore_1e1p," max=",max_rse[rse]["bdt"]
+                print "RSE ",rse," vtxid=",dlanatree.vtxid,": ",max_rse[rse]," -- is not max BDT vertex: ",max_rse[rse]["vtxid"]
                 continue
 
             if not max_rse[rse]["passes"] or max_rse[rse]["bdt"]>0.7:

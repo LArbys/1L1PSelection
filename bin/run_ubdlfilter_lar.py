@@ -18,6 +18,8 @@ parser.add_argument('-pmt','--run-precuts',action='store_true',default=False,hel
 parser.add_argument('-oh','--ophits',type=str,default="ophitBeamCalib",help="tree name to use if running PMT precuts. [default: ophitBeam]")
 parser.add_argument("--rerun-1mu1p-bdt",action='store_true',default=False,help="if true, will rerun 1mu1p BDT")
 parser.add_argument("--bdt-weightfile-1mu1p",type=str,default=None,help="Must be set if rerunning 1mu1p BDT")
+parser.add_argument("--rerun-1e1p-bdt",action='store_true',default=False,help="if true, will rerun 1e1p BDT")
+parser.add_argument("--bdt-weightfile-1e1p",type=str,default=None,help="Must be set if rerunning 1e1p BDT")
 parser.add_argument("--use-ubdlana-eventtree",action='store_true',default=False,help="if true, will use ubdlana event tree instead of defaul larlite_id_tree")
 parser.add_argument("--rse-list",type=str,default=None,help="Must provide RSE list path if filter-type set to rse-list")
 #parser.add_argument('-se','--start-entry',type=int,default=0,help="starting entry")
@@ -35,6 +37,9 @@ ismc = args.ismc
 
 if args.rerun_1mu1p_bdt and args.bdt_weightfile_1mu1p is None:
     raise ValueError("1mu1p BDT is flagged to be rerun, but weight file is not specified")
+
+if args.rerun_1e1p_bdt and args.bdt_weightfile_1e1p is None:
+    raise ValueError("1e1p BDT is flagged to be rerun, but weight file is not specified")
     
 
 # need to make the configuration dictionary
@@ -48,6 +53,11 @@ if args.rerun_1mu1p_bdt:
     print "RERUN 1mu1p BDT"
     dlfilter_cfg["rerun_1mu1p_bdt"] = True
     dlfilter_cfg["bdt_weights_1mu1p"] = args.bdt_weightfile_1mu1p
+
+if args.rerun_1e1p_bdt:
+    print "RERUN 1e1p BDT"
+    dlfilter_cfg["rerun_1e1p_bdt"] = True
+    dlfilter_cfg["bdt_weights_1e1p"] = args.bdt_weightfile_1e1p
 
 if args.use_ubdlana_eventtree:
     print "USE UBDLANA ID TREE"
