@@ -21,6 +21,7 @@ modules : { sam_metadata : {}
                                            out_ana_tree: "ssnetshowerrecov2ana" 
                                            adctree: "wire"
                                            second_shower: True
-                                           use_calib: False } 
+                                           use_calib: False
+					   pix2energy_params: [-69.049,0.112] } 
                             }
             }

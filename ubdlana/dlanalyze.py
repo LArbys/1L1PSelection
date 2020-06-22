@@ -95,11 +95,14 @@ class DLAnalyze(RootAnalyze):
         self._recoTree = None
 
         # SETUP SSNET Shower reco
-        self.llout_name = config['modules']['dlanalyze']['showerreco']['out_larlite_tree']
-        shr_ana         = config['modules']['dlanalyze']['showerreco']['out_ana_tree']
-        self.adc_tree   = config['modules']['dlanalyze']['showerreco']['adctree']
-        self.second_shr = config['modules']['dlanalyze']['showerreco']['second_shower']
-        use_calib       = config['modules']['dlanalyze']['showerreco']['use_calib']
+        self.shr_reco_cfg = config['modules']['dlanalyze']['showerreco']
+        self.llout_name = shr_reco_cfg['out_larlite_tree']
+        shr_ana         = self.shr_reco_cfg['out_ana_tree']
+        self.adc_tree   = self.shr_reco_cfg['adctree']
+        self.second_shr = self.shr_reco_cfg['second_shower']
+        use_calib       = self.shr_reco_cfg['use_calib']
+        quad_par0       = float(self.shr_reco_cfg["pix2energy_params"][0])
+        quad_par1       = float(self.shr_reco_cfg["pix2energy_params"][1])
         uselarlite      = True
         self.showerreco = larlitecv.ssnetshowerreco.SSNetShowerReco(uselarlite,self.llout_name)
         self.showerreco.set_adc_treename( self.adc_tree )
@@ -120,6 +123,8 @@ class DLAnalyze(RootAnalyze):
             print "[DLAnalyze::NOT MC]"
             self.showerreco.use_mc( False )
         self.showerreco.set_SSNet_threshold(0.5)
+        #self.showerreco.set_quad_pix2energy_pars( -69.049, 0.112 ) # MC
+        self.showerreco.set_quad_pix2energy_pars( quad_par0, quad_par1 ) # MC
 
         self.showerreco.set_output_treename( shr_ana )
 

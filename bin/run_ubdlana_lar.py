@@ -34,6 +34,14 @@ if args.ismc:
 else:
     ismc = False
 
+shower_pars = [("BNB",False):[-69.049,0.112],# needs update 6/22/20
+               ("EXT",False):[-69.049,0.112],# needs udpate 6/22/20
+               ("Overlay",True):[-69.049,0.112]]
+
+if (args.sampletype,ismc) not in shower_pars:
+    raise ValueError("Sample+MC flag combination not valid: sample={} ismc={}".format( args.sampletype,ismc ) )
+
+
 # need to make the configuration dictionary
 dlanalyze_cfg = {"tracker_tree":"_recoTree",
                  "ismc":ismc,
@@ -49,7 +57,8 @@ dlanalyze_cfg = {"tracker_tree":"_recoTree",
                                  "out_ana_tree": "ssnetshowerrecov2ana",
                                  "adctree": "wire",
                                  "second_shower": True,
-                                 "use_calib": False }
+                                 "use_calib": False,
+                                 "pix2energy_params":shower_pars[(args.sample_type,ismc)]}
 }
 
 if args.run_cnn:
