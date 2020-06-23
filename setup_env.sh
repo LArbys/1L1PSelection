@@ -1,7 +1,7 @@
 #!/bin/bash
 
 source setup_tufts_container.sh
-source /cluster/tufts/wongjiradlab/twongj01/production/dllee_unified_v1_0_5/configure.sh
+source /cluster/tufts/wongjiradlab/twongj01/production/dllee_unified_v1_0_7/configure.sh
 
 export UBDLANA_DIR=$PWD
 echo "UBDLANA_DIR: $UBDLANA_DIR"
