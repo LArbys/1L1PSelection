@@ -96,7 +96,7 @@ class DLAnalyze(RootAnalyze):
 
         # SETUP SSNET Shower reco
         self.shr_reco_cfg = config['modules']['dlanalyze']['showerreco']
-        self.llout_name = shr_reco_cfg['out_larlite_tree']
+        self.llout_name = self.shr_reco_cfg['out_larlite_tree']
         shr_ana         = self.shr_reco_cfg['out_ana_tree']
         self.adc_tree   = self.shr_reco_cfg['adctree']
         self.second_shr = self.shr_reco_cfg['second_shower']

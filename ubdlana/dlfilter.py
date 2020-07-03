@@ -689,12 +689,13 @@ class DLFilter(RootAnalyze):
             rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
             
             passes = False
-            passprecuts = int(dlanatree.PassPMTPrecut)
-            if self.rerun_pmtprecuts:
-                passrerun = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
-                print "replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
-                print self.PMTPrecut_Dict[rse]['_passpmtprecut']
-                passprecuts = passrerun
+            # no longer using precuts
+            #passprecuts = int(dlanatree.PassPMTPrecut)
+            #if self.rerun_pmtprecuts:
+            #    passrerun = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
+            #    print "replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
+            #    print self.PMTPrecut_Dict[rse]['_passpmtprecut']
+            #    passprecuts = passrerun
 
             if self.rerun_1e1p_bdt:
                 print "replacing 1e1p bdt scores with recalculated ones"
@@ -703,9 +704,7 @@ class DLFilter(RootAnalyze):
             else:
                 bdtscore_1e1p = dlanatree.BDTscore_1e1p
 
-
-            if ( passprecuts==1
-                 and dlanatree.PassSimpleCuts==1
+            if ( dlanatree.PassSimpleCuts==1
                  and dlanatree.PassShowerReco==1
                  and dlanatree.Proton_Edep > 60 
                  and dlanatree.Electron_Edep > 35
@@ -713,13 +712,13 @@ class DLFilter(RootAnalyze):
                 passes = True
                 
             print "RSE=",rse," RSEV=",rsev," Passes=",passes
-            print "  precuts: ",passprecuts==1
+            #print "  precuts: ",passprecuts==1
             print "  simplecuts: ",dlanatree.PassSimpleCuts==1
             print "  showerreco: ",dlanatree.PassShowerReco==1
             print "  maxshrfrac: ",max(dlanatree.MaxShrFrac,-1)>0.2," (",dlanatree.MaxShrFrac,")"
             print "  electron edep: ",dlanatree.Electron_Edep>35.0," (",dlanatree.Electron_Edep,")"
             print "  proton edep: ",dlanatree.Proton_Edep>60.0," (",dlanatree.Proton_Edep,")"
-            print "  bdt 1e1p: ",dlanatree.BDTscore_1e1p<=0.7," (",dlanatree.BDTscore_1e1p,")"
+            print "  bdt 1e1p: ",bdtscore_1e1p<=0.7," (",bdtscore_1e1p,")"
 
             print "[first pass] RSE=",rse," RSEV=",rsev
             if rse not in max_rse:
@@ -727,6 +726,7 @@ class DLFilter(RootAnalyze):
                 max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":-1.0,"enu":bdtscore_1e1p,"passes":False}
 
             if passes and max_rse[rse]["bdt"]<bdtscore_1e1p:
+                # update max bdt for vertex that passes
                 max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":bdtscore_1e1p,"enu":dlanatree.Enu_1e1p,"passes":True}
 
 
@@ -754,6 +754,8 @@ class DLFilter(RootAnalyze):
             if not max_rse[rse]["passes"] or max_rse[rse]["bdt"]>0.7:
                 print "RSE ",rse,": score max=",max_rse[rse]["bdt"]," is above threshold or did not pass (",max_rse[rse]["passes"],")"
                 continue
+
+            print "RSE ",rse,": score max=",max_rse[rse]["bdt"]," passes low-BDT selection (",max_rse[rse]["passes"],")"
             
             # for debug: make something pass in order to check
             if self._DEBUG_MODE_:

@@ -13,7 +13,7 @@ parser.add_argument('-c','--calibmap',required=True,type=str,help="calibration m
 parser.add_argument('-t','--sample-type',required=True,type=str,help="Sample type. choices: BNB,EXT,Overlay")
 parser.add_argument('-o','--outfile',default=".",type=str,help="Output file name")
 parser.add_argument('-g','--tag',default="test",type=str,help="Tag: used to name files. [default: 'test']")
-parser.add_argument('--ismc',help='are we looking at montecarlo?',action="store_true")
+parser.add_argument('--ismc',default=False,help='are we looking at montecarlo?',action="store_true")
 parser.add_argument('-pmt','--run-precuts',action='store_true',default=False,help="if true, will run precut code on ophits in file")
 parser.add_argument('-oh','--ophits',type=str,default="ophitBeamCalib",help="tree name to use if running PMT precuts. [default: ophitBeamCalib]")
 parser.add_argument('-se','--start-entry',type=int,default=0,help="starting entry")
@@ -34,11 +34,11 @@ if args.ismc:
 else:
     ismc = False
 
-shower_pars = [("BNB",False):[-69.049,0.112],# needs update 6/22/20
+shower_pars = {("BNB",False):[-69.049,0.112],# needs update 6/22/20
                ("EXT",False):[-69.049,0.112],# needs udpate 6/22/20
-               ("Overlay",True):[-69.049,0.112]]
+               ("Overlay",True):[-69.049,0.112]}
 
-if (args.sampletype,ismc) not in shower_pars:
+if (args.sample_type,ismc) not in shower_pars:
     raise ValueError("Sample+MC flag combination not valid: sample={} ismc={}".format( args.sampletype,ismc ) )
 
 
@@ -50,8 +50,8 @@ dlanalyze_cfg = {"tracker_tree":"_recoTree",
                  "precut_ophits":args.ophits,
                  "crtveto":{"opflash_producer":"simpleFlashBeam",
                             "crthit_producer":"crthitcorr"},
-                 "bdt_1e1p_weights":"bdtweights_1e1p_MissingLowEPatch_4-28-20.pickle",
-                 "bdt_1mu1p_weights":"bdtweights_1m1p_run1_lowe_may13vars.pickle",
+                 "bdt_1e1p_weights":"BDT_1e1p_Run1_6-2-20.pickle",
+                 "bdt_1mu1p_weights":"bdtweight_series2_june1_run1.pickle",
                  "showercnn_weights":"DoNotRun",
                  "showerreco": { "out_larlite_tree": "ssnetshowerrecov2",
                                  "out_ana_tree": "ssnetshowerrecov2ana",
