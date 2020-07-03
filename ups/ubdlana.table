@@ -1,6 +1,6 @@
 File=Table 
 Product=ubdlana
-Version=v1_1_2
+Version=v1_1_3
  
 Group:
 
@@ -8,7 +8,7 @@ Flavor     = ANY
 Qualifiers = "e17:prof"
 
   Action = GetProducts
-    setupRequired( dllee_unified v1_0_5 -q e17:prof )
+    setupRequired( dllee_unified v1_0_6 -q e17:prof )
     setupRequired( ubMPIDnet v1_0_0 -q NULL )
     setupRequired( numpy    v1_14_3 -q e17:p2714b:openblas:prof )
     setupRequired( ifdhc    v2_4_1  -q e17:p2714b:prof )
