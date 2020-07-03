@@ -62,6 +62,8 @@ if args.rerun_1e1p_bdt:
 if args.use_ubdlana_eventtree:
     print "USE UBDLANA ID TREE"
     dlfilter_cfg["event_tree"] = "dlana/ubdlana_id_tree"
+else:
+    dlfilter_cfg["event_tree"] = "larlite_id_tree"
 
 if args.filter_type=="rse-list":
     if args.rse_list is None or not os.path.exists(args.rse_list):

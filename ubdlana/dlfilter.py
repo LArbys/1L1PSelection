@@ -215,6 +215,7 @@ class DLFilter(RootAnalyze):
         # we need to get the event and vertex trees
         larlite_id_tree = input_file.Get(self.event_tree)
         finalvertextree = input_file.Get("dlana/FinalVertexVariables")
+        self._use_ubdlana_idtree = False
         if self.event_tree=="dlana/ubdlana_id_tree":
             try:
                 print "DLFilter::Using dlana/ubdlana_id_tree"
