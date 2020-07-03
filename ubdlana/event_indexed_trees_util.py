@@ -39,6 +39,10 @@ STANDARD_EVENT_INDEXED_TREES_STR = """
     mctrack_mcreco_tree
     hit_gaushit_tree
     hit_portedThresholdhit_tree
+    hit_dl_tree
+    hit_dlraw_tree
+    cluster_dl_tree
+    cluster_dlraw_tree
     crthit_crthitcorr_tree
     crttrack_crttrack_tree
     ophit_ophitBeam_tree
@@ -56,9 +60,16 @@ STANDARD_EVENT_INDEXED_TREES_STR = """
     track_inter_track_tree
     track_trackReco_tree
     track_trackReco_sceadded_tree
+    track_dl_tree
+    shower_showerreco_tree
     shower_ssnetshowerreco_tree
+    shower_dl_tree
     vertex_inter_vertex_tree
     vertex_trackReco_tree
+    vertex_dl_tree
+    vertex_dlraw_tree
+    pfpart_dl_tree
+    pfpart_dlraw_tree
     trigger_daq_tree
     trigger_triggersim_tree
     ass_inter_ass_tree
@@ -71,6 +82,9 @@ STANDARD_EVENT_INDEXED_TREES_STR = """
     ass_simpleFlashCosmic::DLWCDeploy_tree  
     ass_trackReco_tree
     ass_trackReco_sceadded_tree
+    ass_dl_tree
+    ass_dlraw_tree
+    ass_showerreco_tree
     swtrigger_swtrigger_tree
     larflowcluster_ssnetshowerreco_tree
     clustermask_mrcnn_masks_tree
