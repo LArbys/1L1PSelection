@@ -1,8 +1,8 @@
 #include "sam_microboone.fcl"
 
 process_name : dlfilter
-services : { FileCatalogMetadata: @local::art_file_catalog_data }
-input_tree : "larlite_id_tree"
+services : { FileCatalogMetadata: @local::art_file_catalog_data }
+input_tree : "ubdlana_id_tree"
 loop_over_entries : True
 dump_every: 1
 modules : { sam_metadata: {}
@@ -12,8 +12,8 @@ modules : { sam_metadata: {}
                         sample_type: "BNB"
 			rerun_1mu1p_bdt: True
 			rerun_1e1p_bdt: True
-			bdt_weights_1mu1p: "bdtweight_series2_june1_run1.pickle"
-			bdt_weights_1e1p: "BDT_1e1p_Run1_6-2-20.pickle"
-			event_tree: "larlite_id_tree"			
+			bdt_weights_1mu1p: "bdtweight_series2_june1_run3.pickle"
+			bdt_weights_1e1p: "BDT_1e1p_Run3_6-2-20.pickle"
+			event_tree: "dlana/ubdlana_id_tree"
                       }
           }
