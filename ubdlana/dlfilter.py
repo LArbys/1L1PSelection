@@ -579,8 +579,7 @@ class DLFilter(RootAnalyze):
                  and dlanatree.PassShowerReco==1
                  and dlanatree.Proton_Edep > 60
                  and dlanatree.Electron_Edep > 35
-                 and max(dlanatree.MaxShrFrac,-1) > 0.2
-                 and dlanatree.Enu_1e1p>700.0 ):
+                 and max(dlanatree.MaxShrFrac,-1) > 0.2 ):
                 passes = True
             
             print "[first pass highE] RSE=",rse," RSEV=",rsev," Passes=",passes
@@ -590,6 +589,7 @@ class DLFilter(RootAnalyze):
             print "  maxshrfrac: ",max(dlanatree.MaxShrFrac,-1)>0.2," (",dlanatree.MaxShrFrac,")"
             print "  electron edep: ",dlanatree.Electron_Edep>35.0," (",dlanatree.Electron_Edep,")"
             print "  proton edep: ",dlanatree.Proton_Edep>60.0," (",dlanatree.Proton_Edep,")"
+            print "  enu: ",dlanatree.Enu_1e1p
             print "  bdt 1e1p>0.7: ",bdtscore_1e1p>0.7," (",bdtscore_1e1p,")"
 
             if rse not in max_rse:
@@ -624,16 +624,13 @@ class DLFilter(RootAnalyze):
                 print "[highE] RSE ",rse," vtxid=",dlanatree.vtxid,": ",max_rse[rse]," -- is not max BDT vertex: ",max_rse[rse]["vtxid"]
                 continue
 
-            if not max_rse[rse]["passes"] or max_rse[rse]["bdt"]<0.7:
-                print "[highE] RSE ",rse,": score max=",max_rse[rse]["bdt"]," is BELOW threshold or did not pass (",max_rse[rse]["passes"],")"
+            if not max_rse[rse]["passes"] or max_rse[rse]["enu"]<700.0 or max_rse[rse]["bdt"]<0.7:
+                print "[highE] RSE ",rse,": enu=",max_rse[rse]["enu"]," is BELOW energy threshold, below bdt=",max_rse[rse]["bdt"]," or did not pass (",max_rse[rse]["passes"],")"
                 continue
 
-            print "[highE] RSE ",rse,": score max=",max_rse[rse]["bdt"]," passes low-BDT selection (",max_rse[rse]["passes"],")"
+            print "[highE] RSE ",rse,": enu=",max_rse[rse]["enu"]," passes high-E selection (",max_rse[rse]["passes"],")"
+            passes = True
             
-            # for debug: make something pass in order to check
-            if self._DEBUG_MODE_:
-                passes = True # for debug
-                
             # update event flag
             if rse not in self.rse_dict:
                 self.rse_dict[rse]   = passes
@@ -1057,8 +1054,7 @@ class DLFilter(RootAnalyze):
                  and dlanatree.PassShowerReco==1
                  and dlanatree.Proton_Edep > 60
                  and dlanatree.Electron_Edep > 35
-                 and max(dlanatree.MaxShrFrac,-1) > 0.2
-                 and dlanatree.BDTscore_1e1p>0.8 ):
+                 and max(dlanatree.MaxShrFrac,-1) > 0.2):
                 passes = True
             
             # for debug: make something pass in order to check
