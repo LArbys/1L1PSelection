@@ -194,12 +194,12 @@ class FullCov:
                 polyRat = np.polyfit(bincenters_numu, truRat_numu, deg)
                 fRat = np.poly1d(polyRat)
                 
-            # now calculate chi2 for fit
-            yerr_rat = np.true_divide(np.sqrt(fRat(bincenters_numu)*hCV_numu),hCV_numu,out=np.zeros_like(bincenters_numu),where=hCV_numu!=0)
-            chi2_fit = np.power(np.true_divide(fRat(bincenters_numu)-truRat_numu,yerr_rat),2).sum()
-            aic = chi2_fit + 2*params + 2*params*(params+1)/float(nbins_numu-params-1)
-            aics.append(aic)
-            degs.append(deg)
+                # now calculate chi2 for fit
+                yerr_rat = np.true_divide(np.sqrt(fRat(bincenters_numu)*hCV_numu),hCV_numu,out=np.zeros_like(bincenters_numu),where=hCV_numu!=0)
+                chi2_fit = np.power(np.true_divide(fRat(bincenters_numu)-truRat_numu,yerr_rat),2).sum()
+                aic = chi2_fit + 2*params + 2*params*(params+1)/float(nbins_numu-params-1)
+                aics.append(aic)
+                degs.append(deg)
             polyterms = degs[np.argmin(aics)]
             print(self.s_detsyslist[sysi],'Numu Polyfit Degrees:',polyterms,aics[np.argmin(aics)])  
 
@@ -216,12 +216,12 @@ class FullCov:
                 polyRat = np.polyfit(bincenters_nue, truRat_nue, deg)
                 fRat = np.poly1d(polyRat)
                 
-            # now calculate chi2 for fit
-            yerr_rat = np.true_divide(np.sqrt(fRat(bincenters_nue)*hCV_nue),hCV_nue,out=np.zeros_like(bincenters_nue),where=hCV_nue!=0)
-            chi2_fit = np.power(np.true_divide(fRat(bincenters_nue)-truRat_nue,yerr_rat),2).sum()
-            aic = chi2_fit + 2*params + 2*params*(params+1)/float(nbins_nue-params-1)
-            aics.append(aic)
-            degs.append(deg)
+                # now calculate chi2 for fit
+                yerr_rat = np.true_divide(np.sqrt(fRat(bincenters_nue)*hCV_nue),hCV_nue,out=np.zeros_like(bincenters_nue),where=hCV_nue!=0)
+                chi2_fit = np.power(np.true_divide(fRat(bincenters_nue)-truRat_nue,yerr_rat),2).sum()
+                aic = chi2_fit + 2*params + 2*params*(params+1)/float(nbins_nue-params-1)
+                aics.append(aic)
+                degs.append(deg)
             polyterms = degs[np.argmin(aics)]
             print(self.s_detsyslist[sysi],'Nue Polyfit Degrees:',polyterms,aics[np.argmin(aics)])  
 
