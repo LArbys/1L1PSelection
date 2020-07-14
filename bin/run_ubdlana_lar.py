@@ -19,6 +19,7 @@ parser.add_argument('-oh','--ophits',type=str,default="ophitBeamCalib",help="tre
 parser.add_argument('-se','--start-entry',type=int,default=0,help="starting entry")
 parser.add_argument("-cnn","--run-cnn",action='store_true',default=False,help="if true, run shower cnn")
 parser.add_argument("--bdt-1m1p",default=None,type=str,help="Specify 1m1p BDT weight file [if not using, default]")
+parser.add_argument("-q","--use-quad-energy",default=False,action='store_true',help="if true, use quadratic pixel-energy conversion. [default: linear]")
 args = parser.parse_args()
 
 # ------------------------------------------------------------------------------- #
@@ -58,6 +59,7 @@ dlanalyze_cfg = {"tracker_tree":"_recoTree",
                                  "adctree": "wire",
                                  "second_shower": True,
                                  "use_calib": False,
+                                 "use_quad":args.use_quad_energy,
                                  "pix2energy_params":shower_pars[(args.sample_type,ismc)]}
 }
 

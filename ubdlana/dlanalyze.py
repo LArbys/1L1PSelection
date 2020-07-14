@@ -101,8 +101,10 @@ class DLAnalyze(RootAnalyze):
         self.adc_tree   = self.shr_reco_cfg['adctree']
         self.second_shr = self.shr_reco_cfg['second_shower']
         use_calib       = self.shr_reco_cfg['use_calib']
-        quad_par0       = float(self.shr_reco_cfg["pix2energy_params"][0])
-        quad_par1       = float(self.shr_reco_cfg["pix2energy_params"][1])
+        use_shr_quadE   = bool(self.shr_reco_cfg['use_quad'])
+        if use_shr_quadE:
+            quad_par0       = float(self.shr_reco_cfg["pix2energy_params"][0])
+            quad_par1       = float(self.shr_reco_cfg["pix2energy_params"][1])
         uselarlite      = True
         self.showerreco = larlitecv.ssnetshowerreco.SSNetShowerReco(uselarlite,self.llout_name)
         self.showerreco.set_adc_treename( self.adc_tree )
@@ -123,8 +125,12 @@ class DLAnalyze(RootAnalyze):
             print "[DLAnalyze::NOT MC]"
             self.showerreco.use_mc( False )
         self.showerreco.set_SSNet_threshold(0.5)
-        #self.showerreco.set_quad_pix2energy_pars( -69.049, 0.112 ) # MC
-        self.showerreco.set_quad_pix2energy_pars( quad_par0, quad_par1 ) # MC
+        if use_shr_quadE:
+            self.showerreco.use_quad_energy( True )
+            #self.showerreco.set_quad_pix2energy_pars( -69.049, 0.112 ) # MC
+            self.showerreco.set_quad_pix2energy_pars( quad_par0, quad_par1 ) # MC
+        else:
+            self.showerreco.use_quad_energy( False )
 
         self.showerreco.set_output_treename( shr_ana )
 
