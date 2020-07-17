@@ -39,8 +39,8 @@ class FullCov:
     def SetDefaultCuts(self):     # the current selection
         self.s_cuts_numu = 'bkgBDT_run3 < .4 and Enu_1m1p < 1000 and Proton_CosTheta > 0'
         self.s_cuts_cv_numu = 'bkgBDT_run3_cv < .4 and Enu_1m1p_cv < 1000 and Proton_CosTheta_cv > 0'
-        self.s_cuts_nue = 'PassFinalSelection1e1p == 1'
-        self.s_cuts_cv_nue = 'PassFinalSelection1e1p_cv == 1'
+        self.s_cuts_nue = 'PassFinalSelection1e1p >= 0'
+        self.s_cuts_cv_nue = 'PassFinalSelection1e1p_cv >= 0'
     
     def SetCuts(self,s_cuts_numu,s_cuts_cv_numu,s_cuts_nue,s_cuts_cv_nue):
         self.s_cuts_numu = s_cuts_numu
@@ -48,6 +48,17 @@ class FullCov:
         self.s_cuts_nue = s_cuts_nue
         self.s_cuts_cv_nue = s_cuts_cv_nue
         
+    def ListVariables(self):
+        varlist = list(self.a_overlap_sys_numu[0])
+        s_varlist = ''
+        for s_var in varlist:
+            if s_var[-3:]=='_cv':
+                continue
+            else:
+                s_varlist+=s_var+'\n'
+
+        print(s_varlist)
+
     def ListDetectorSystematics(self):
         print('Detector Systematics:',self.s_detsyslist)
         print('Enabled:',self.a_detSysEnabled)
