@@ -47,18 +47,18 @@ class FullCov:
         self.s_cuts_cv_numu = s_cuts_cv_numu
         self.s_cuts_nue = s_cuts_nue
         self.s_cuts_cv_nue = s_cuts_cv_nue
-        
+
     def ListVariables(self):
         varlist = list(self.a_overlap_sys_numu[0])
         s_varlist = ''
         for s_var in varlist:
-            if s_var[-3:]=='_cv':
+            if s_var[-3:] == '_cv':
                 continue
             else:
                 s_varlist+=s_var+'\n'
-
         print(s_varlist)
 
+        
     def ListDetectorSystematics(self):
         print('Detector Systematics:',self.s_detsyslist)
         print('Enabled:',self.a_detSysEnabled)
@@ -94,6 +94,17 @@ class FullCov:
 
         nbins_numu = a_nbins[0]
         nbins_nue = a_nbins[1]
+        
+        cov_tru = np.zeros((nbins_numu+nbins_nue,nbins_numu+nbins_nue))
+        for sysi in range(len(self.a_overlap_sys_numu)):
+            if self.a_detSysEnabled[sysi]==0:
+                continue
+                
+            myvardf_numu = self.a_overlap_sys_numu[sysi].query(self.s_cuts_numu)
+            myvarcv_numu = self.a_cv_sys_numu[sysi].query(self.s_cuts_cv_numu)
+            myvardf_nue = self.a_overlap_sys_nue[sysi].query(self.s_cuts_nue)
+            myvarcv_nue = self.a_cv_sys_nue[sysi].query(self.s_cuts_cv_nue)
+            
         
         cov_tru = np.zeros((nbins_numu+nbins_nue,nbins_numu+nbins_nue))
         for sysi in range(len(self.a_overlap_sys_numu)):
@@ -326,14 +337,3 @@ class FullCov:
             ax1.legend(fontsize=15)
             ax1.set_xlim(dvar.myrange)
     
-            # chi2s
-            chisq_nom = 0
-            chisq_polyfit = 0
-            dof = 0
-            for i in range(nbins):    
-                if(hCV[i]!=0):
-                    dof += 1
-                    chisq_nom += np.power(h0[i]-hCV[i],2)/hCV[i]
-                    chisq_polyfit += np.power(h0_fit[i]-hCV[i],2)/hCV[i]
-            print('Chisq/(%i dof) [CV vs Nominal Variation]:%.3f'%(dof,chisq_nom/float(dof)))
-            print('Chisq/(%i dof) [CV vs Polyfit Variation]:%.3f'%(dof,chisq_polyfit/float(dof)))
