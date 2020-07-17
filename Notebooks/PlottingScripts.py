@@ -271,9 +271,14 @@ def distplot_wratio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_cov,leg
     for i in range(nbins):
         for j in range(nbins):
             if(vals_mc[i] > 0 and vals_mc[j] > 0):
-                m_cov[i][j] *= vals_mc_raw[i]*vals_mc_raw[j]
+                m_cov[i][j] *= vals_mc[i]*vals_mc[j]
             else:
                 m_cov[i][j] = 0
+
+
+    # Normalization uncertainty:
+    fNorm = m_cov.sum() / np.power(vals_mc.sum(),2)
+    print('Normalization Uncertainty:',fNorm)
 
     yerr_mc_sys = np.sqrt(np.diag(m_cov))
     yerr_mc_total = np.sqrt(np.diag(m_cov) + yerrsq_mc)
@@ -638,12 +643,12 @@ class Cov:
                 polyRat = np.polyfit(bincenters, truRat, deg)
                 fRat = np.poly1d(polyRat)
 
-            # now calculate chi2 for fit
-            yerr_rat = np.true_divide(np.sqrt(fRat(bincenters)*hCV),hCV,out=np.zeros_like(bincenters),where=hCV!=0)
-            chi2_fit = np.power(np.true_divide(fRat(bincenters)-truRat,yerr_rat),2).sum()
-            aic = chi2_fit + 2*params + 2*params*(params+1)/float(nbins-params-1)
-            aics.append(aic)
-            degs.append(deg)
+                # now calculate chi2 for fit
+                yerr_rat = np.true_divide(np.sqrt(fRat(bincenters)*hCV),hCV,out=np.zeros_like(bincenters),where=hCV!=0)
+                chi2_fit = np.power(np.true_divide(fRat(bincenters)-truRat,yerr_rat),2).sum()
+                aic = chi2_fit + 2*params + 2*params*(params+1)/float(nbins-params-1)
+                aics.append(aic)
+                degs.append(deg)
 
             polyterms = degs[np.argmin(aics)]
             print(self.s_detsyslist[sysi],'Polyfit Degrees:',polyterms,aics[np.argmin(aics)])
