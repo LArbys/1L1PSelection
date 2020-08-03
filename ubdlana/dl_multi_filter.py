@@ -271,7 +271,7 @@ class DLMultiFilter(RootAnalyze):
         self.other_trees = []
         self.pot_sum_tree = None
         self.fvv_tree = None        
-        self.vertex_indexed_trees,self.event_indexed_trees,self.other_trees,self.fvv_tree,self.pot_sum_tree = self.get_tree_lists(input_file)
+        self.vertex_indexed_trees,self.event_indexed_trees,self.other_trees,self.fvv_tree,self.pot_sum_tree,dirdict = self.get_tree_lists(input_file,nvertex_entries,nevent_entries)
 
         # FOR DEBUG
         if False:
@@ -308,7 +308,7 @@ class DLMultiFilter(RootAnalyze):
 
         # RUN THE FILTERS ON THE VERTICES, GET RESULTS, which is dictionary of RS and RSE that pass
         self.filters_results = {}
-        self.filters_results = self.run_filters( finalvertextree, self.filter_types )
+        self.filters_results = self.run_all_filters( finalvertextree, self.filter_types )
 
         # NOW WE MAKE THE OUTPUT FILES, ONE FOR EACH FILE
         # WE COULD ALSO TRY TO SAVE THE TREES IN ROOT FILE FOLDERS
@@ -353,13 +353,13 @@ class DLMultiFilter(RootAnalyze):
                         rootdir.cd()
 
                 out_vertex_indexed_trees.append( tree.CloneTree(0) )
-                if tree==fvv_tree:
+                if tree==self.fvv_tree:
                     outfvv_tree = out_vertex_indexed_trees[-1]
                 filterdir.cd()
 
             # get filter dict results
-            rse_dict  = self.filter_results[filtertype]["rse"]
-            rsev_dict = self.filter_results[filtertype]["rsev"]
+            rse_dict  = self.filters_results[filtertype]["rse"]
+            rsev_dict = self.filters_results[filtertype]["rsev"]
             
             neventsout = 0
             nverticesout = 0
@@ -416,8 +416,8 @@ class DLMultiFilter(RootAnalyze):
 
                     if self.rerun_pmtprecuts:
                         print '[',filtertype,': replacing precut results with those from rerun of rse[',rse,']: '
-                        print ' totpe old=',fvv_tree.TotPE,' new=',self.PMTPrecut_Dict[rse]['_totpe']
-                        print ' maxpefrac old=',fvv_tree.MaxPEFrac,' new=',self.PMTPrecut_Dict[rse]['_maxpefrac']
+                        print ' totpe old=',self.fvv_tree.TotPE,' new=',self.PMTPrecut_Dict[rse]['_totpe']
+                        print ' maxpefrac old=',self.fvv_tree.MaxPEFrac,' new=',self.PMTPrecut_Dict[rse]['_maxpefrac']
                         rerun_totpe[0]      = self.PMTPrecut_Dict[rse]['_totpe']
                         rerun_porchtotpe[0] = self.PMTPrecut_Dict[rse]['_porchtotpe']
                         rerun_maxpefrac[0]  = self.PMTPrecut_Dict[rse]['_maxpefrac']
@@ -435,11 +435,11 @@ class DLMultiFilter(RootAnalyze):
                         tree.Fill()
 
             print "=====[SUMMARY: ",filtertype,"]=================================="
-            print "Num of event-indexed trees: ",len(event_indexed_trees)
-            print "Num of vertex-indexed trees: ",len(vertex_indexed_trees)
+            print "Num of output event-indexed trees: ",len(out_event_indexed_trees)
+            print "Num of output vertex-indexed trees: ",len(out_vertex_indexed_trees)
             print "Num of events saved: ",neventsout
             print "Num of vertices saved: ",nverticesout
-            self.filter_trees[filtertype] = { "event-indexed":event_indexed_trees,"vertex-indexed":vertex_indexed_trees}
+            self.filter_trees[filtertype] = { "event-indexed":out_event_indexed_trees,"vertex-indexed":out_vertex_indexed_trees}
                         
         # THE POT SUMMARY TREE
         print "=== POT SUMMARY TREE ===="
@@ -472,7 +472,7 @@ class DLMultiFilter(RootAnalyze):
         """ use the final vertex tree to make selection 
         we create an RSE and RSEV dict
         """
-        print "run numu filter"
+        print "==== [DL FILTER: 1mu1p ] ==============="
         rse_dict = {}
         rsev_dict = {}
 
@@ -486,7 +486,7 @@ class DLMultiFilter(RootAnalyze):
 	    # get rid of pmtprecuts to rely entirely on common optical filter (basically only getting rid of maxfrac requirement)
 
             if self.rerun_1mu1p_bdt:
-                print "replaced bdt scores with recalculated ones"
+                print "[1mu1p] replaced bdt scores with recalculated ones"
                 print "  nu: old=",dlanatree.BDTscore_1mu1p_nu," new=",self.bdtoutput_1mu1p[rsev]
                 bdtscore_1mu1p_cosmic = 0.0
                 bdtscore_1mu1p_nu     = self.bdtoutput_1mu1p[rsev]
@@ -516,7 +516,7 @@ class DLMultiFilter(RootAnalyze):
             # add to RSEV dictionary
             rsev_dict[rsev] = passes
 
-            print "RSE=",rse," RSEV=",rsev," Passes=",passes
+            print "[1m1p] RSE=",rse," RSEV=",rsev," Passes=",passes
             print "  simplecuts: ",dlanatree.PassSimpleCuts==1
             print "  maxshrfrac: ",dlanatree.MaxShrFrac<0.2," (",dlanatree.MaxShrFrac,")"
             print "  opening angle: ",dlanatree.OpenAng>0.5," (",dlanatree.OpenAng,")"
@@ -550,12 +550,12 @@ class DLMultiFilter(RootAnalyze):
             passprecuts = int(dlanatree.PassPMTPrecut)
             if self.rerun_pmtprecuts:
                 passrerun = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
-                print "replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
+                print "[1e1p highE] replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
                 print self.PMTPrecut_Dict[rse]['_passpmtprecut']
                 passprecuts = passrerun
 
             if self.rerun_1e1p_bdt:
-                print "[highE filter] replacing 1e1p bdt scores with recalculated ones"
+                print "[1e1p highE filter] replacing 1e1p bdt scores with recalculated ones"
                 print "  nu: old=",dlanatree.BDTscore_1e1p," new=",self.bdtoutput_1e1p[rsev]
                 bdtscore_1e1p = self.bdtoutput_1e1p[rsev]
             else:
@@ -568,7 +568,7 @@ class DLMultiFilter(RootAnalyze):
                  and max(dlanatree.MaxShrFrac,-1) > 0.2 ):
                 passes = True
             
-            print "[first pass highE] RSE=",rse," RSEV=",rsev," Passes=",passes
+            print "[1e1p highE first pass] RSE=",rse," RSEV=",rsev," Passes=",passes
             #print "  precuts: ",passprecuts==1
             print "  simplecuts: ",dlanatree.PassSimpleCuts==1
             print "  showerreco: ",dlanatree.PassShowerReco==1
@@ -603,18 +603,18 @@ class DLMultiFilter(RootAnalyze):
 
             if rse not in max_rse:
                 # surprising
-                print "[highE] RSE ",rse," not in max_rse dict"
+                print "[1e1p highE] RSE ",rse," not in max_rse dict"
                 continue
             if max_rse[rse]["vtxid"]!=dlanatree.vtxid:
                 # ignore non-max  BDT vertex
-                print "[highE] RSE ",rse," vtxid=",dlanatree.vtxid,": ",max_rse[rse]," -- is not max BDT vertex: ",max_rse[rse]["vtxid"]
+                print "[1e1p highE] RSE ",rse," vtxid=",dlanatree.vtxid,": ",max_rse[rse]," -- is not max BDT vertex: ",max_rse[rse]["vtxid"]
                 continue
 
             if not max_rse[rse]["passes"] or max_rse[rse]["enu"]<700.0 or max_rse[rse]["bdt"]<0.7:
-                print "[highE] RSE ",rse,": enu=",max_rse[rse]["enu"]," is BELOW energy threshold, below bdt=",max_rse[rse]["bdt"]," or did not pass (",max_rse[rse]["passes"],")"
+                print "[1e1p highE] RSE ",rse,": enu=",max_rse[rse]["enu"]," is BELOW energy threshold, below bdt=",max_rse[rse]["bdt"]," or did not pass (",max_rse[rse]["passes"],")"
                 continue
 
-            print "[highE] RSE ",rse,": enu=",max_rse[rse]["enu"]," passes high-E selection (",max_rse[rse]["passes"],")"
+            print "[1e1p highE] RSE ",rse,": enu=",max_rse[rse]["enu"]," passes high-E selection (",max_rse[rse]["passes"],")"
             passes = True
             
             # update event flag
@@ -738,7 +738,7 @@ class DLMultiFilter(RootAnalyze):
             #    passprecuts = passrerun
 
             if self.rerun_1e1p_bdt:
-                print "replacing 1e1p bdt scores with recalculated ones"
+                print "[1e1p lowBDT] replacing 1e1p bdt scores with recalculated ones"
                 print "  nu: old=",dlanatree.BDTscore_1e1p," new=",self.bdtoutput_1e1p[rsev]
                 bdtscore_1e1p = self.bdtoutput_1e1p[rsev]
             else:
@@ -751,7 +751,7 @@ class DLMultiFilter(RootAnalyze):
                  and max(dlanatree.MaxShrFrac,-1) > 0.2 ):
                 passes = True
                 
-            print "RSE=",rse," RSEV=",rsev," Passes=",passes
+            print "[1e1p lowBDT] RSE=",rse," RSEV=",rsev," Passes=",passes
             #print "  precuts: ",passprecuts==1
             print "  simplecuts: ",dlanatree.PassSimpleCuts==1
             print "  showerreco: ",dlanatree.PassShowerReco==1
@@ -760,7 +760,7 @@ class DLMultiFilter(RootAnalyze):
             print "  proton edep: ",dlanatree.Proton_Edep>60.0," (",dlanatree.Proton_Edep,")"
             print "  bdt 1e1p: ",bdtscore_1e1p<=0.7," (",bdtscore_1e1p,")"
 
-            print "[first pass] RSE=",rse," RSEV=",rsev
+            print "[1e1p lowBDT first pass] RSE=",rse," RSEV=",rsev
             if rse not in max_rse:
                 # provide default
                 max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":-1.0,"enu":bdtscore_1e1p,"passes":False}
@@ -784,18 +784,18 @@ class DLMultiFilter(RootAnalyze):
 
             if rse not in max_rse:
                 # surprising
-                print "RSE ",rse," not in max_rse dict"
+                print "[1e1p lowBDT] RSE ",rse," not in max_rse dict"
                 continue
             if max_rse[rse]["vtxid"]!=dlanatree.vtxid:
                 # ignore non-max  BDT vertex
-                print "RSE ",rse," vtxid=",dlanatree.vtxid,": ",max_rse[rse]," -- is not max BDT vertex: ",max_rse[rse]["vtxid"]
+                print "[1e1p lowBDT] RSE ",rse," vtxid=",dlanatree.vtxid,": ",max_rse[rse]," -- is not max BDT vertex: ",max_rse[rse]["vtxid"]
                 continue
 
             if not max_rse[rse]["passes"] or max_rse[rse]["bdt"]>0.7:
-                print "RSE ",rse,": score max=",max_rse[rse]["bdt"]," is above threshold or did not pass (",max_rse[rse]["passes"],")"
+                print "[1e1p lowBDT] RSE ",rse,": score max=",max_rse[rse]["bdt"]," is above threshold or did not pass (",max_rse[rse]["passes"],")"
                 continue
 
-            print "RSE ",rse,": score max=",max_rse[rse]["bdt"]," passes low-BDT selection (",max_rse[rse]["passes"],")"
+            print "[1e1p lowBDT] RSE ",rse,": score max=",max_rse[rse]["bdt"]," passes low-BDT selection (",max_rse[rse]["passes"],")"
             
             # for debug: make something pass in order to check
             if self._DEBUG_MODE_:
@@ -1145,7 +1145,7 @@ class DLMultiFilter(RootAnalyze):
 
         return rse_dict, rsev_dict
 
-    def get_tree_lists(self,input_file):
+    def get_tree_lists(self,input_file,nvertex_entries,nevent_entries):
         """
         Get list of trees in the input (DLANA) file. Split them up into certain categories
         * vertex-indexed
@@ -1207,7 +1207,7 @@ class DLMultiFilter(RootAnalyze):
 
             print "directories remaining: ",len(dirlist)
 
-        return vertex_indexed_trees,event_indexed_trees,other_trees,fvv_tree,pot_sum_tree
+        return vertex_indexed_trees,event_indexed_trees,other_trees,fvv_tree,pot_sum_tree,dirdict
         
     def run_all_filters( self, finalvertextree, filter_list ):        
         """
