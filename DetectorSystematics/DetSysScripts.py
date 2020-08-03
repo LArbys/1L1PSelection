@@ -30,43 +30,63 @@ class distVar:
             self.mylabel = s_label
 
 class FullCov:
+    
+    # self.a_detSysEnabled, self.a_detSysName, self.a_OverlapSysDf, self.a_OverlapCVDf
+    # self.a_channelSysSCut,  self.a_channelCVSCut, self.a_channelName
+    
     def __init__(self,s_detsyspickle):
         
-        with open(s_detsyspickle,'rb') as handle: (self.a_overlap_sys_numu,self.a_cv_sys_numu,self.a_overlap_sys_nue,self.a_cv_sys_nue,self.s_detsyslist) = pickle.load(handle)
-        self.SetDefaultCuts()
-        self.a_detSysEnabled = np.ones(len(self.s_detsyslist))
+        self.a_OverlapSysDf = []
+        self.a_OverlapCVDf = []
+        
+        self.a_channelSCut = []
+        self.a_channelName = []
+        self.a_channelSampleID = []
+        
+        with open(s_detsyspickle,'rb') as handle: (a_overlap_sys_numu,a_cv_sys_numu,a_overlap_sys_nue,a_cv_sys_nue,s_detSysName) = pickle.load(handle)
+        
+        self.a_OverlapSysDf.append(a_overlap_sys_numu.copy())
+        self.a_OverlapSysDf.append(a_overlap_sys_nue.copy())
+        self.a_OverlapCVDf.append(a_cv_sys_numu.copy())
+        self.a_OverlapCVDf.append(a_cv_sys_nue.copy())
+        self.a_detSysName = s_detSysName.copy()
+            
+        self.a_detSysEnabled = np.ones(len(self.a_detSysName))
+        
+    def ClearChannels(self):
+        self.a_channelSCut = []
+        self.a_channelName = []
+        self.a_channelSampleID = []
     
-    def SetDefaultCuts(self):     # the current selection
-        self.s_cuts_numu = 'bkgBDT_run3 < .4 and Enu_1m1p < 1000 and Proton_CosTheta > 0'
-        self.s_cuts_cv_numu = 'bkgBDT_run3_cv < .4 and Enu_1m1p_cv < 1000 and Proton_CosTheta_cv > 0'
-        self.s_cuts_nue = 'PassFinalSelection1e1p >= 0'
-        self.s_cuts_cv_nue = 'PassFinalSelection1e1p_cv >= 0'
+    def AddChannel(self,s_cut,i_sample,s_channelName):
+        self.a_channelSCut.append(s_cut)
+        self.a_channelSampleID.append(i_sample)
+        self.a_channelName.append(s_channelName)
     
-    def SetCuts(self,s_cuts_numu,s_cuts_cv_numu,s_cuts_nue,s_cuts_cv_nue):
-        self.s_cuts_numu = s_cuts_numu
-        self.s_cuts_cv_numu = s_cuts_cv_numu
-        self.s_cuts_nue = s_cuts_nue
-        self.s_cuts_cv_nue = s_cuts_cv_nue
-
+    def ListChannels(self):
+        if len(self.a_channelName)==0:
+            print('Need at least one channel, jabroni.')
+            return
+        else:
+            for i in range(len(self.a_channelName)):
+                print('Channel ',i,':',self.a_channelName[i])
+                print('|',self.a_channelSCut[i],'|')
+                print('-----------------------------')
+    
     def ListVariables(self):
-        varlist = list(self.a_overlap_sys_numu[0])
+        varlist = list(self.a_OverlapCVDf[0][0])
         s_varlist = ''
         for s_var in varlist:
-            if s_var[-3:] == '_cv':
-                continue
-            else:
-                s_varlist+=s_var+'\n'
+            s_varlist+=s_var+'\n'
         print(s_varlist)
 
-        
     def ListDetectorSystematics(self):
-        print('Detector Systematics:',self.s_detsyslist)
+        print('Detector Systematics:',self.a_detSysName)
         print('Enabled:',self.a_detSysEnabled)
         
     def EnableDetectorSystematics(self,a_enabled):  
         # here, we can turn different systematics on or off with an array of ones and zeros
         # for each systematic, 1 - on, 0 - off. the default is all ones upon startup.
-        
         
         # make sure it's the right length
         if len(a_enabled) != len(self.a_detSysEnabled):
@@ -87,236 +107,210 @@ class FullCov:
         self.a_detSysEnabled = a_enabled.copy()
         for i in range(len(self.a_detSysEnabled)):
             if self.a_detSysEnabled[i]==1:
-                print('%s is enabled'%(self.s_detsyslist[i]))
+                print('%s is enabled'%(self.a_detSysName[i]))
         print('Enabled:',self.a_detSysEnabled)
+    
+    
+    def Nominal(self,a_dvar,_a_nbins,draw=False):
+        a_nbins = np.asarray(_a_nbins)
+        if len(self.a_channelName)==0:
+            print('Need at least one channel, jabroni.')
+            return
+        if len(a_dvar) != len(self.a_channelName) or len(a_nbins) != len(self.a_channelName):
+            print('variable and bin arrays must match number of channels: ',len(self.a_channelName))
         
-    def Nominal(self,dvar_numu,dvar_nue,a_nbins,draw=False):
-
-        nbins_numu = a_nbins[0]
-        nbins_nue = a_nbins[1]
         
-        cov_tru = np.zeros((nbins_numu+nbins_nue,nbins_numu+nbins_nue))
-        for sysi in range(len(self.a_overlap_sys_numu)):
+        cov_tru = np.zeros((a_nbins.sum(),a_nbins.sum()))
+        for sysi in range(len(self.a_detSysName)):   # for each systematic
             if self.a_detSysEnabled[sysi]==0:
                 continue
-                
-            myvardf_numu = self.a_overlap_sys_numu[sysi].query(self.s_cuts_numu)
-            myvarcv_numu = self.a_cv_sys_numu[sysi].query(self.s_cuts_cv_numu)
-            myvardf_nue = self.a_overlap_sys_nue[sysi].query(self.s_cuts_nue)
-            myvarcv_nue = self.a_cv_sys_nue[sysi].query(self.s_cuts_cv_nue)
             
-        
-        cov_tru = np.zeros((nbins_numu+nbins_nue,nbins_numu+nbins_nue))
-        for sysi in range(len(self.a_overlap_sys_numu)):
-            if self.a_detSysEnabled[sysi]==0:
-                continue
-                
-            myvardf_numu = self.a_overlap_sys_numu[sysi].query(self.s_cuts_numu)
-            myvarcv_numu = self.a_cv_sys_numu[sysi].query(self.s_cuts_cv_numu)
-            myvardf_nue = self.a_overlap_sys_nue[sysi].query(self.s_cuts_nue)
-            myvarcv_nue = self.a_cv_sys_nue[sysi].query(self.s_cuts_cv_nue)
+            hCV = np.zeros(a_nbins.sum())
+            hSys = np.zeros(a_nbins.sum())
             
-            var_sys_numu = myvardf_numu[dvar_numu.myname]
-            var_cv_numu = myvarcv_numu[dvar_numu.myname+'_cv']
-            var_sys_nue = myvardf_nue[dvar_nue.myname]
-            var_cv_nue = myvarcv_nue[dvar_nue.myname+'_cv']
+            for chi in range(len(self.a_channelSCut)):  # for each channel
+                # get the list of values for the variable assigned to this channel, in the sample assigned to this channel, after applying the cut assigned to this channel
+                var_sys = self.a_OverlapSysDf[self.a_channelSampleID[chi]][sysi].query(self.a_channelSCut[chi])[a_dvar[chi].myname]
+                var_cv = self.a_OverlapCVDf[self.a_channelSampleID[chi]][sysi].query(self.a_channelSCut[chi])[a_dvar[chi].myname]
+                    
+                h0,_ = np.histogram(var_cv,bins=a_nbins[chi],range=a_dvar[chi].myrange)
+                h1,_ = np.histogram(var_sys,bins=a_nbins[chi],range=a_dvar[chi].myrange)
+                              
+                # fill in the corresponding parts of our grand histogram
+                hCV[a_nbins[:chi].sum():a_nbins[:chi+1].sum()] += h0
+                hSys[a_nbins[:chi].sum():a_nbins[:chi+1].sum()] += h1
             
-            hCV_numu,binedges_numu = np.histogram(var_cv_numu,bins=nbins_numu,range=dvar_numu.myrange)
-            h0_numu,_ = np.histogram(var_sys_numu,bins=nbins_numu,range=dvar_numu.myrange)
-            hCV_nue,binedges_nue = np.histogram(var_cv_nue,bins=nbins_nue,range=dvar_nue.myrange)
-            h0_nue,_ = np.histogram(var_sys_nue,bins=nbins_nue,range=dvar_nue.myrange)
-
-            hCV = np.concatenate((hCV_numu,hCV_nue))
-            h0 = np.concatenate((h0_numu,h0_nue))
-            
-            for i in range(nbins_numu+nbins_nue):
-                for j in range(nbins_numu+nbins_nue):
-                    cov_tru[i][j] += (h0[i]-hCV[i])*(h0[j]-hCV[j])/(hCV[i]*hCV[j])
+            for i in range(a_nbins.sum()):
+                for j in range(a_nbins.sum()):
+                    cov_tru[i,j] += (hSys[i]-hCV[i])*(hSys[j]-hCV[j])/(hCV[i]*hCV[j])
     
         if(draw):
             fig,ax = plt.subplots(figsize=(9,9))
-            X, Y = np.meshgrid(range(nbins_nue+nbins_numu+1),range(nbins_numu+nbins_nue+1))
+            X, Y = np.meshgrid(range(a_nbins.sum()+1),range(a_nbins.sum()+1))
             crat_tru = ax.pcolormesh(X, Y,cov_tru,cmap='cool')
             cbar = fig.colorbar(crat_tru)
-            ax.set_xlabel(dvar_numu.mylabel+' '+dvar_nue.mylabel,fontsize=20)
-            ax.set_ylabel(dvar_numu.mylabel+' '+dvar_nue.mylabel,fontsize=20)
-            ax.axvline(nbins_numu,color='red')
-            ax.axhline(nbins_numu,color='red')
-    
+            
+            s_lab  = ''
+            for chi in range(len(self.a_channelName)):
+                s_lab += a_dvar[chi].mylabel+' '
+                ax.axvline(a_nbins[:chi].sum(),color='red')
+                ax.axhline(a_nbins[:chi].sum(),color='red')   
+            ax.set_xlabel(s_lab,fontsize=20)
+            ax.set_ylabel(s_lab,fontsize=20)
+            
         return cov_tru
         
-    def Flat(self,dvar_numu,dvar_nue,a_nbins,draw=False):
+    def Flat(self,a_dvar,_a_nbins,draw=False):
+        a_nbins = np.asarray(_a_nbins)
+        if len(self.a_channelName)==0:
+            print('Need at least one channel, jabroni.')
+            return
+        if len(a_dvar) != len(self.a_channelName) or len(a_nbins) != len(self.a_channelName):
+            print('variable and bin arrays must match number of channels: ',len(self.a_channelName))
         
-        nbins_numu = a_nbins[0]
-        nbins_nue = a_nbins[1]
-        
-        flatsys = 0
-        for sysi in range(len(self.a_overlap_sys_numu)):
+        cov_flat = np.zeros((a_nbins.sum(),a_nbins.sum()))
+        for sysi in range(len(self.a_detSysName)):   # for each systematic
             if self.a_detSysEnabled[sysi]==0:
                 continue
-                
-            myvardf_numu = self.a_overlap_sys_numu[sysi].query(self.s_cuts_numu)
-            myvarcv_numu = self.a_cv_sys_numu[sysi].query(self.s_cuts_cv_numu)
-            myvardf_nue = self.a_overlap_sys_nue[sysi].query(self.s_cuts_nue)
-            myvarcv_nue = self.a_cv_sys_nue[sysi].query(self.s_cuts_cv_nue)
             
-            var_sys_numu = myvardf_numu[dvar_numu.myname]
-            var_cv_numu = myvarcv_numu[dvar_numu.myname+'_cv']
-            var_sys_nue = myvardf_nue[dvar_nue.myname]
-            var_cv_nue = myvarcv_nue[dvar_nue.myname+'_cv']
+            hCV = np.zeros(a_nbins.sum())
+            hSys = np.zeros(a_nbins.sum())
             
-            hCV_numu,binedges_numu = np.histogram(var_cv_numu,bins=nbins_numu,range=dvar_numu.myrange)
-            h0_numu,_ = np.histogram(var_sys_numu,bins=nbins_numu,range=dvar_numu.myrange)
-            hCV_nue,binedges_nue = np.histogram(var_cv_nue,bins=nbins_nue,range=dvar_nue.myrange)
-            h0_nue,_ = np.histogram(var_sys_nue,bins=nbins_nue,range=dvar_nue.myrange)
-
-            hCV = np.concatenate((hCV_numu,hCV_nue))
-            h0 = np.concatenate((h0_numu,h0_nue))
+            for chi in range(len(self.a_channelSCut)):  # for each channel
+                # get the list of values for the variable assigned to this channel, in the sample assigned to this channel, after applying the cut assigned to this channel
+                var_sys = self.a_OverlapSysDf[self.a_channelSampleID[chi]][sysi].query(self.a_channelSCut[chi])[a_dvar[chi].myname]
+                var_cv = self.a_OverlapCVDf[self.a_channelSampleID[chi]][sysi].query(self.a_channelSCut[chi])[a_dvar[chi].myname]
+                    
+                h0,_ = np.histogram(var_cv,bins=1,range=a_dvar[chi].myrange)
+                h1,_ = np.histogram(var_sys,bins=1,range=a_dvar[chi].myrange)
+                              
+                # fill in the corresponding parts of our grand histogram
+                hCV[a_nbins[:chi].sum():a_nbins[:chi+1].sum()] += h0[0]
+                hSys[a_nbins[:chi].sum():a_nbins[:chi+1].sum()] += h1[0]
         
-            flatsys += (h0.sum()-hCV.sum())*(h0.sum()-hCV.sum())/(hCV.sum()*hCV.sum())
-        
-        if(draw):
-            print('Flatsys:',flatsys,' - (',np.sqrt(flatsys),' frac error)')        
-        return np.ones((nbins_numu+nbins_nue,nbins_numu+nbins_nue))*flatsys
+        for i in range(a_nbins.sum()):
+                for j in range(a_nbins.sum()):
+                    cov_flat[i,j] += (hSys[i]-hCV[i])*(hSys[j]-hCV[j])/(hCV[i]*hCV[j])
     
-    def Polyfit(self,dvar_numu,dvar_nue,a_nbins,draw=False):
-        
-        nbins_numu = a_nbins[0]
-        nbins_nue = a_nbins[1]
-        
-        cov_poly = np.zeros((nbins_numu+nbins_nue,nbins_numu+nbins_nue))
-        for sysi in range(len(self.a_overlap_sys_numu)):
-            if self.a_detSysEnabled[sysi]==0:
-                continue
-            
-            myvardf_numu = self.a_overlap_sys_numu[sysi].query(self.s_cuts_numu)
-            myvarcv_numu = self.a_cv_sys_numu[sysi].query(self.s_cuts_cv_numu)
-            myvardf_nue = self.a_overlap_sys_nue[sysi].query(self.s_cuts_nue)
-            myvarcv_nue = self.a_cv_sys_nue[sysi].query(self.s_cuts_cv_nue)
-            
-            var_sys_numu = myvardf_numu[dvar_numu.myname]
-            var_cv_numu = myvarcv_numu[dvar_numu.myname+'_cv']
-            var_sys_nue = myvardf_nue[dvar_nue.myname]
-            var_cv_nue = myvarcv_nue[dvar_nue.myname+'_cv']
-            
-            hCV_numu,binedges_numu = np.histogram(var_cv_numu,bins=nbins_numu,range=dvar_numu.myrange)
-            h0_numu,_ = np.histogram(var_sys_numu,bins=nbins_numu,range=dvar_numu.myrange)
-            hCV_nue,binedges_nue = np.histogram(var_cv_nue,bins=nbins_nue,range=dvar_nue.myrange)
-            h0_nue,_ = np.histogram(var_sys_nue,bins=nbins_nue,range=dvar_nue.myrange)
-            bincenters_numu = np.diff(binedges_numu)/2 + binedges_numu[:-1]    
-            bincenters_nue = np.diff(binedges_nue)/2 + binedges_nue[:-1]    
-            
-            
-            # get polyfit degs for numu ----
-            truRat_numu = np.true_divide(h0_numu,hCV_numu,out=np.ones_like(bincenters_numu),where=hCV_numu!=0)
-            aics = []
-            degs = []
-            for deg in range(min(nbins_numu-2,int(nbins_numu/2))):
-                params = deg + 1
-                polyRat = np.polyfit(bincenters_numu, truRat_numu, deg)
-                fRat = np.poly1d(polyRat)
-                
-                # now calculate chi2 for fit
-                yerr_rat = np.true_divide(np.sqrt(fRat(bincenters_numu)*hCV_numu),hCV_numu,out=np.zeros_like(bincenters_numu),where=hCV_numu!=0)
-                chi2_fit = np.power(np.true_divide(fRat(bincenters_numu)-truRat_numu,yerr_rat),2).sum()
-                aic = chi2_fit + 2*params + 2*params*(params+1)/float(nbins_numu-params-1)
-                aics.append(aic)
-                degs.append(deg)
-            polyterms = degs[np.argmin(aics)]
-            print(self.s_detsyslist[sysi],'Numu Polyfit Degrees:',polyterms,aics[np.argmin(aics)])  
-
-            polyRat_numu = np.polyfit(bincenters_numu, np.true_divide(h0_numu,hCV_numu,where=hCV_numu!=0), polyterms)
-            fRat_numu = np.poly1d(polyRat_numu) 
-            h0_fit_numu = fRat_numu(bincenters_numu)*hCV_numu
-            
-            # get polyfit degs for nue ----
-            truRat_nue = np.true_divide(h0_nue,hCV_nue,out=np.ones_like(bincenters_nue),where=hCV_nue!=0)
-            aics = []
-            degs = []
-            for deg in range(min(nbins_nue-2,int(nbins_nue/2))):
-                params = deg + 1
-                polyRat = np.polyfit(bincenters_nue, truRat_nue, deg)
-                fRat = np.poly1d(polyRat)
-                
-                # now calculate chi2 for fit
-                yerr_rat = np.true_divide(np.sqrt(fRat(bincenters_nue)*hCV_nue),hCV_nue,out=np.zeros_like(bincenters_nue),where=hCV_nue!=0)
-                chi2_fit = np.power(np.true_divide(fRat(bincenters_nue)-truRat_nue,yerr_rat),2).sum()
-                aic = chi2_fit + 2*params + 2*params*(params+1)/float(nbins_nue-params-1)
-                aics.append(aic)
-                degs.append(deg)
-            polyterms = degs[np.argmin(aics)]
-            print(self.s_detsyslist[sysi],'Nue Polyfit Degrees:',polyterms,aics[np.argmin(aics)])  
-
-            polyRat = np.polyfit(bincenters_nue, np.true_divide(h0_nue,hCV_nue,where=hCV_nue!=0), polyterms)
-            fRat = np.poly1d(polyRat) 
-            h0_fit_nue = fRat(bincenters_nue)*hCV_nue
-            
-            
-            hCV = np.concatenate((hCV_numu,hCV_nue))
-            h0_fit = np.concatenate((h0_fit_numu,h0_fit_nue))
-                 
-            for i in range(nbins_nue+nbins_numu):
-                for j in range(nbins_nue+nbins_numu):
-                    cov_poly[i][j] += (h0_fit[i]-hCV[i])*(h0_fit[j]-hCV[j])/(hCV[i]*hCV[j])
-            
         if(draw):
             fig,ax = plt.subplots(figsize=(9,9))
-            X, Y = np.meshgrid(range(nbins_nue+nbins_numu+1),range(nbins_numu+nbins_nue+1))
-            crat_poly = ax.pcolormesh(X, Y,cov_poly,cmap='cool')
-            cbar = fig.colorbar(crat_poly)
-            ax.set_xlabel(dvar_numu.mylabel+' '+dvar_nue.mylabel,fontsize=20)
-            ax.set_ylabel(dvar_numu.mylabel+' '+dvar_nue.mylabel,fontsize=20)
-            ax.axvline(nbins_numu,color='red')
-            ax.axhline(nbins_numu,color='red')
+            X, Y = np.meshgrid(range(a_nbins.sum()+1),range(a_nbins.sum()+1))
+            crat_tru = ax.pcolormesh(X, Y,cov_flat,cmap='cool')
+            cbar = fig.colorbar(crat_tru)
+            
+            s_lab  = ''
+            for chi in range(len(self.a_channelName)):
+                s_lab += a_dvar[chi].mylabel+' '
+                ax.axvline(a_nbins[:chi].sum(),color='red')
+                ax.axhline(a_nbins[:chi].sum(),color='red')   
+            ax.set_xlabel(s_lab,fontsize=20)
+            ax.set_ylabel(s_lab,fontsize=20)
+        return cov_flat
+    
+    def Polyfit(self,a_dvar,_a_nbins,draw=False):
+        a_nbins = np.asarray(_a_nbins)
+        if len(self.a_channelName)==0:
+            print('Need at least one channel, jabroni.')
+            return
+        if len(a_dvar) != len(self.a_channelName) or len(a_nbins) != len(self.a_channelName):
+            print('variable and bin arrays must match number of channels: ',len(self.a_channelName))
+        
+        
+        cov_poly = np.zeros((a_nbins.sum(),a_nbins.sum()))
+        
+        for sysi in range(len(self.a_detSysName)):   # for each systematic
+            if self.a_detSysEnabled[sysi]==0:
+                continue
+            
+            hCV = np.zeros(a_nbins.sum())
+            hSys = np.zeros(a_nbins.sum())
+            
+            for chi in range(len(self.a_channelSCut)):  # for each channel
+                # get the list of values for the variable assigned to this channel, in the sample assigned to this channel, after applying the cut assigned to this channel
+                var_sys = self.a_OverlapSysDf[self.a_channelSampleID[chi]][sysi].query(self.a_channelSCut[chi])[a_dvar[chi].myname]
+                var_cv = self.a_OverlapCVDf[self.a_channelSampleID[chi]][sysi].query(self.a_channelSCut[chi])[a_dvar[chi].myname]
+                    
+                h0,binedges = np.histogram(var_cv,bins=a_nbins[chi],range=a_dvar[chi].myrange)
+                h1,_ = np.histogram(var_sys,bins=a_nbins[chi],range=a_dvar[chi].myrange)
+                bincenters = np.diff(binedges)/2 + binedges[:-1]
+                
+                truRat = np.true_divide(h1,h0,out=np.ones_like(bincenters),where=h0!=0)
+                aics = []
+                degs = []
+                for deg in range(min(a_nbins[chi]/2,3)):
+                    params = deg + 1
+                    polyRat = np.polyfit(bincenters, truRat, deg)
+                    fRat = np.poly1d(polyRat)
+                
+                    # now calculate chi2 for fit
+                    yerr_rat = np.true_divide(np.sqrt(fRat(bincenters)*h0),h0,out=np.zeros_like(bincenters),where=h0!=0)
+                    chi2_fit = np.power(np.true_divide(fRat(bincenters)-truRat,yerr_rat,out=np.zeros_like(bincenters),where=yerr_rat!=0),2).sum()
+                    aic = chi2_fit + 2*params + 2*params*(params+1)/float(a_nbins[chi]-params-1)
+                    aics.append(aic)
+                    degs.append(deg)
+                polyterms = degs[np.argmin(aics)]
+                print(self.a_detSysName[sysi],self.a_channelName[chi],'Polyfit Degrees:',polyterms,aics[np.argmin(aics)])  
+
+                polyRat = np.polyfit(bincenters, np.true_divide(h1,h0,where=h0!=0), polyterms)
+                fRat = np.poly1d(polyRat) 
+                h1_fit = fRat(bincenters)*h0
+                
+                hCV[a_nbins[:chi].sum():a_nbins[:chi+1].sum()] += h0
+                hSys[a_nbins[:chi].sum():a_nbins[:chi+1].sum()] += h1_fit
+            
+        for i in range(a_nbins.sum()):
+                for j in range(a_nbins.sum()):
+                    cov_poly[i,j] += (hSys[i]-hCV[i])*(hSys[j]-hCV[j])/(hCV[i]*hCV[j])
+    
+        if(draw):
+            fig,ax = plt.subplots(figsize=(9,9))
+            X, Y = np.meshgrid(range(a_nbins.sum()+1),range(a_nbins.sum()+1))
+            crat_tru = ax.pcolormesh(X, Y,cov_poly,cmap='cool')
+            cbar = fig.colorbar(crat_tru)
+            
+            s_lab  = ''
+            for chi in range(len(self.a_channelName)):
+                s_lab += a_dvar[chi].mylabel+' '
+                ax.axvline(a_nbins[:chi].sum(),color='red')
+                ax.axhline(a_nbins[:chi].sum(),color='red')   
+            ax.set_xlabel(s_lab,fontsize=20)
+            ax.set_ylabel(s_lab,fontsize=20)
     
         return cov_poly
     
-    
-    def DetectorSystematicDiagnosticsNumu(self,dvar,nbins):
-        self.__DetectorSystematicDiagnostics(dvar,self.s_cuts_numu,self.s_cuts_cv_numu,nbins,self.a_overlap_sys_numu,self.a_overlap_sys_numu)
-    
-    def DetectorSystematicDiagnosticsNue(self,dvar,nbins):
-        self.__DetectorSystematicDiagnostics(dvar,self.s_cuts_nue,self.s_cuts_cv_nue,nbins,self.a_overlap_sys_nue,self.a_overlap_sys_nue)
-    
-    
-    def __DetectorSystematicDiagnostics(self,dvar,s_cuts,s_cuts_cv,nbins,a_overlap_sys,a_cv_sys):
+    def DetectorSystematicDiagnostics(self,dvar,nbins,chi):
     
         flatsys = 0.0
-
-        for sysi in range(len(self.a_detSysEnabled)):
-            print(self.s_detsyslist[sysi])
-            myvardf = a_overlap_sys[sysi].query(s_cuts)
-            myvarcv = a_cv_sys[sysi].query(s_cuts_cv)
-        
-            var_sys = myvardf[dvar.myname]
-            var_cv = myvarcv[dvar.myname+'_cv']
-          
+        for sysi in range(len(self.a_detSysName)):   # for each systematic
+            if self.a_detSysEnabled[sysi]==0:
+                continue
+            
+            var_sys = self.a_OverlapSysDf[self.a_channelSampleID[chi]][sysi].query(self.a_channelSCut[chi])[dvar.myname]
+            var_cv = self.a_OverlapCVDf[self.a_channelSampleID[chi]][sysi].query(self.a_channelSCut[chi])[dvar.myname]
+                    
             hCV,binedges = np.histogram(var_cv,bins=nbins,range=dvar.myrange)
-            h0,_ = np.histogram(var_sys,bins=nbins,range=dvar.myrange)
+            hSys,_ = np.histogram(var_sys,bins=nbins,range=dvar.myrange)
             bincenters = np.diff(binedges)/2 + binedges[:-1]
-
-            truRat = np.true_divide(h0,hCV,out=np.ones_like(bincenters),where=hCV!=0)
-      
-            # get polyfit degs
+        
+            truRat = np.true_divide(hSys,hCV,out=np.ones_like(bincenters),where=hCV!=0)
             aics = []
             degs = []
-            for deg in range(min(nbins-2,int(nbins/2))):
+            for deg in range(min(nbins/2,3)):
                 params = deg + 1
                 polyRat = np.polyfit(bincenters, truRat, deg)
                 fRat = np.poly1d(polyRat)
-    
+                
                 # now calculate chi2 for fit
                 yerr_rat = np.true_divide(np.sqrt(fRat(bincenters)*hCV),hCV,out=np.zeros_like(bincenters),where=hCV!=0)
-                chi2_fit = np.power(np.true_divide(fRat(bincenters)-truRat,yerr_rat),2).sum()
+                chi2_fit = np.power(np.true_divide(fRat(bincenters)-truRat,yerr_rat,out=np.zeros_like(bincenters),where=yerr_rat!=0),2).sum()
                 aic = chi2_fit + 2*params + 2*params*(params+1)/float(nbins-params-1)
                 aics.append(aic)
                 degs.append(deg)
-      
             polyterms = degs[np.argmin(aics)]
-            print('polyfit degrees:',polyterms,aics[np.argmin(aics)])  
-            polyRat = np.polyfit(bincenters, np.true_divide(h0,hCV,where=hCV!=0), polyterms)
+            print(self.a_detSysName[sysi],self.a_channelName[chi],'Polyfit Degrees:',polyterms,aics[np.argmin(aics)])  
+            polyRat = np.polyfit(bincenters, np.true_divide(hSys,hCV,where=hCV!=0), polyterms)
             fRat = np.poly1d(polyRat) 
-            h0_fit = fRat(bincenters)*hCV
+            hSys_fit = fRat(bincenters)*hCV
     
             fig,ax = plt.subplots(figsize=(27,11))    
             gs = gridspec.GridSpec(1, 2)
@@ -324,16 +318,17 @@ class FullCov:
             ax1 = plt.subplot(gs[1])
     
             dvarLinspace = np.linspace(dvar.myrange[0],dvar.myrange[1],40)
-            ax0.scatter(bincenters,np.true_divide(h0,hCV,where=hCV!=0),label='Variation/CV',s=100)
+            ax0.scatter(bincenters,np.true_divide(hSys,hCV,where=hCV!=0),label='Variation/CV',s=100)
             ax0.plot(dvarLinspace,fRat(dvarLinspace),label='PolyFit',color='green')
             
-            ax0.set_title(self.s_detsyslist[sysi],fontsize=30)
+            ax0.set_title(self.a_detSysName[sysi],fontsize=30)
             ax0.set_xlabel(dvar.mylabel,fontsize=20)
+            ax0.set_xlim(dvar.myrange)
+            ax0.set_ylim(0,2)
             ax0.legend(fontsize=15)
     
             ax1.hist(var_cv,nbins,range=dvar.myrange,histtype='step',linewidth=2,label='CV Raw')
             ax1.hist(var_sys,nbins,range=dvar.myrange,histtype='step',linewidth=3,linestyle='--',label='Variation Raw')
-            ax1.plot(bincenters,h0_fit,label='PolyFit Ratio x CV',c='green')
+            ax1.plot(bincenters,hSys_fit,label='PolyFit Ratio x CV',c='green')
             ax1.legend(fontsize=15)
             ax1.set_xlim(dvar.myrange)
-    
