@@ -315,7 +315,7 @@ class DLMultiFilter(RootAnalyze):
         self.filter_trees = {}
         for filtertype in self.filter_types:
             # MAKE FILTER DIRECTORY
-            filter_dir_name = filtertype.replace("-","_")
+            filter_dir_name = filtertype.replace("-","_").replace("1e1p","nu1e1p")
             self.output_file.cd()
             try:
                 filterdir = self.output_file.mkdir( filter_dir_name )
@@ -373,7 +373,7 @@ class DLMultiFilter(RootAnalyze):
                     
                 if rse in rse_dict and rse_dict[rse]:
                     neventsout+=1
-                    for tree in event_indexed_trees:
+                    for tree in self.event_indexed_trees:
                         tree.GetEntry(ientry)
                     for tree in out_event_indexed_trees:
                         tree.Fill()
@@ -411,7 +411,7 @@ class DLMultiFilter(RootAnalyze):
                 if rse in rse_dict and rse_dict[rse]:
                     nverticesout+=1
                     print "[",filtertype,": Vertex passes]",rse," vtxid=",finalvertextree.vtxid
-                    for tree in vertex_indexed_trees:
+                    for tree in self.vertex_indexed_trees:
                         tree.GetEntry(ientry)
 
                     if self.rerun_pmtprecuts:
@@ -431,7 +431,7 @@ class DLMultiFilter(RootAnalyze):
                         print '[',filtertype,': replacing 1e1p results from rerun of rsev[',rsev,']'
                         rerun_1e1p[0] = self.bdtoutput_1e1p[rsev]
 
-                    for tree in self.out_vertex_indexed_trees:
+                    for tree in out_vertex_indexed_trees:
                         tree.Fill()
 
             print "=====[SUMMARY: ",filtertype,"]=================================="
