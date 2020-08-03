@@ -32,15 +32,39 @@ def apply_1e1p_model( model, dlvars ):
     shower_charge_ratio = dlvars._shower1_smallq_Y[0]/dlvars._shower1_sumq_Y[0] if dlvars._shower1_sumq_Y[0]>0 else 0.0
 
     # make input vars
+    # input_vars = [[
+    #     dlvars._enu_1e1p[0],    # Enu_1e1p
+    #     dlvars._electron_E[0],  # Electron_Edep,
+    #     dlvars._eta[0],         # Eta,
+    #     dlvars._pT_1e1p[0],     # PT_1e1p,
+    #     dlvars._alphaT_1e1p[0], # AlphaT_1e1p,
+    #     dlvars._sphB_1e1p[0],   # SphB_1e1p,
+    #     dlvars._pzEnu_1e1p[0],  # PzEnu_1e1p,
+    #     dlvars._charge_near_trunk[0]*dlvars._qcorrection_factor_vtx[0], #ChargeNearTrunk_UniformityCalibrated,  #!!! calibrated?
+    #     dlvars._q0_1e1p[0],     # Q0_1e1p,
+    #     dlvars._q3_1e1p[0],     # Q3_1e1p,
+    #     dlvars._thetas[0],      # Thetas,
+    #     dlvars._phis[0],        # Phis,
+    #     dlvars._pTRat_1e1p[0],  # PTRat_1e1p,
+    #     dlvars._proton_length[0], # Proton_TrackLength,
+    #     dlvars._lepton_length[0], # Lepton_TrackLength,
+    #     dlvars._proton_theta[0],  # Proton_ThetaReco,
+    #     dlvars._proton_phi[0],    # Proton_PhiReco,
+    #     dlvars._lepton_theta[0],  # Lepton_ThetaReco,
+    #     dlvars._lepton_phi[0],    # Lepton_PhiReco,
+    #     max(dlvars._minshrFrac[0],-1), # MinShrFrac
+    #     max(dlvars._maxshrFrac[0],-1), # MaxShrFrac
+    #     max(shower_charge_ratio,-1.0), # SHOWER_CHARGE_IN_SHOWER_CLUSTER/SHOWER_CHARGE_IN_IMAGE
+    #     dlvars._openAng[0] ]] #OpenAng ]
     input_vars = [[
         dlvars._enu_1e1p[0],    # Enu_1e1p
         dlvars._electron_E[0],  # Electron_Edep,
-        dlvars._eta[0],         # Eta,
         dlvars._pT_1e1p[0],     # PT_1e1p,
         dlvars._alphaT_1e1p[0], # AlphaT_1e1p,
         dlvars._sphB_1e1p[0],   # SphB_1e1p,
         dlvars._pzEnu_1e1p[0],  # PzEnu_1e1p,
-        dlvars._charge_near_trunk[0]*dlvars._qcorrection_factor_vtx[0], #ChargeNearTrunk_UniformityCalibrated,  #!!! calibrated?
+        #dlvars._charge_near_trunk[0]*dlvars._qcorrection_factor_vtx[0], #ChargeNearTrunk_UniformityCalibrated,  #!!! calibrated?
+        dlvars._charge_near_trunk[0], #ChargeNearTrunk_UniformityCalibrated,  #!!! calibrated?
         dlvars._q0_1e1p[0],     # Q0_1e1p,
         dlvars._q3_1e1p[0],     # Q3_1e1p,
         dlvars._thetas[0],      # Thetas,
@@ -55,7 +79,8 @@ def apply_1e1p_model( model, dlvars ):
         max(dlvars._minshrFrac[0],-1), # MinShrFrac
         max(dlvars._maxshrFrac[0],-1), # MaxShrFrac
         max(shower_charge_ratio,-1.0), # SHOWER_CHARGE_IN_SHOWER_CLUSTER/SHOWER_CHARGE_IN_IMAGE
-        dlvars._openAng[0] ]] #OpenAng ]
+        dlvars._bjX_1e1p[0],   #BjX_1e1p ]
+        dlvars._bjY_1e1p[0] ]] #BjY_1e1p ]
 
     vars_np = np.asarray( input_vars )
     #print vars_np
