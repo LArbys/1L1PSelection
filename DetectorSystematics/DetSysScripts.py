@@ -237,7 +237,7 @@ class FullCov:
                 truRat = np.true_divide(h1,h0,out=np.ones_like(bincenters),where=h0!=0)
                 aics = []
                 degs = []
-                for deg in range(min(a_nbins[chi]/2,3)):
+                for deg in range(min(np.int(a_nbins[chi]/2),3)):
                     params = deg + 1
                     polyRat = np.polyfit(bincenters, truRat, deg)
                     fRat = np.poly1d(polyRat)
@@ -295,7 +295,7 @@ class FullCov:
             truRat = np.true_divide(hSys,hCV,out=np.ones_like(bincenters),where=hCV!=0)
             aics = []
             degs = []
-            for deg in range(min(nbins/2,3)):
+            for deg in range(min(np.int(nbins/2),3)):
                 params = deg + 1
                 polyRat = np.polyfit(bincenters, truRat, deg)
                 fRat = np.poly1d(polyRat)
