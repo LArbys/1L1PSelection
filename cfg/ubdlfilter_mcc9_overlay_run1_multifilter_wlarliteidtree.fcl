@@ -1,19 +1,19 @@
 #include "sam_microboone.fcl"
 
-process_name : dlfilter
+process_name : dl_multi_filter
 services : { FileCatalogMetadata: @local::art_file_catalog_data }
 input_tree : "larlite_id_tree"
 loop_over_entries : True
 dump_every: 1
 modules : { sam_metadata: {}
-	    dlfilter: { filter_type:["numu-sideband","pi0-lowBDT-sideband","1e1p-lowBDT-sideband","1e1p-highE-sideband"]
-                        rerun_precuts: True
-                        precut_ophits: "ophitBeamCalib"
-                        sample_type: "Overlay"
-			rerun_1mu1p_bdt: True
-			rerun_1e1p_bdt: True
-			bdt_weights_1mu1p: "bdtweight_series2_june1_run1.pickle"
-			bdt_weights_1e1p: "BDT_1e1p_Run1_6-2-20.pickle"
-			event_tree: "larlite_id_tree"			
-                      }
+	    dl_multi_filter: { filter_type:["numu-sideband","pi0-lowBDT-sideband","1e1p-lowBDT-sideband","1e1p-highE-sideband","1e1p-signal"]
+                     	        rerun_precuts: True
+                        	precut_ophits: "ophitBeamCalib"
+                        	sample_type: "Overlay"
+				rerun_1mu1p_bdt: True
+				rerun_1e1p_bdt: True
+				bdt_weights_1mu1p: "bdtweight_series2_june1_run1.pickle"
+				bdt_weights_1e1p: "BDT_1e1p_Run1_6-2-20.pickle"
+				event_tree: "larlite_id_tree"			
+                      		}
           }
