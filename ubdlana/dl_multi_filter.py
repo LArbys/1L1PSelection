@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 ###############################################################################
 #
-# Name: dlfilter.py
+# Name: dl_multi_filter.py
 #
 # Purpose: Filter Events from DLANA files
 #
@@ -52,7 +52,7 @@ def make(config):
     #
     #----------------------------------------------------------------------
 
-    obj = DLFilter(config)
+    obj = DLMultiFilter(config)
     return obj
 
 # Analyze hit class
@@ -67,7 +67,7 @@ class DLMultiFilter(RootAnalyze):
         #----------------------------------------------------------------------
 
         self.input_file_list = [] # gets append to during open_input function
-        self.filter_pars = config['modules']['dlfilter']
+        self.filter_pars = config['modules']['dl_multi_filter']
         self.filter_types = self.filter_pars['filter_type']
 
         if type(self.filter_types) is str:
@@ -107,7 +107,7 @@ class DLMultiFilter(RootAnalyze):
             self.rerun_1mu1p_bdt = True
             self.bdt_1mu1p_weightfile = self.filter_pars["bdt_weights_1mu1p"]
             self.bdt_model_1mu1p = bdtutil.load_BDT_model( self.bdt_1mu1p_weightfile )            
-            print "DLFilter: RERUN 1MU1P BDT"
+            print "DLMultiFilter: RERUN 1MU1P BDT"
         else:
             self.rerun_1mu1p_bdt = False
 
@@ -115,7 +115,7 @@ class DLMultiFilter(RootAnalyze):
             self.rerun_1e1p_bdt = True
             self.bdt_1e1p_weightfile = self.filter_pars["bdt_weights_1e1p"]
             self.bdt_model_1e1p = bdtutil.load_BDT_model( self.bdt_1e1p_weightfile )
-            print "DLFilter: RERUN 1e1P BDT"
+            print "DLMultiFilter: RERUN 1e1P BDT"
         else:
             self.rerun_1e1p_bdt = False
             
@@ -144,7 +144,7 @@ class DLMultiFilter(RootAnalyze):
             rse = (tree._run_id,tree._subrun_id,tree._event_id)
         else:
             rse = (tree.run,tree.subrun,tree.event)
-        print "DLFilter::event_info = ",rse
+        print "DLMultiFilter::event_info = ",rse
         return rse
 
     def open_output(self, output_file):
@@ -225,7 +225,7 @@ class DLMultiFilter(RootAnalyze):
         #
         #----------------------------------------------------------------------
 
-        print 'DLFilter::open_input called.'
+        print 'DLMultiFilter::open_input called.'
         print 'Input file: %s' % input_file.GetName()
         #input_file.ls()
         self.input_file_list.append(input_file.GetName())
@@ -241,11 +241,11 @@ class DLMultiFilter(RootAnalyze):
         self._use_ubdlana_idtree = False
         if self.event_tree=="dlana/ubdlana_id_tree":
             try:
-                print "DLFilter::Using dlana/ubdlana_id_tree"
+                print "DLMultiFilter::Using dlana/ubdlana_id_tree"
                 nevent_entries  = larlite_id_tree.GetEntries()
                 self._use_ubdlana_idtree = True                
             except:
-                print "DLFilter::Could not load ubdlana. try larlite_id_tree"
+                print "DLMultiFilter::Could not load ubdlana. try larlite_id_tree"
                 larlite_id_tree = None
                 nevent_entries = 0
                 self._use_ubdlana_idtree = False
@@ -253,14 +253,14 @@ class DLMultiFilter(RootAnalyze):
             larlite_id_tree = input_file.Get("larlite_id_tree")
             try:
                 nevent_entries = larlite_id_tree.GetEntries()
-                print "DLFilter: using larlite_id_tree"
+                print "DLMultiFilter: using larlite_id_tree"
                 self._use_ubdlana_idtree = False
             except:
-                print "DLFilter::Could not load ubdlana_id_tree either"
+                print "DLMultiFilter::Could not load ubdlana_id_tree either"
                 larlite_id_tree = None
                 nevent_entries = 0
-        print "DLFilter::event id tree: ",self.event_tree
-        print "DLFilter::_use_ubdlana_idtree: ",self._use_ubdlana_idtree
+        print "DLMultiFilter::event id tree: ",self.event_tree
+        print "DLMultiFilter::_use_ubdlana_idtree: ",self._use_ubdlana_idtree
 
         nevent_entries  = larlite_id_tree.GetEntries()
         nvertex_entries = finalvertextree.GetEntries()
@@ -536,7 +536,7 @@ class DLMultiFilter(RootAnalyze):
         """ use the final vertex tree to make selection 
         we create an RSE and RSEV dict
         """
-        print "[ dlfilter::run_1e1p_highE_filter ] first pass to get max 1e1p BDT score for passing vtx per event"
+        print "[ dl_multi_filter::run_1e1p_highE_filter ] first pass to get max 1e1p BDT score for passing vtx per event"
         max_rse = {}
         rse_vtxid = {}
 
@@ -589,7 +589,7 @@ class DLMultiFilter(RootAnalyze):
 
                 
 
-        print "[ dlfilter::run_1e1p_highE_filter ] cutting pass"
+        print "[ dl_multi_filter::run_1e1p_highE_filter ] cutting pass"
         # next, save only those events, whose highest bdt score pass threshold
         rse_dict = {}
         rsev_dict = {}
@@ -632,7 +632,7 @@ class DLMultiFilter(RootAnalyze):
         """ use the final vertex tree to make selection 
         we create an RSE and RSEV dict
         """
-        print "[ dlfilter::run_1e1p_nearE_filter ]"
+        print "[ dl_multi_filter::run_1e1p_nearE_filter ]"
 
         # we first collect the highest energy vertex
         max_rse = {}
@@ -717,7 +717,7 @@ class DLMultiFilter(RootAnalyze):
         """ use the final vertex tree to make selection 
         we create an RSE and RSEV dict
         """
-        print "[ dlfilter::run_1e1p_lowBDT_filter ]"
+        print "[ dl_multi_filter::run_1e1p_lowBDT_filter ]"
         #we first collect the highest bdtscore per RSE
 
         max_rse = {}
@@ -817,7 +817,7 @@ class DLMultiFilter(RootAnalyze):
         """ use the final vertex tree to make selection 
         we create an RSE and RSEV dict
         """
-        print "[ dlfilter::run_1e1p_lowBDT_filter ]"
+        print "[ dl_multi_filter::run_1e1p_lowBDT_filter ]"
         #we first collect the highest bdtscore per RSE
 
         max_rse = {}
@@ -912,7 +912,7 @@ class DLMultiFilter(RootAnalyze):
         and shower1_E_Y>80 and ChargeNearTrunk >250 and Electron_ThetaRecoB_e1ep <1.5 and _shower_alpha <2.5 and _pi0mass>0   '
 
         """
-        print "[ dlfilter::run_lowBDT_pi0_filter ] first pass"
+        print "[ dl_multi_filter::run_lowBDT_pi0_filter ] first pass"
         #we first collect the highest bdtscore per RSE
 
         max_rse = {}
@@ -971,7 +971,7 @@ class DLMultiFilter(RootAnalyze):
 
 
         # next, save only those events, whose highest bdt score pass threshold
-        print "[ dlfilter::run_lowBDT_pi0_filter ] selection pass"
+        print "[ dl_multi_filter::run_lowBDT_pi0_filter ] selection pass"
         rse_dict = {}
         rsev_dict = {}
 
@@ -1017,7 +1017,7 @@ class DLMultiFilter(RootAnalyze):
         """ use the final vertex tree to make selection 
         we create an RSE and RSEV dict
         """
-        print "[ dlfilter::run_1e1p_signal_filter ] first pass to get max 1e1p BDT score for passing vtx per event"
+        print "[ dl_multi_filter::run_1e1p_signal_filter ] first pass to get max 1e1p BDT score for passing vtx per event"
         max_rse = {}
         rse_vtxid = {}
 
@@ -1073,7 +1073,7 @@ class DLMultiFilter(RootAnalyze):
                 print "  new max bdt for passing vtx candidates"
                 max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":bdtscore_1e1p,"enu":dlanatree.Enu_1e1p,"passes":True}
 
-        print "[ dlfilter::run_1e1p_signal_filter ] cutting pass"
+        print "[ dl_multi_filter::run_1e1p_signal_filter ] cutting pass"
         # next, save only those events, whose highest bdt score pass threshold
         rse_dict = {}
         rsev_dict = {}
@@ -1114,7 +1114,7 @@ class DLMultiFilter(RootAnalyze):
 
     def run_rse_filter(self, dlanatree ):
         """ use a (run,subrun,event) list to filter """
-        print "[ dlfilter::RSE filter ]"
+        print "[ dl_multi_filter::RSE filter ]"
         rse_dict = {}
         rsev_dict = {}
 
@@ -1126,7 +1126,7 @@ class DLMultiFilter(RootAnalyze):
             rse = (int(info[0]),int(info[1]),int(info[2]))
             rse_list.append(rse)
         rse_list.sort()
-        print "[ flfilter::RSE filter ] number of (rse) in list: ",len(rse_list)
+        print "[ dl_multi_filter::RSE filter ] number of (rse) in list: ",len(rse_list)
 
         for ientry in xrange(dlanatree.GetEntries()):
             dlanatree.GetEntry(ientry)

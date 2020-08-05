@@ -130,7 +130,8 @@ class DLAnalyze(RootAnalyze):
             #self.showerreco.set_quad_pix2energy_pars( -69.049, 0.112 ) # MC
             self.showerreco.set_quad_pix2energy_pars( quad_par0, quad_par1 ) # MC
         else:
-            self.showerreco.use_quad_energy( False )
+            #self.showerreco.use_quad_energy( False )
+            pass
 
         self.showerreco.set_output_treename( shr_ana )
 
