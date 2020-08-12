@@ -87,8 +87,7 @@ class SimpleHisto:
             myweight = CV(temp_df)
         elif self.iwgt == 0:
             myweight = np.ones(len(temp_df))
-        return temp_df[s_varname].values,self.mycolor,self.mylabel,myweight,temp_df['myscale'].values
-
+        return temp_df[s_varname].values,myweight,temp_df['myscale'].values,self.mycolor,self.mylabel
 
 class StackedHisto:
 
@@ -133,32 +132,38 @@ class StackedHisto:
         self.stratxweight.append(f_wgt)
 
     def GetHists(self,s_varname):
-        a_vals = []
-        a_cols = []
-        a_labels = []
+        a_vals = []        # (nxN)
         a_wgts = []
         a_scale = []
+        a_cols = []        # (nx1)
+        a_labels = []
 
+        # first, run  through strata
         for i in range(len(self.mystrata)):
+            # isolate this stratum with current cut
             temp_df = self.mymc.query(self.mystrata[i]+' and '+self.mycut)
+
             a_vals.append(temp_df[s_varname].values)
+            a_wgts.append(CV(temp_df) * self.stratxweight[i])   # ah, this is if we want to scale an individual stratum
+            a_scale.append(temp_df['myscale'].values)
+
             a_cols.append(self.stratacolor[i])
             a_labels.append(self.stratalabel[i])
-            a_wgts.append(CV(temp_df) * self.stratxweight[i])
-            a_scale.append(temp_df['myscale'].values)
 
         for i in range(len(self.mylayer)):
             temp_df = self.mylayer[i].query(self.mycut)
+
             a_vals.append(temp_df[s_varname].values)
-            a_cols.append(self.layercolor[i])
-            a_labels.append(self.layerlabel[i])
             if self.layeriwgt[i] == 1:
                 a_wgts.append(CV(temp_df))
             elif self.layeriwgt[i] == 0:
-                a_scale.append(temp_df['myscale'].values)
                 a_wgts.append(np.ones(len(temp_df)))
+            a_scale.append(temp_df['myscale'].values)
 
-        return  a_vals,a_cols,a_labels,a_wgts,a_scale
+            a_cols.append(self.layercolor[i])
+            a_labels.append(self.layerlabel[i])
+
+        return  np.asarray(a_vals),np.asarray(a_wgts),np.asarray(a_scale),a_cols,a_labels
 
     def ClearLayers(self):
         self.mylayer = []
@@ -191,6 +196,9 @@ class distVar:
             self.mylabel = s_label
 
 
+from scipy.interpolate import interp1d
+from scipy.integrate import quad
+
 def PmuGivenX(mu,x):
 
     # Returns the probability density value that the true mean is mu given that you
@@ -219,11 +227,13 @@ def GetErrorsData(xobs,CL=0.6827):
     xobs_high = float(PPF1(1-(1-CL)/2))
     return xobs_low,xobs_high
 
+def distplot_wratio_dvar(dvar,nbins,StackedHists,datahist,m_cov,legpos=0,ymax=-1,normshift=1,fs=(16,11),consFac=0.0):
+    return distplot_wratio(dvar.myname,nbins,dvar.myrange,StackedHists,datahist,dvar.mylabel,m_cov,legpos,ymax,normshift,fs,consFac)
 
-def distplot_wratio_dvar(dvar,nbins,stackedhists,datahist,m_cov,legpos=0,ymax=-1,normshift=1,fs=(16,11)):
-    return distplot_wratio(dvar.myname,nbins,dvar.myrange,stackedhists,datahist,dvar.mylabel,m_cov,legpos,ymax,normshift,fs)
+def distplot_wratio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_cov,legpos=0,ymax=-1,normshift=1,fs=(16,11),consFac=0.0):
 
-def distplot_wratio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_cov,legpos=0,ymax=-1,normshift=1,fs=(16,11)):
+    #consFac is new and consolidates all MC strata whose contribution is less than a given percent threshold.
+    # (my legend was too full of useless stuff)
 
     vals_mc = np.zeros(nbins)
     vals_mc_raw = np.zeros(nbins)
@@ -231,10 +241,22 @@ def distplot_wratio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_cov,leg
     yrr_mc_sys = np.zeros(nbins)
     ndof = 0
 
-    a_labels_evts = []
+    a_labels_evts_draw = []
+    a_labels_evts_failThresh = []
+    a_cols_draw = []
+    a_vals_draw = []
+    a_wgts_draw = []
+    a_vals_failThresh = []
+    a_wgts_failThresh = []
+    evts_failThresh = 0.0
 
-    gh_vals,gh_cols,gh_labels,gh_wgts,gh_scale = stackedhists.GetHists(myvar)
-    data_vals,_,data_label,data_wgt,data_scale = datahist.GetHist(myvar)
+    gh_vals,gh_wgts,gh_scale,gh_cols,gh_labels = stackedhists.GetHists(myvar)
+    data_vals,data_wgt,data_scale,_,data_label = datahist.GetHist(myvar)
+
+    vals_mc_total,binedges = np.histogram(np.hstack(gh_vals),nbins,range=myrange,weights=np.hstack(gh_wgts)*np.hstack(gh_scale))
+    mctot = vals_mc_total.sum()
+    mcthresh = consFac * mctot
+
 
     for i in range(len(gh_vals)):
         h1_raw,_ = np.histogram(gh_vals[i],nbins,range=myrange,weights=gh_wgts[i])     # hist of raw event weights
@@ -253,9 +275,30 @@ def distplot_wratio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_cov,leg
             subh1,_ = np.histogram(subvals,nbins,range=myrange,weights=subwgts)
             yerrsq_mc += np.power(np.sqrt(subh1)*sc,2)
 
-        a_labels_evts.append(gh_labels[i]+' (%.2f)'%h1.sum())
+        if(h1.sum() > mcthresh):
+            a_vals_draw.append(gh_vals[i].copy())
+            a_wgts_draw.append((gh_wgts[i]*gh_scale[i]).copy())
+            a_labels_evts_draw.append(gh_labels[i]+' (%.2f)'%h1.sum())
+            a_cols_draw.append(gh_cols[i])
+        else:
+            a_vals_failThresh.append(gh_vals[i].copy())
+            a_wgts_failThresh.append((gh_wgts[i]*gh_scale[i]).copy())
+            a_labels_evts_failThresh.append(gh_labels[i]+' (%.2f)'%h1.sum())
+            evts_failThresh += h1.sum()
 
-    vals_data_raw,binedges = np.histogram(data_vals,nbins,range=myrange,weights=data_wgt)
+    if(len(a_vals_failThresh) > 0):
+        #Ok. We've separated out strata and layers which fail our 1% threshold.
+        # conbine the small contributions together:
+        vals_failThresh = np.concatenate(a_vals_failThresh)
+        wgts_failThresh = np.concatenate(a_wgts_failThresh)
+        a_vals_draw.append(vals_failThresh)
+        a_wgts_draw.append(wgts_failThresh)
+        a_cols_draw.append('mediumspringgreen')
+        a_labels_evts_draw.append('Other: (%.2f)'%evts_failThresh)
+        print('Sub  1\% contributions:')
+        print(a_labels_evts_failThresh)
+
+    vals_data_raw,_ = np.histogram(data_vals,nbins,range=myrange,weights=data_wgt)
     vals_data,_ = np.histogram(data_vals,nbins,range=myrange,weights=np.multiply(data_wgt,data_scale))
     bincenters = np.diff(binedges)/2 + binedges[:-1]
 
@@ -275,10 +318,9 @@ def distplot_wratio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_cov,leg
             else:
                 m_cov[i][j] = 0
 
-
     # Normalization uncertainty:
-    fNorm = m_cov.sum() / np.power(vals_mc.sum(),2)
-    print('Normalization Uncertainty:',fNorm)
+    fNorm_squared = m_cov.sum() / np.power(vals_mc.sum(),2)
+    print('Normalization Uncertainty:',np.sqrt(fNorm_squared))
 
     yerr_mc_sys = np.sqrt(np.diag(m_cov))
     yerr_mc_total = np.sqrt(np.diag(m_cov) + yerrsq_mc)
@@ -291,7 +333,7 @@ def distplot_wratio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_cov,leg
                 yerrsq_data[i] += (3.0*vals_data[i]*vals_mc[i]*normshift)/(vals_mc[i]*normshift+2.0*vals_data[i])
             else:
                 yerrsq_data[i] += vals_mc[i]*normshift/2.0
-            m_cov[i][i] += yerrsq_data[i]
+            m_cov[i][i] += yerrsq_data[i] + yerrsq_mc[i]
         else:
             m_cov[i][i] += 999
 
@@ -311,6 +353,7 @@ def distplot_wratio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_cov,leg
 
     chisq = 0.0
     invcov = np.linalg.inv(m_cov)
+
     # calc chi2
     for i in range(nbins):
         for j in range(nbins):
@@ -336,8 +379,9 @@ def distplot_wratio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_cov,leg
     ax1.set_ylabel('Data/MC',fontsize=25)
     ax0.set_title('MCC9 Data/MC',fontsize=30)
 
-    ax0.hist(gh_vals,nbins,range=myrange,weights=[gh_wgts[i]*gh_scale[i] for i in range(len(gh_wgts))],color=gh_cols,stacked=True,linewidth=0,label=a_labels_evts,edgecolor=None)
-    ax0.hist(np.concatenate(gh_vals),nbins,range=myrange,weights=np.concatenate([gh_wgts[i]*gh_scale[i] for i in range(len(gh_wgts))]),histtype='step',zorder=20,color='black',linewidth=2)
+    ax0.hist(a_vals_draw,nbins,range=myrange,weights=a_wgts_draw,color=a_cols_draw,stacked=True,linewidth=0,label=a_labels_evts_draw,edgecolor=None)
+    ax0.hist(np.hstack(a_vals_draw),nbins,range=myrange,weights=np.hstack(a_wgts_draw),histtype='step',zorder=20,color='black',linewidth=2)
+
     ax0.errorbar(bincenters,vals_data,fmt='o',yerr=(a_obslo,a_obshi),color='black',capsize=5,label=data_label+' (%i)'%vals_data.sum(),markersize=8,zorder=20,elinewidth=2)
     ax0.errorbar(bincenters,vals_data,fmt='o',color='white',zorder=19,markersize=16)
 
@@ -350,11 +394,13 @@ def distplot_wratio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_cov,leg
         rect1 = Rectangle((binedges[i],(vals_mc[i]-yerr_mc_total[i])),binedges[i+1]-binedges[i],yerr_mc_total[i]*2)
         errboxes_tot.append(rect1)
     pc_sys = PatchCollection(errboxes_tot,facecolor='red', alpha=.3,hatch='X',edgecolor='white')
+    pc_sys_outline = PatchCollection(errboxes_tot,facecolor='none', alpha=.9,hatch='X',edgecolor='white',zorder=11)
     pc_tot = PatchCollection(errboxes_sys,facecolor=None,alpha=.1,hatch='/',zorder=12)
     ax0.add_collection(pc_sys)
+    ax0.add_collection(pc_sys_outline)
     ax0.add_collection(pc_tot)
     ax0.hist(np.zeros(1),(1,2),facecolor=None,alpha=.1,hatch='//',zorder=0,label='MC Systematic Error')
-    ax0.hist(np.zeros(1),(1,2),facecolor='red', alpha=.3,hatch='X',edgecolor='white',zorder=0,label='MC Sys+Stat Error')
+    ax0.hist(np.zeros(1),(1,2),facecolor='red', alpha=.3,hatch='X',edgecolor='white',label='MC Sys+Stat Error')
     ax0.legend(loc='upper right',fontsize=15,frameon=False,ncol=3)
 
     errboxes_rat_tot = []
@@ -376,15 +422,15 @@ def distplot_wratio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_cov,leg
 
     #ax1.legend(loc='lower right',fontsize=15,frameon=False)
 
-
     ax1.axhline(1,color='black',linestyle=':')
-    ax0.annotate(r'$\sum$data/$\sum$MC = %.2f'%(vals_data.sum()/float(vals_mc.sum())),xy=(.01,.92),xycoords='axes fraction',fontsize=20,bbox=dict(boxstyle="square", fc="ghostwhite",alpha=.8))
+    ax0.annotate(r'$\sum$data/$\sum$MC = %.2f $\pm$ %.2f'%(vals_data.sum()/float(vals_mc.sum()),np.sqrt(fNorm_squared)),xy=(.01,.92),xycoords='axes fraction',fontsize=20,bbox=dict(boxstyle="square", fc="ghostwhite",alpha=.8))
 
     ax1.annotate('p-value: %.3f\n'%pval+r'$\chi^2_{CNP}/%i  (dof)$: %.3f'%(ndof,chisq/float(ndof)),xy=(.85,.7), xycoords='axes fraction',fontsize=15,bbox=dict(boxstyle="round4", fc="w",alpha=.9),zorder=30)
 
     plt.tight_layout()
 
     return fig,ax0,ax1,pval
+
 
 def truthplot(myvar,nbins,myrange,predhists,stxcoord,legpos=0,ymax=-1,normshift=1):
 
@@ -447,8 +493,9 @@ def mcplot(_vartest,_myrange,_mybins,_predhists,_obshist):
     print('Data raw',ohist.sum())
 
 
-def DrawMatrix(cov,nbins):
+def DrawMatrix(cov,nbins,myrange):
 
+    binedges = np.linspace(myrange,nbins)
     X, Y = np.meshgrid(binedges,binedges)
     fig,ax = plt.subplots(figsize=(10,10))
     crat = ax.pcolormesh(X, Y,cov,cmap='cool')
