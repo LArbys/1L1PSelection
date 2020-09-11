@@ -14,7 +14,8 @@ Qualifiers = "e17:prof"
     setupRequired( ifdhc    v2_4_1  -q e17:p2714b:prof )
     setupRequired( xgboost  v0_82   -q e17:prof )
     setupRequired( scikit_learn  v0_20_0 -q e17:p2714b:openblas:prof )
-    setupRequired( ubutil   v08_00_00_27 -q e17:prof )
+    #setupRequired( ubutil   v08_00_00_27 -q e17:prof )
+    setupRequired( ubutil   v08_00_00_47 -q e17:prof )
 
 Common:
   Action = setup
