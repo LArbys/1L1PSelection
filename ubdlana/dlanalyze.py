@@ -615,8 +615,9 @@ class DLAnalyze(RootAnalyze):
             self.io_ll_formc.close()
 
         self.calibfile.Close()
-
-        cpcmd = "cp %s %s"%(input_file,os.path.basename(input_path))
+        
+        input_path = input_file.GetName()
+        cpcmd = "cp %s %s"%(input_path,os.path.basename(input_path))
         print "[dlanalyze::close_input] copying input file: ",cpcmd
         os.system(cpcmd)
         fout = open('dlanalyze_input_list.txt','w')
