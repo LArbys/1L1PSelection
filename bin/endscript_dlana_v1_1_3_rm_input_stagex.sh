@@ -32,6 +32,7 @@ echo temp1.root >> dlanalyze_input_list.txt
 echo temp2.root >> dlanalyze_input_list.txt
 # change name of output ana file and its json
 last_merged_dlana=`find merged_dlana*.root | tail -n 1`
+echo "LAST MERGED_DLANA FILE: ${last_merged_dlana}"
 mv ${last_merged_dlana} hist.root
 mv ${last_merged_dlana}.json merged_dlana.root.json
 # add ana file to hadd list
