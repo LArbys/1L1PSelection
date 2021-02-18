@@ -1,4 +1,4 @@
-# Selection Variables and Plotting
+# Selection Variables and Plotting -Davio
 
 Hey there! Welcome to my (Davio's) selection.
 This should work pretty simply and I think I commented everything quite nicely, but here's some added help:
@@ -8,6 +8,9 @@ This should work pretty simply and I think I commented everything quite nicely, 
 2) next, you'll want to use my PickleFiles notebook to take all of the constituent parts used for preselection (which should be outlined fairly clearly in the notebook) and line everything up in convenient dataframes!
 3) The BDTTraining notebooks load these pickles up and can train BDTs on whatever variables you'd like! It'll output the weights for you.
 4) The Selection notebooks load these pickles and your BDT weights and can perform selection for you!
+
+# Pi0 study and plotting -Katie
+Katie will update this will all of the scripts and where the parts of the study live.
 
 # FNAL Workflow
 
