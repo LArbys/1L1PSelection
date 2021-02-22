@@ -25,6 +25,12 @@ def CV(df):
     wgt[wgt <= 0] = 1
     return wgt
 
+def Pi0Wgt(df):
+    wgt0 = CV(df)
+    wgt1 = np.nan_to_num(df['pi0weight'].values)
+    wgt1[wgt1 <=0] = 1
+    return wgt0*wgt1
+
 def Spline(df):
     wgt = df['spline_weight'].values
     wgt[wgt == np.inf] = 1
@@ -32,6 +38,17 @@ def Spline(df):
     wgt[wgt <= 0] = 1
     return wgt
 
+def poisson_errors(k, CL = 0.6827):
+   # 1 Sig = 0.6827
+   # 2 Sig = 0.9545
+   # 3 Sig = 0.9973
+   a = 1.0 - CL
+   low, high = (stats.chi2.ppf(a/2, 2*k) / 2, stats.chi2.ppf(1-a/2, 2*k + 2) / 2)
+   if k == 0:
+       low = 0.0
+   return k - low, high - k
+
+ 
 class sampHist:
 
     def __init__(self,samp_df,samp_l,samp_c,samp_wind,samp_s):
@@ -44,12 +61,16 @@ class sampHist:
             self._wgt = np.ones(len(samp_df))
         if samp_wind == 1:
             self._wgt = CV(samp_df)
+        if samp_wind == 2:
+            self._wgt = Pi0Wgt(samp_df)
 
     def setweight(self,windex):
         if windex == 0:
             self._wgt = np.ones(len(self._df))
         if windex == 1:
             self._wgt = CV(self._df)
+        if windex == 2:
+            self._wgt = Pi0Wgt(samp_df)
 
     def dist(self,s_var):
         return self._df[s_var].values
@@ -83,7 +104,9 @@ class SimpleHisto:
 
     def GetHist(self,s_varname):
         temp_df = self.mydf.query(self.mycut)
-        if self.iwgt == 1:
+        if self.iwgt == 2:
+            myweight = Pi0Wgt(temp_df)
+        elif self.iwgt == 1:
             myweight = CV(temp_df)
         elif self.iwgt == 0:
             myweight = np.ones(len(temp_df))
@@ -144,7 +167,8 @@ class StackedHisto:
             temp_df = self.mymc.query(self.mystrata[i]+' and '+self.mycut)
 
             a_vals.append(temp_df[s_varname].values)
-            a_wgts.append(CV(temp_df) * self.stratxweight[i])   # ah, this is if we want to scale an individual stratum
+            
+            a_wgts.append(Pi0Wgt(temp_df) * self.stratxweight[i])   # ah, this is if we want to scale an individual stratum
             a_scale.append(temp_df['myscale'].values)
 
             a_cols.append(self.stratacolor[i])
@@ -154,7 +178,9 @@ class StackedHisto:
             temp_df = self.mylayer[i].query(self.mycut)
 
             a_vals.append(temp_df[s_varname].values)
-            if self.layeriwgt[i] == 1:
+            if self.layeriwgt[i] == 2:
+                a_wgts.append(Pi0Wgt(temp_df))
+            elif self.layeriwgt[i] == 1:
                 a_wgts.append(CV(temp_df))
             elif self.layeriwgt[i] == 0:
                 a_wgts.append(np.ones(len(temp_df)))
@@ -227,10 +253,128 @@ def GetErrorsData(xobs,CL=0.6827):
     xobs_high = float(PPF1(1-(1-CL)/2))
     return xobs_low,xobs_high
 
+
+def distplot_single(myvar,nbins,myrange,stackedhists,stxcoord,m_cov,legpos=0,ymax=-1,fs=(16,11),consFac=0.0):
+
+    #consFac is new and consolidates all MC strata whose contribution is less than a given percent threshold.
+    # (my legend was too full of useless stuff)
+
+    vals_mc = np.zeros(nbins)
+    vals_mc_raw = np.zeros(nbins)
+    yerrsq_mc = np.zeros(nbins)
+    yrr_mc_sys = np.zeros(nbins)
+    ndof = 0
+
+    a_labels_evts_draw = []
+    a_labels_evts_failThresh = []
+    a_cols_draw = []
+    a_vals_draw = []
+    a_wgts_draw = []
+    a_vals_failThresh = []
+    a_wgts_failThresh = []
+    evts_failThresh = 0.0
+
+    gh_vals,gh_wgts,gh_scale,gh_cols,gh_labels = stackedhists.GetHists(myvar)
+
+    vals_mc_total,binedges = np.histogram(np.hstack(gh_vals),nbins,range=myrange,weights=np.hstack(gh_wgts)*np.hstack(gh_scale))
+    mctot = vals_mc_total.sum()
+    mcthresh = consFac * mctot
+
+    for i in range(len(gh_vals)):
+        h1_raw,_ = np.histogram(gh_vals[i],nbins,range=myrange,weights=gh_wgts[i])     # hist of raw event weights
+        h1,_ = np.histogram(gh_vals[i],nbins,range=myrange,weights=gh_wgts[i]*gh_scale[i])
+
+        vals_mc_raw += h1_raw
+        vals_mc += h1
+
+        scalesort = gh_scale[i].argsort()
+        sorted_vals = gh_vals[i][scalesort[::-1]]
+        sorted_scale = gh_scale[i][scalesort[::-1]]
+        sorted_wgt = gh_wgts[i][scalesort[::-1]]
+        for sc in np.unique(sorted_scale):
+            subvals = sorted_vals[sorted_scale==sc]
+            subwgts = sorted_wgt[sorted_scale==sc]
+            subh1,_ = np.histogram(subvals,nbins,range=myrange,weights=subwgts)
+            yerrsq_mc += np.power(np.sqrt(subh1)*sc,2)
+
+        if(h1.sum() > mcthresh):
+            a_vals_draw.append(gh_vals[i].copy())
+            a_wgts_draw.append((gh_wgts[i]*gh_scale[i]).copy())
+            a_labels_evts_draw.append(gh_labels[i]+' (%.2f)'%h1.sum())
+            a_cols_draw.append(gh_cols[i])
+        else:
+            a_vals_failThresh.append(gh_vals[i].copy())
+            a_wgts_failThresh.append((gh_wgts[i]*gh_scale[i]).copy())
+            a_labels_evts_failThresh.append(gh_labels[i]+' (%.2f)'%h1.sum())
+            evts_failThresh += h1.sum()
+
+    if(len(a_vals_failThresh) > 0):
+        #Ok. We've separated out strata and layers which fail our 1% threshold.
+        # conbine the small contributions together:
+        vals_failThresh = np.concatenate(a_vals_failThresh)
+        wgts_failThresh = np.concatenate(a_wgts_failThresh)
+        a_vals_draw.append(vals_failThresh)
+        a_wgts_draw.append(wgts_failThresh)
+        a_cols_draw.append('mediumspringgreen')
+        a_labels_evts_draw.append('Other: (%.2f)'%evts_failThresh)
+        print('Sub  1\% contributions:')
+        print(a_labels_evts_failThresh)
+
+    bincenters = np.diff(binedges)/2 + binedges[:-1]
+
+    #m_cov is fractional, so we multiply it by MC
+    for i in range(nbins):
+        for j in range(nbins):
+            if(vals_mc[i] > 0 and vals_mc[j] > 0):
+                m_cov[i][j] *= vals_mc[i]*vals_mc[j]
+            else:
+                m_cov[i][j] = 0
+
+    # Normalization uncertainty:
+    fNorm_squared = m_cov.sum() / np.power(vals_mc.sum(),2)
+    print('Normalization Uncertainty:',np.sqrt(fNorm_squared))
+
+    yerr_mc_sys = np.sqrt(np.diag(m_cov))
+    yerr_mc_total = np.sqrt(np.diag(m_cov) + yerrsq_mc)
+
+    fig,ax = plt.subplots(figsize=fs)
+    fig.patch.set_alpha(1)
+
+    ymax = (vals_mc+yerr_mc_sys).max()*1.4
+
+    ax.set_ylim(0,ymax)
+    ax.set_xlim(myrange)
+    ax.set_ylabel('Events in Sample POT',fontsize=25)
+    ax.set_title('MCC9 Data/MC',fontsize=30)
+
+    ax.hist(a_vals_draw,nbins,range=myrange,weights=a_wgts_draw,color=a_cols_draw,stacked=True,linewidth=0,label=a_labels_evts_draw,edgecolor=None)
+    ax.hist(np.hstack(a_vals_draw),nbins,range=myrange,weights=np.hstack(a_wgts_draw),histtype='step',zorder=20,color='black',linewidth=2)
+
+    errboxes_tot = []
+    errboxes_sys = []
+
+    for i in range(len(bincenters)):
+        rect0 = Rectangle((binedges[i],(vals_mc[i]-yerr_mc_sys[i])),binedges[i+1]-binedges[i],yerr_mc_sys[i]*2)
+        errboxes_sys.append(rect0)
+        rect1 = Rectangle((binedges[i],(vals_mc[i]-yerr_mc_total[i])),binedges[i+1]-binedges[i],yerr_mc_total[i]*2)
+        errboxes_tot.append(rect1)
+    pc_sys = PatchCollection(errboxes_tot,facecolor='red', alpha=.3,hatch='X',edgecolor='white')
+    pc_sys_outline = PatchCollection(errboxes_tot,facecolor='none', alpha=.9,hatch='X',edgecolor='white',zorder=11)
+    pc_tot = PatchCollection(errboxes_sys,facecolor=None,alpha=.1,hatch='/',zorder=12)
+    ax.add_collection(pc_sys)
+    ax.add_collection(pc_sys_outline)
+    ax.add_collection(pc_tot)
+    ax.hist(np.zeros(1),(1,2),facecolor=None,alpha=.1,hatch='//',zorder=0,label='MC Systematic Error')
+    ax.hist(np.zeros(1),(1,2),facecolor='red', alpha=.3,hatch='X',edgecolor='white',label='MC Sys+Stat Error')
+    ax.legend(loc='upper right',fontsize=20,frameon=False,ncol=3)
+
+    return fig,ax
+
+
 def distplot_wratio_dvar(dvar,nbins,StackedHists,datahist,m_cov,legpos=0,ymax=-1,normshift=1,fs=(16,11),consFac=0.0):
     return distplot_wratio(dvar.myname,nbins,dvar.myrange,StackedHists,datahist,dvar.mylabel,m_cov,legpos,ymax,normshift,fs,consFac)
 
-def distplot_wratio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_cov,legpos=0,ymax=-1,normshift=1,fs=(16,11),consFac=0.0):
+def distplot_wratio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_cov,legpos=0,ymax=-1,normshift=1,fs=(16,11),consFac=0.0,debug=False):
 
     #consFac is new and consolidates all MC strata whose contribution is less than a given percent threshold.
     # (my legend was too full of useless stuff)
@@ -306,9 +450,9 @@ def distplot_wratio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_cov,leg
     a_obslo = []
     a_obshi = []
     for i in range(nbins):
-        obslo,obshi = GetErrorsData(vals_data[i])
-        a_obshi.append(obshi-vals_data[i])
-        a_obslo.append(vals_data[i]-obslo)
+        obslo,obshi = poisson_errors(vals_data[i])
+        a_obshi.append(obshi)
+        a_obslo.append(obslo)
 
     #m_cov is fractional, so we multiply it by MC
     for i in range(nbins):
@@ -339,6 +483,11 @@ def distplot_wratio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_cov,leg
 
     yerr_data = np.sqrt(yerrsq_data)
 
+    if debug:
+        print('mc stat error',np.divide(np.sqrt(yerrsq_mc),vals_mc))
+        print('data stat error CNP',np.divide(np.sqrt(yerrsq_data),vals_data))
+        print('mc_sys_error',np.divide(np.sqrt(yerr_mc_sys),vals_mc))
+    
     er_rat_line = np.zeros(nbins)
     er_rat_line_sys = np.zeros(nbins)
     er_rat_dotshi = np.zeros(nbins)
@@ -374,7 +523,7 @@ def distplot_wratio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_cov,leg
     ax0.set_xlim(myrange)
     ax1.set_ylim(0,2)
     ax1.set_xlim(myrange)
-    ax1.set_xlabel(stxcoord,fontsize=20)
+    ax1.set_xlabel(stxcoord,fontsize=25)
     ax0.set_ylabel('Events in 4.4e19 POT',fontsize=25)
     ax1.set_ylabel('Data/MC',fontsize=25)
     ax0.set_title('MCC9 Data/MC',fontsize=30)
@@ -401,7 +550,7 @@ def distplot_wratio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_cov,leg
     ax0.add_collection(pc_tot)
     ax0.hist(np.zeros(1),(1,2),facecolor=None,alpha=.1,hatch='//',zorder=0,label='MC Systematic Error')
     ax0.hist(np.zeros(1),(1,2),facecolor='red', alpha=.3,hatch='X',edgecolor='white',label='MC Sys+Stat Error')
-    ax0.legend(loc='upper right',fontsize=15,frameon=False,ncol=3)
+    ax0.legend(loc='upper right',fontsize=20,frameon=False,ncol=3)
 
     errboxes_rat_tot = []
     errboxes_rat_sys = []
@@ -421,11 +570,15 @@ def distplot_wratio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_cov,leg
     ax1.errorbar(bincenters,np.true_divide(vals_data,vals_mc),yerr=(er_rat_dotshi,er_rat_dotslo),fmt='o',color='maroon',capsize=0,markersize=8,elinewidth=2)
 
     #ax1.legend(loc='lower right',fontsize=15,frameon=False)
-
+    if debug:
+        print('Data/MC')
+        print(np.true_divide(vals_data,vals_mc))
+        print(bincenters)
+    
     ax1.axhline(1,color='black',linestyle=':')
     ax0.annotate(r'$\sum$data/$\sum$MC = %.2f $\pm$ %.2f'%(vals_data.sum()/float(vals_mc.sum()),np.sqrt(fNorm_squared)),xy=(.01,.92),xycoords='axes fraction',fontsize=20,bbox=dict(boxstyle="square", fc="ghostwhite",alpha=.8))
 
-    ax1.annotate('p-value: %.3f\n'%pval+r'$\chi^2_{CNP}/%i  (dof)$: %.3f'%(ndof,chisq/float(ndof)),xy=(.85,.7), xycoords='axes fraction',fontsize=15,bbox=dict(boxstyle="round4", fc="w",alpha=.9),zorder=30)
+    ax1.annotate('p-value: %.3f\n'%pval+r'$\chi^2_{CNP}/%i  (dof)$: %.3f'%(ndof,chisq/float(ndof)),xy=(.85,.75), xycoords='axes fraction',fontsize=20,bbox=dict(boxstyle="round4", fc="w",alpha=.9),zorder=30)
 
     plt.tight_layout()
 
@@ -562,12 +715,12 @@ def bless_int_labels(row):
 
 def dist2d_statsonly(dvar1,dvar2,nbins1,nbins2,obsHist,mcHist):
 
-    vals_obs_var1,_,_,wgt_obs,scale_obs = obsHist.GetHist(dvar1.myname)
+    vals_obs_var1,wgt_obs,scale_obs,_,_ = obsHist.GetHist(dvar1.myname)
     vals_obs_var2,_,_,_,_ = obsHist.GetHist(dvar2.myname)
 
     Hobs, xedges, yedges = np.histogram2d(vals_obs_var1,vals_obs_var2,[nbins1,nbins2],[dvar1.myrange,dvar2.myrange],weights=wgt_obs*scale_obs)
 
-    a_vals_pred_var1,_,_,a_wgt_pred,a_scale_pred = mcHist.GetHists(dvar1.myname)
+    a_vals_pred_var1,a_wgt_pred,a_scale_pred,_,_ = mcHist.GetHists(dvar1.myname)
     a_vals_pred_var2,_,_,_,_ = mcHist.GetHists(dvar2.myname)
 
     vals_pred_var1 = np.concatenate(a_vals_pred_var1)
@@ -716,3 +869,109 @@ class Cov:
             ax.set_ylabel(dvar.mylabel,fontsize=20)
 
         return cov_poly
+
+
+
+
+def datadataplot_wratio_dvar(dvar,nbins,datahist1,datahist2,legpos=0,ymax=-1,normshift=1,fs=(16,11)):
+    return datadataplot_wratio(dvar.myname,nbins,dvar.myrange,datahist1,datahist2,dvar.mylabel,legpos,ymax,normshift,fs)
+
+def datadataplot_wratio(myvar,nbins,myrange,datahist1,datahist2,stxcoord,legpos=0,ymax=-1,normshift=1,fs=(16,11)):
+
+    ndof = 0
+
+    data1_vals,data1_wgt,data1_scale,_,data1_label = datahist1.GetHist(myvar)
+    data2_vals,data2_wgt,data2_scale,_,data2_label = datahist2.GetHist(myvar)
+
+    vals_data1_raw,binedges = np.histogram(data1_vals,nbins,range=myrange,weights=data1_wgt)
+    vals_data1,_ = np.histogram(data1_vals,nbins,range=myrange,weights=np.multiply(data1_wgt,data1_scale))
+    vals_data2_raw,_ = np.histogram(data2_vals,nbins,range=myrange,weights=data2_wgt)
+    vals_data2,_ = np.histogram(data2_vals,nbins,range=myrange,weights=np.multiply(data2_wgt,data2_scale))
+    bincenters = np.diff(binedges)/2 + binedges[:-1]
+
+    #jarretbars
+    a_obslo1 = []
+    a_obshi1 = []
+    a_obslo2 = []
+    a_obshi2 = []
+    for i in range(nbins):
+        obslo,obshi = poisson_errors(vals_data1[i])
+        a_obshi1.append(obshi-vals_data[i])
+        a_obslo1.append(vals_data[i]-obslo)
+        obslo,obshi = poisson_errors(vals_data2[i])
+        a_obshi2.append(obshi)
+        a_obslo2.append(obslo)
+
+    #m_cov is fractional, so we multiply it by MC
+    m_cov = np.zeros((nbins,nbins))
+
+    yerrsq_data = np.zeros(nbins)
+    for i in range(nbins):
+        if vals_data1[i] > 0 or  vals_data2[i] > 0:
+            ndof += 1
+            m_cov[i][i] += vals_data1[i] + vals_data2[i]
+        else:
+            m_cov[i][i] += 999
+
+    er_rat_linehi = np.zeros(nbins)
+    er_rat_linelo = np.zeros(nbins)
+    er_rat_dotshi = np.zeros(nbins)
+    er_rat_dotslo = np.zeros(nbins)
+
+    for i in range(nbins):
+        if vals_data2[i] > 0:
+            er_rat_linehi[i] = a_obshi2/float(vals_data2[i])
+            er_rat_linelo[i] = a_obslo2/float(vals_data2[i])
+            er_rat_dotshi[i] = a_obshi1[i]/float(vals_data2[i])
+            er_rat_dotslo[i] = a_obslo1[i]/float(vals_data2[i])
+
+    chisq = 0.0
+    invcov = np.linalg.inv(m_cov)
+
+    # calc chi2
+    for i in range(nbins):
+        for j in range(nbins):
+            if vals_data2[i] > 0 or vals_data1[i] > 0:
+                chisq += (vals_data1[i] - vals_data2[i]) * (vals_data1[j] - vals_data2[j]) * invcov[i][j]
+    pval = 1 - stats.chi2.cdf(chisq, ndof)
+    print(chisq/float(ndof),pval)
+
+    fig,ax = plt.subplots(figsize=fs)
+    fig.patch.set_alpha(1)
+    gs = gridspec.GridSpec(2, 1, height_ratios=[3, .75])
+    ax0 = plt.subplot(gs[0])
+    ax1 = plt.subplot(gs[1])
+
+    ymax = max((vals_data1+np.asarray(a_obshi1)).max(),(vals_data2+a_obshi2).max())*1.4
+
+    ax0.set_ylim(0,ymax)
+    ax0.set_xlim(myrange)
+    ax1.set_ylim(0,2)
+    ax1.set_xlim(myrange)
+    ax1.set_xlabel(stxcoord,fontsize=25)
+    ax0.set_ylabel('Events in 4.4e19 POT',fontsize=25)
+    ax1.set_ylabel('Data1/Data2',fontsize=25)
+    ax0.set_title('MCC9 Data/Data',fontsize=30)
+
+    ax0.errorbar(bincenters,vals_data1,fmt='o',yerr=(a_obslo1,a_obshi1),color='orange',capsize=5,label=data1_label+' (%i)'%vals_data1.sum(),markersize=8,zorder=20,elinewidth=2)
+    ax0.errorbar(bincenters,vals_data2,fmt='o',yerr=(a_obslo2,a_obshi2),color='blue',capsize=10,label=data1_label+' (%i)'%vals_data1.sum(),markersize=16,zorder=19,elinewidth=4)
+
+    ax0.legend(loc='upper right',fontsize=20,frameon=False,ncol=3)
+
+    errboxes_rat_tot = []
+    for i in range(len(er_rat_dotshi)):
+        rect0 = Rectangle((binedges[i],1-er_rat_linelo[i]),binedges[i+1]-binedges[i],er_rat_linehi[i]+er_rat_linelo[i])
+        errboxes_rat_tot.append(rect0)
+
+    pc_rat_tot = PatchCollection(errboxes_rat_tot, facecolor='blue', alpha=.3)
+    ax1.add_collection(pc_rat_tot)
+    ax1.errorbar(bincenters,np.true_divide(vals_data1,vals_data2),yerr=(er_rat_dotshi,er_rat_dotslo),fmt='o',color='orange',capsize=0,markersize=8,elinewidth=2)
+
+    ax1.axhline(1,color='black',linestyle=':')
+    ax0.annotate(r'$\sum$data1/$\sum$data2 = %.2f'%(vals_data1.sum()/float(vals_data2.sum())),xy=(.01,.92),xycoords='axes fraction',fontsize=20,bbox=dict(boxstyle="square", fc="ghostwhite",alpha=.8))
+
+    ax1.annotate('p-value: %.3f\n'%pval+r'$\chi^2_{CNP}/%i  (dof)$: %.3f'%(ndof,chisq/float(ndof)),xy=(.85,.75), xycoords='axes fraction',fontsize=20,bbox=dict(boxstyle="round4", fc="w",alpha=.9),zorder=30)
+
+    plt.tight_layout()
+
+    return fig,ax0,ax1,pval
