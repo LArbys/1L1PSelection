@@ -89,6 +89,7 @@ NUE_POT3 *= 100438./100186.
 
 
 POTDICT = {1:{},2:{},3:{}}
+POTDICT[1]['open'] = OPEN_POT1
 POTDICT[1]['ext'] = EXT_POT1
 POTDICT[1]['overlay'] = OVR_POT1rr
 POTDICT[1]['overlay_lowE'] = LOWM_POT1
@@ -100,6 +101,7 @@ POTDICT[2]['overlay'] = OVR_POT2rr
 POTDICT[2]['overlay_lowE'] = LOWM_POT2
 POTDICT[2]['intrinsics'] = NUE_POT2
 POTDICT[2]['intrinsics_lowE'] = LOWE_POT2
+POTDICT[3]['open'] = OPEN_POT3
 POTDICT[3]['ext'] = EXT_POT3
 POTDICT[3]['overlay'] = OVR_POT3
 POTDICT[3]['overlay_lowE'] = LOWM_POT3
@@ -112,6 +114,7 @@ POTDICT[3]['ccpi0'] = CCPi0_POT3 + OVR_POT3
 goodruns1 = np.loadtxt(weightdir+'pass_r1.txt')
 goodruns2 = np.loadtxt(weightdir+'pass_r2.txt')
 goodruns3 = np.loadtxt(weightdir+'pass_r3.txt')
+goodruns = np.concatenate((goodruns1,goodruns2,goodruns3))
 goodruns_dict = {1:goodruns1,2:goodruns2,3:goodruns3}
 
 newflag = {}
@@ -176,7 +179,7 @@ def precuts(x,run,cutMode):
     if x.OpenAng < 0.5: return False
     if x.FailedBoost_1e1p: return False
     if x.Proton_ThetaReco > np.pi/2: return False
-    if not x.run in goodruns_dict[run]: return False
+    if not x.run in goodruns: return False
         
     if cutMode==1:
         if x.Enu_1e1p < 200 or x.Enu_1e1p > 1200: return False
@@ -205,6 +208,7 @@ def postcuts(x):
 def getLabel(x,filetag):
     
     if 'ext' in filetag: return 'EXTBNB'
+    if 'data' in filetag: return 'data'
     
     nuType = x.MC_parentPDG
     mode = x.interactionType
@@ -287,6 +291,7 @@ class BDTensemble:
 
     def inference(self,tvdf,dpfdf,run,filetag):
         
+        if filetag=='data': filetag='moot'
         training_varbs = tvdf.values
         rse = dpfdf[['run','subrun','event']].values
 
@@ -304,9 +309,62 @@ class BDTensemble:
             dpfdf[tvweightkey] = tvweight
             dpfdf[sigprobkey] = sigprob
 
+    def MakeBDTcut(self,idf,sigcut,mode,r2overlay=False):
+
+				# Conglemerate BDT scores and weights based on strategy
+				# To be run after inference
+			
+				bdtweight = np.zeros(idf.shape[0])
+				sigprobmax = np.zeros(idf.shape[0]) 
+				sigprobavg = np.zeros(idf.shape[0])
+				sigprobmedian = np.zeros(idf.shape[0])
+				sigproblist = np.zeros((idf.shape[0],self.nBDTs))
+				notintrain = np.zeros((idf.shape[0],self.nBDTs),dtype=bool)
+				numnottrain = np.zeros(idf.shape[0])
+				for b in self.BDTnumlist:
+						sp = idf['sigprob%i'%b]
+						tvw = idf['tvweight%i'%b]
+						sigprobmax = np.where(np.logical_and(tvw>0,sp>sigprobmax),sp,sigprobmax) # cut on the maximum non-train score in ensemble
+						if mode == 'fracweight': 
+								#bdtweight += np.where(sp>sigcut,tvw/float(self.nBDTs),0)
+								bdtweight += np.where((tvw>0.1) & (sp>sigcut),1.0,0.0)
+						sigprobavg += np.where(tvw>0.1,sp,0)
+						numnottrain += np.where(tvw>0.1,1,0)
+						sigproblist[:,b] = sp
+						notintrain[:,b] = tvw > 0.1
+				sigprobavg /= np.where(numnottrain>0,numnottrain,1)
+				for i,(tlist,siglist) in enumerate(zip(notintrain,sigproblist)):
+						splist = siglist[tlist]
+						if splist.size!=0: sigprobmedian[i] = np.median(splist)
+						else: sigprobmedian[i] = 0
+						
+				idf['sigprobavg'] = sigprobavg
+				idf['sigprobmedian'] = sigprobmedian
+				idf['sigprobmax'] = sigprobmax
+				
+				if mode == 'avgscore':
+						idf['sigprob'] = idf['sigprobavg']
+						bdtweight = np.where(sigprobavg>sigcut,1,0)
+				elif mode == 'medianscore':
+						idf['sigprob'] = idf['sigprobmedian']
+						bdtweight = np.where(sigprobmedian>sigcut,1,0)
+				elif mode == 'fracweight':
+						idf['sigprob'] = idf['sigprobmax']
+						bdtweight /= np.where(numnottrain>0,numnottrain,1)
+				
+				idf['bdtweight'] = bdtweight
+				
+				# Drop duplicates
+				
+				idf.sort_values(by=['run','subrun','event','sigprob'],ascending=False,inplace=True)
+				if r2overlay:
+						idf.drop_duplicates(subset=['run','subrun','event','EnuTrue'],inplace=True)
+				else:
+						idf.drop_duplicates(subset=['run','subrun','event'],inplace=True)
 
 
-def selection(t,cutMode,filetag,run,lowEpatch,ensemble,genieDict=None,leeDict=None,verbose=True):
+
+def selection(t,cutMode,filetag,run,lowEpatch,ensemble,POT=0,genieDict=None,leeDict=None,verbose=True):
 
   tdf = pd.DataFrame(columns=train_varb_names)
   dpfdf = pd.DataFrame(columns=dpf_varb_names)
@@ -327,8 +385,12 @@ def selection(t,cutMode,filetag,run,lowEpatch,ensemble,genieDict=None,leeDict=No
     if leeDict is not None: lw = leeDict[idx]
     else: lw = 0.0
     
-    POTweight = POTDICT[run][filetag]
-    pi0flag = haspi0(x,run,filetag)
+    if filetag=='data':
+      POTweight = POT
+      pi0flag = False
+    else:
+      POTweight = POTDICT[run][filetag]
+      pi0flag = haspi0(x,run,filetag)
     
     if pi0flag and run in [1,3]:
       if x.ccnc: POTweight = POTDICT[run]['ncpi0']
@@ -343,8 +405,7 @@ def selection(t,cutMode,filetag,run,lowEpatch,ensemble,genieDict=None,leeDict=No
     rsevdf = rsevdf.append(rsev,ignore_index=True)
 
   dpfdf = pd.concat([rsevdf,dpfdf],axis=1)
-  if cutMode in [0,2]:
-    ensemble.inference(tdf,dpfdf,run,filetag)
+  ensemble.inference(tdf,dpfdf,run,filetag)
   return dpfdf
 
 def sysselection(t,run,sample,ensemble,verbose=True):
