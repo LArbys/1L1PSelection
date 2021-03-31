@@ -186,9 +186,10 @@ class StackedHisto:
 
 class distVar:
 
-    def __init__(self,s_name,n_range,s_label='',s_cov=''):
+    def __init__(self,s_name,n_range,n_bins,s_label='',s_cov=''):
         self.myname = s_name
         self.myrange = n_range
+        self.nbins=n_bins
         self.myscov = s_cov
         if s_label == '':
             self.mylabel = s_name
@@ -716,3 +717,4 @@ class Cov:
             ax.set_ylabel(dvar.mylabel,fontsize=20)
 
         return cov_poly
+
