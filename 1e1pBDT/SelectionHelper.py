@@ -28,7 +28,7 @@ dpf_varb_names = ['Enu_1e1p','Eta','PT_1e1p','AlphaT_1e1p',
                   'shower_fraction','Shower_Consistency',
                   'EnuQE_lepton','EnuQE_proton','EnuTrue','ccnc','scedr',
                   'POTweight','GenieWeight','LEEweight','label',
-                  'newpi0flag','datarun','filetag']
+                  'newpi0flag','datarun','filetag','cutLevel']
 
 sys_varb_names = ['Enu_1e1p','Eta','PT_1e1p','AlphaT_1e1p',
                   'SphB_1e1p','PzEnu_1e1p','ChargeNearTrunk',
@@ -148,7 +148,7 @@ def haspi0(x,run,filetag):
       return True
   return False
 
-def truthCuts(x,filetag,lowEpatch,run):
+def truthCuts(x,filetag,lowEpatch):
   nuType = x.MC_parentPDG
   if lowEpatch and not 'lowE' in filetag:
     if x.MC_energyInit<400: return False
@@ -198,10 +198,11 @@ def precuts(x,run,cutMode):
         
     return True
 
-def postcuts(x):
+def postcuts(x,cutMode):
     if x.GammaPID_pix_v[2]/(x.EminusPID_pix_v[2]+0.0001) > 2: return False
     if x.Electron_Edep > 100 and x.MuonPID_int_v[2] > 0.2: return False
     if x._pi0mass > 50: return False
+    #if cutMode in [0,2] and x.ProtonPID_pix_v[2] < 0.2: return False
     return True
 
 
@@ -372,11 +373,17 @@ def selection(t,cutMode,filetag,run,lowEpatch,ensemble,POT=0,genieDict=None,leeD
 
   for i,x in enumerate(t):
     if verbose and i%100==0: print('%2.1f%% done'%(100*float(i)/float(t.GetEntries())),end='\r')
-    if not truthCuts(x,filetag,lowEpatch,run): continue 
-    if not precuts(x,run,cutMode): continue
+    cutLevel = 0
+    if not truthCuts(x,filetag,lowEpatch): continue 
+    if not precuts(x,run,cutMode): 
+			if cutMode != 0: continue
+			cutLevel = 1
     if cutMode in [0,2]:
-      if not postcuts(x): continue
+      if not postcuts(x,cutMode):
+				if cutMode != 0: continue
+				if cutLevel==1: cutLevel=2
     
+
     idx = tuple((x.run,x.subrun,x.event))
     idxv = [x.run,x.subrun,x.event,x.vtxid]
     
@@ -390,14 +397,19 @@ def selection(t,cutMode,filetag,run,lowEpatch,ensemble,POT=0,genieDict=None,leeD
       pi0flag = False
     else:
       POTweight = POTDICT[run][filetag]
-      pi0flag = haspi0(x,run,filetag)
+      pi0flag = haspi0(x,run,filetag) if 'overlay' in filetag else False
+
+    label = getLabel(x,filetag)
     
-    if pi0flag and run in [1,3]:
-      if x.ccnc: POTweight = POTDICT[run]['ncpi0']
-      else: POTweight = POTDICT[run]['ccpi0']
+    if pi0flag:
+			if abs(x.MC_parentPDG) == 12: label = 'nue_other'
+			else: label = 'numu_pi0'
+			if run in [1,3]:
+				if x.ccnc: POTweight = POTDICT[run]['ncpi0']
+				else: POTweight = POTDICT[run]['ccpi0']
 
     tvarb = pd.Series(getNewShowerCalibTrainingVarbs(x,newCalib=ensemble.newCalib),index=train_varb_names)
-    dpfvarb = pd.Series(getNewShowerCalibDPFvarbs(x,newCalib=ensemble.newCalib) + [x.MC_energyInit,x.ccnc,x.MC_scedr,POTweight,w,lw,getLabel(x,filetag),pi0flag,run,filetag],index=dpf_varb_names)
+    dpfvarb = pd.Series(getNewShowerCalibDPFvarbs(x,newCalib=ensemble.newCalib) + [x.MC_energyInit,x.ccnc,x.MC_scedr,POTweight,w,lw,label,pi0flag,run,filetag,cutLevel],index=dpf_varb_names)
     rsev = pd.Series(idxv,index=rsev_names)
     
     tdf = tdf.append(tvarb,ignore_index=True)
@@ -408,7 +420,7 @@ def selection(t,cutMode,filetag,run,lowEpatch,ensemble,POT=0,genieDict=None,leeD
   ensemble.inference(tdf,dpfdf,run,filetag)
   return dpfdf
 
-def sysselection(t,run,sample,ensemble,verbose=True):
+def sysselection(t,cutMode,run,sample,ensemble,overlay=False,verbose=True):
 
   tdf = pd.DataFrame(columns=train_varb_names)
   dpfdf = pd.DataFrame(columns=dpf_varb_names)
@@ -416,8 +428,10 @@ def sysselection(t,run,sample,ensemble,verbose=True):
 
   for i,x in enumerate(t):
     if verbose and i%100==0: print('%2.1f%% done'%(100*float(i)/float(t.GetEntries())),end='\r')
-    if not precuts(x,run,0): continue
-    if not postcuts(x): continue
+    if overlay and not truthCuts(x,'overlay',False): continue 
+    if not precuts(x,run,cutMode): continue
+    if cutMode in [0,2]:
+			if not postcuts(x,cutMode): continue
     
     idx = tuple((x.run,x.subrun,x.event))
     idxv = [x.run,x.subrun,x.event,x.vtxid]
