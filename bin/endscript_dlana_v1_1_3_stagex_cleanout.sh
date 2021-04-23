@@ -74,7 +74,8 @@ rm -f larcv_hist*.root*
 rm -f larcv*.root*
 rm -f larlite_backtracker*.root*
 rm -f reco_stage_1a_hist*.root*
-rm -f reco_stage_2_hist_*.root*
+rm -f reco_stage_2_hist*.root*
+rm -f ana_hist*.root*
 rm -f thrumu_outfile*.root*
 echo "remaining root files: "
 ls -lh *.root

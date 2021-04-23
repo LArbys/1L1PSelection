@@ -23,7 +23,6 @@ STANDARD_EVENT_INDEXED_TREES_STR = """
     partroi_segment_tree
     NuFilterTree
     MCTree
-    PGraphTruthMatch
     EventVertexTree
     pgraph_inter_par_tree
     pixel2d_inter_par_pixel_tree
