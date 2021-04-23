@@ -28,9 +28,9 @@ def load_BDT_ensemble( model_type, bdt_dir, nbdts=10, runs=[1,2,3] ):
         bdt_dict[run] = {}
         for b in range(nbdts):
             if model_type == "1m1p":
-                bdt_dict[r][b] = pickle.load(open(bdt_dir+'BDTweights_R%i_%i.pickle'%(r,b),'rb'))
+                bdt_dict[run][b] = pickle.load(open(bdt_dir+'/BDTweights_R%i_%i_py2.pickle'%(run,b),'rb'))
             elif model_type=="1e1p":
-                bdt_dict[r][b] = pickle.load(open(bdt_dir+'BDTweights_R%i_%i.pickle'%(r,b),'rb'))
+                bdt_dict[run][b] = pickle.load(open(bdt_dir+'/BDTweights_R%i_%i_py2.pickle'%(run,b),'rb'))
             else:
                 raise ValueError("no model")
     return bdt_dict
@@ -421,14 +421,14 @@ def rerun_1mu1p_ensemble( model, fvv, DATARUN, nbdts=10 ):
 
         scores = np.zeros((nbdts))
         for b in range(nbdts):
-            sigprob = model[DATARUN][b].predict_proba(input_varbs)[:,1]
+            sigprob = model[DATARUN][b].predict_proba(vars_np)[:,1]
             scores[b] = sigprob
 
         sigavg = np.average(scores)
         sigmedian = np.median(scores)
         sigmax = np.max(scores)
         print "[bdtutil::rerun_1m1p_bdt] rsev=(",rsev,")"
-        print "  BDT[1mu1p]-ensemple ave-output: ",sigavg
+        print "  BDT[1mu1p]-ensemble ave=",sigavg," median=",sigmedian," max=",sigmax
         bdtout_dict[rsev] = sigavg
         
     return bdtout_dict

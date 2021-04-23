@@ -101,7 +101,7 @@ class DLFilter(RootAnalyze):
             self.bdt_1mu1p_weightfile = self.filter_pars["bdt_weights_1mu1p"]
             if self.filter_pars["bdt_model_1mu1p"]=="single":
                 self.bdt_model_1mu1p = bdtutil.load_BDT_model( self.bdt_1mu1p_weightfile )
-            else if self.filter_pars["bdt_model_1mu1p"]=="ensemble":
+            elif self.filter_pars["bdt_model_1mu1p"]=="ensemble":
                 self.bdt_model_1mu1p = bdtutil.load_BDT_ensemble( "1m1p", self.bdt_1mu1p_weightfile, nbdts=10, runs=[self.DATARUN] )
             print "DLFilter: RERUN 1MU1P BDT"
         else:
@@ -112,7 +112,7 @@ class DLFilter(RootAnalyze):
             self.bdt_1e1p_weightfile = self.filter_pars["bdt_weights_1e1p"]
             if self.filter_pars["bdt_model_1mu1p"]=="single":
                 self.bdt_model_1e1p = bdtutil.load_BDT_model( self.bdt_1e1p_weightfile )
-            else if self.filter_pars["bdt_model_1mu1p"]=="ensemble":                
+            elif self.filter_pars["bdt_model_1mu1p"]=="ensemble":                
                 self.bdt_model_1e1p = bdtutil.load_BDT_ensemble( "1e1p", self.bdt_1e1p_weightfile, nbdts=10, runs=[self.DATARUN] )
             print "DLFilter: RERUN 1e1P BDT"
         else:

@@ -69,6 +69,7 @@ class DLMultiFilter(RootAnalyze):
         self.input_file_list = [] # gets append to during open_input function
         self.filter_pars = config['modules']['dl_multi_filter']
         self.filter_types = self.filter_pars['filter_type']
+        self.DATARUN = self.filter_pars['data_run']
 
         if type(self.filter_types) is str:
             self.filter_types = [self.filter_types]
@@ -106,19 +107,24 @@ class DLMultiFilter(RootAnalyze):
         if "rerun_1mu1p_bdt" in self.filter_pars and bool(self.filter_pars["rerun_1mu1p_bdt"]):
             self.rerun_1mu1p_bdt = True
             self.bdt_1mu1p_weightfile = self.filter_pars["bdt_weights_1mu1p"]
-            self.bdt_model_1mu1p = bdtutil.load_BDT_model( self.bdt_1mu1p_weightfile )            
+            if self.filter_pars["bdt_model_1mu1p"]=="single":
+                self.bdt_model_1mu1p = bdtutil.load_BDT_model( self.bdt_1mu1p_weightfile )
+            elif self.filter_pars["bdt_model_1mu1p"]=="ensemble":
+                self.bdt_model_1mu1p = bdtutil.load_BDT_ensemble( "1m1p", self.bdt_1mu1p_weightfile, nbdts=10, runs=[self.DATARUN] )
             print "DLMultiFilter: RERUN 1MU1P BDT"
         else:
             self.rerun_1mu1p_bdt = False
 
         if "rerun_1e1p_bdt" in self.filter_pars and bool(self.filter_pars["rerun_1e1p_bdt"]):
-            self.rerun_1e1p_bdt = True
+            self.rerun_1e1p_bdt = True            
             self.bdt_1e1p_weightfile = self.filter_pars["bdt_weights_1e1p"]
-            self.bdt_model_1e1p = bdtutil.load_BDT_model( self.bdt_1e1p_weightfile )
+            if self.filter_pars["bdt_model_1e1p"]=="single":
+                self.bdt_model_1e1p = bdtutil.load_BDT_model( self.bdt_1e1p_weightfile )
+            elif self.filter_pars["bdt_model_1e1p"]=="ensemble":                
+                self.bdt_model_1e1p = bdtutil.load_BDT_ensemble( "1e1p", self.bdt_1e1p_weightfile, nbdts=10, runs=[self.DATARUN] )
             print "DLMultiFilter: RERUN 1e1P BDT"
         else:
-            self.rerun_1e1p_bdt = False
-            
+            self.rerun_1e1p_bdt = False            
 
         self._DEBUG_MODE_ = False
             
@@ -294,7 +300,10 @@ class DLMultiFilter(RootAnalyze):
         # we get back a dictionary indexed by (run,subrun,event,vertex)
         # which stores replacement values for the BDT variables and BDT score
         if self.rerun_1mu1p_bdt:
-            self.bdtoutput_1mu1p = bdtutil.rerun_1mu1p_models( self.bdt_model_1mu1p, finalvertextree )
+            if self.filter_pars["bdt_model_1mu1p"]=="single":            
+                self.bdtoutput_1mu1p = bdtutil.rerun_1mu1p_models( self.bdt_model_1mu1p, finalvertextree )
+            else:
+                self.bdtoutput_1mu1p = bdtutil.rerun_1mu1p_ensemble( self.bdt_model_1mu1p, finalvertextree, self.DATARUN, nbdts=10 )                
         else:
             self.bdtoutput_1mu1p = {}
 
@@ -302,7 +311,10 @@ class DLMultiFilter(RootAnalyze):
         # we get back a dictionary indexed by (run,subrun,event,vertex)
         # which stores replacement values for the BDT variables and BDT score
         if self.rerun_1e1p_bdt:
-            self.bdtoutput_1e1p = bdtutil.rerun_1e1p_models( self.bdt_model_1e1p, finalvertextree )
+            if self.filter_pars["bdt_model_1e1p"]=="single":                        
+                self.bdtoutput_1e1p = bdtutil.rerun_1e1p_models( self.bdt_model_1e1p, finalvertextree )
+            else:
+                self.bdtoutput_1e1p = bdtutil.rerun_1e1p_ensemble( self.bdt_model_1e1p, finalvertextree, self.DATARUN, nbdts=10 )
         else:
             self.bdtoutput_1e1p = {}
 
@@ -499,7 +511,7 @@ class DLMultiFilter(RootAnalyze):
                  and dlanatree.OpenAng>0.5
                  and dlanatree.ChargeNearTrunk>0
                  and dlanatree.FailedBoost_1m1p!=1
-                 and bdtscore_1mu1p_nu<0.7 ):
+                 and bdtscore_1mu1p_nu>=0.5 ):
                 passes = True
             
             # for debug: make something pass in order to check
@@ -522,7 +534,7 @@ class DLMultiFilter(RootAnalyze):
             print "  opening angle: ",dlanatree.OpenAng>0.5," (",dlanatree.OpenAng,")"
             print "  chargeneartrunk: ",dlanatree.ChargeNearTrunk>0," (",dlanatree.ChargeNearTrunk,")"
             print "  failedboost_1m1p: ",dlanatree.FailedBoost_1m1p!=1," (",dlanatree.FailedBoost_1m1p,")"
-            print "  bdt score: ",bdtscore_1mu1p_nu<0.7," (",bdtscore_1mu1p_nu,")"
+            print "  bdt score: ",bdtscore_1mu1p_nu>=0.5," (",bdtscore_1mu1p_nu,")"
 
         # for debug only
         #rsekeys = rsev_dict.keys()
