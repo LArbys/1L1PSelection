@@ -121,7 +121,7 @@ class DLMultiFilter(RootAnalyze):
             if self.filter_pars["bdt_model_1e1p"]=="single":
                 self.bdt_model_1e1p = bdtutil.load_BDT_model( self.bdt_1e1p_weightfile )
             elif self.filter_pars["bdt_model_1e1p"]=="ensemble":                
-                self.bdt_model_1e1p = bdtutil.load_BDT_ensemble( "1e1p", self.bdt_1e1p_weightfile, nbdts=10, runs=[self.DATARUN] )
+                self.bdt_model_1e1p = bdtutil.load_BDT_ensemble( "1e1p", self.bdt_1e1p_weightfile, nbdts=20, runs=[self.DATARUN] )
             print "DLMultiFilter: RERUN 1e1P BDT"
         else:
             self.rerun_1e1p_bdt = False            

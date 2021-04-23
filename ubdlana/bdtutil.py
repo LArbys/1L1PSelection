@@ -2,6 +2,7 @@ import os,sys,pickle
 import scipy
 import xgboost
 import numpy as np
+import bdt1e1p_helper
 
 """
 utility functions to deploy BDT models on the selection variables
@@ -30,7 +31,7 @@ def load_BDT_ensemble( model_type, bdt_dir, nbdts=10, runs=[1,2,3] ):
             if model_type == "1m1p":
                 bdt_dict[run][b] = pickle.load(open(bdt_dir+'/BDTweights_R%i_%i_py2.pickle'%(run,b),'rb'))
             elif model_type=="1e1p":
-                bdt_dict[run][b] = pickle.load(open(bdt_dir+'/BDTweights_R%i_%i_py2.pickle'%(run,b),'rb'))
+                bdt_dict[run][b] = pickle.load(open(bdt_dir+'/BDTweights_1e1p_R%i_%i_py2.pickle'%(run,b),'rb'))
             else:
                 raise ValueError("no model")
     return bdt_dict
@@ -429,6 +430,46 @@ def rerun_1mu1p_ensemble( model, fvv, DATARUN, nbdts=10 ):
         sigmax = np.max(scores)
         print "[bdtutil::rerun_1m1p_bdt] rsev=(",rsev,")"
         print "  BDT[1mu1p]-ensemble ave=",sigavg," median=",sigmedian," max=",sigmax
+        bdtout_dict[rsev] = sigavg
+        
+    return bdtout_dict
+
+
+def rerun_1e1p_ensemble( model, fvv, DATARUN, nbdts=20 ):
+    """ apply the 1e1p BDT
+    
+    inputs
+    ------
+    1e1p:      xgboost model loaded from pickle file
+    dlvars:    finalvertexvariable tree (the DL ana tree)
+
+    outputs
+    -------
+    1e1p bdt score dictionary
+    """
+
+    bdtout_dict = {}
+    nentries = fvv.GetEntries()
+    print "[bdtutil::rerun_1e1p_models] rerun on ",nentries
+    for ientry in range(nentries):
+        fvv.GetEntry(ientry)
+
+        rsev = (fvv.run,fvv.subrun,fvv.event,fvv.vtxid)
+        
+        # make input vars
+        input_vars = bdt1e1p_helper.getNewShowerCalibTrainingVarbs( fvv, newCalib=True )
+        vars_np = np.asarray( [input_vars] )
+
+        scores = np.zeros((nbdts))
+        for b in range(nbdts):
+            sigprob = model[DATARUN][b].predict_proba(vars_np)[:,1]
+            scores[b] = sigprob
+
+        sigavg = np.average(scores)
+        sigmedian = np.median(scores)
+        sigmax = np.max(scores)
+        print "[bdtutil::rerun_1e1p_ensemble] rsev=(",rsev,")"
+        print "  BDT[1e1p]-ensemble ave=",sigavg," median=",sigmedian," max=",sigmax
         bdtout_dict[rsev] = sigavg
         
     return bdtout_dict

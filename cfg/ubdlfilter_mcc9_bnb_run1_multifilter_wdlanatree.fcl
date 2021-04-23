@@ -14,9 +14,9 @@ modules : { sam_metadata: {}
                                rerun_1mu1p_bdt: True
                                rerun_1e1p_bdt: True
                                bdt_model_1mu1p: "ensemble"
-                               bdt_weights_1mu1p: "/cvmfs/uboone.opensciencegrid.org/products/ubdlana/v1_1_4/Linux64bit+3.10-2.17_e17_prof/bdt_models/"
-                               bdt_model_1e1p: "single"
-                               bdt_weights_1e1p: "BDT_1e1p_Run1_6-2-20.pickle"
+                               bdt_weights_1mu1p: "/cvmfs/uboone.opensciencegrid.org/products/ubdlana/v1_1_4/Linux64bit+3.10-2.17_e17_prof/bdt_models/ensemble_1m1p/"
+                               bdt_model_1e1p: "ensemble"
+                               bdt_weights_1mu1p: "/cvmfs/uboone.opensciencegrid.org/products/ubdlana/v1_1_4/Linux64bit+3.10-2.17_e17_prof/bdt_models/ensemble_1e1p/"
                                event_tree: "dlana/ubdlana_id_tree"
                            }
           }
