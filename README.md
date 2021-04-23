@@ -13,6 +13,8 @@ These scripts are used to run on MC files on the Tufts cluster.
 * v1_1_4: used in Gen-1 analysis. Ensemble BDT setup for 1m1p and 1e1p selection.
 * v1_1_3: used in Gen-1 analysis. single BDT setup for 1m1p and 1e1p selection.
 
+See READMEs in `bdt_models` and `showercnn_models` folders for information on the models used.
+
 
 ## UBDLANA
 
