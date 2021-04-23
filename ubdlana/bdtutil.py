@@ -16,7 +16,7 @@ def load_BDT_model( weightfile_name ):
     print "[bdtutil::load_BDT_model] loaded ",weight_path
     return MyBDT
 
-def load_BDT_ensemble( model_type, bdt_dir, nbdts=10, nruns=[1,2,3] ):
+def load_BDT_ensemble( model_type, bdt_dir, nbdts=10, runs=[1,2,3] ):
     """ used to load bdt ensembles used in v1_1_4 ubdlana code"""
     MODELS=  ["1e1p","1m1p"]
 
@@ -24,7 +24,7 @@ def load_BDT_ensemble( model_type, bdt_dir, nbdts=10, nruns=[1,2,3] ):
         raise ValueError("[ubdlana::bdtutil::load_BDT_ensemble] Did not recognize model, \"{}\". Choices: {}".format(model_type,MODELS))
 
     bdt_dict = {}
-    for run in nruns:
+    for run in runs:
         bdt_dict[run] = {}
         for b in range(nbdts):
             if model_type == "1m1p":
@@ -376,3 +376,59 @@ def apply_1mu1p_ensemble_model( model, dlvars, DATARUN, nbdts=10 ):
     #print vars_np
     print "BDT[1mu1p]-ENSEMBLE output: ave=%.1f median=%.1f max=%.1f"%(sigavg,sigmedian,sigmax)
     return {"ave":sigavg,"median":sigmedian,"max":sigmax}
+
+def rerun_1mu1p_ensemble( model, fvv, DATARUN, nbdts=10 ):
+    """ rerun the 1mu1p Ensemble BDT on a tree
+    
+    inputs
+    ------
+    model:  BDT model. See load_BDT_ensemble above.
+    dlvars: finalvertexvariable tree (the DL ana tree)
+
+    outputs
+    -------
+    score [float] 1m1p nu score
+    """
+    bdtout_dict = {}
+    nentries = fvv.GetEntries()
+    print "[bdtutil::rerun_1mu1p_models] rerun on ",nentries
+    for ientry in range(nentries):
+        fvv.GetEntry(ientry)
+        rsev = (fvv.run,fvv.subrun,fvv.event,fvv.vtxid)
+        
+        # make input vars
+        input_vars = [[
+            fvv.Phis,
+            fvv.ChargeNearTrunk,
+            fvv.Enu_1m1p,
+            fvv.PhiT_1m1p,
+            fvv.AlphaT_1m1p,
+            fvv.PT_1m1p,      
+            fvv.PTRat_1m1p,
+            fvv.BjXB_1m1p,        
+            fvv.BjYB_1m1p,
+            fvv.SphB_1m1p,
+            fvv.Q0_1m1p,
+            fvv.Q3_1m1p,        
+            fvv.Lepton_PhiReco,
+            fvv.Lepton_TrackLength,
+            fvv.Proton_PhiReco,
+            fvv.Proton_ThetaReco,
+        ]]
+
+        vars_np = np.asarray( input_vars )
+        #print vars_np
+
+        scores = np.zeros((nbdts))
+        for b in range(nbdts):
+            sigprob = model[DATARUN][b].predict_proba(input_varbs)[:,1]
+            scores[b] = sigprob
+
+        sigavg = np.average(scores)
+        sigmedian = np.median(scores)
+        sigmax = np.max(scores)
+        print "[bdtutil::rerun_1m1p_bdt] rsev=(",rsev,")"
+        print "  BDT[1mu1p]-ensemple ave-output: ",sigavg
+        bdtout_dict[rsev] = sigavg
+        
+    return bdtout_dict

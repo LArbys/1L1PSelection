@@ -340,11 +340,11 @@ class DLAnalyze(RootAnalyze):
         isensemble_1m1p = False
         if self.bdt_model_1e1p is None and self.weights_1e1p_model != "DoNotRun":
             if self.weights_1e1p_nu in ["1e1p-ensemble"]:            
-                self.bdt_model_1e1p = bdtutil.load_BDT_model( "1e1p", self.weights_1e1p_nu )
+                self.bdt_model_1e1p = bdtutil.load_BDT_model( "1e1p", self.weights_1e1p_nu, runs=[self.DATARUN] )
                 isensemble_1e1p = True
         if self.bdt_model_1mu1p is None and self.weights_1m1p_model != "DoNotRun":
             if self.weights_1m1p in ["1m1p-ensemble"]:
-                self.bdt_model_1mu1p = bdtutil.load_BDT_ensemble( "1m1p", self.weights_1mu1p )
+                self.bdt_model_1mu1p = bdtutil.load_BDT_ensemble( "1m1p", self.weights_1mu1p, runs=[self.DATARUN] )
                 isensemble_1m1p = True                
             else:
                 self.bdt_model_1mu1p = bdtutil.load_BDT_model( self.weights_1mu1p )

@@ -70,6 +70,8 @@ class DLFilter(RootAnalyze):
         self.filter_pars = config['modules']['dlfilter']
         self.filter_type = self.filter_pars['filter_type']
         self.sample_type = self.filter_pars['sample_type']
+        self.DATARUN     = self.filter_pars['data_run']
+        
         if 'event_tree' in self.filter_pars:
             self.event_tree  = self.filter_pars['event_tree']
         else:
@@ -97,15 +99,21 @@ class DLFilter(RootAnalyze):
         if "rerun_1mu1p_bdt" in self.filter_pars and bool(self.filter_pars["rerun_1mu1p_bdt"]):
             self.rerun_1mu1p_bdt = True
             self.bdt_1mu1p_weightfile = self.filter_pars["bdt_weights_1mu1p"]
-            self.bdt_model_1mu1p = bdtutil.load_BDT_model( self.bdt_1mu1p_weightfile )            
+            if self.filter_pars["bdt_model_1mu1p"]=="single":
+                self.bdt_model_1mu1p = bdtutil.load_BDT_model( self.bdt_1mu1p_weightfile )
+            else if self.filter_pars["bdt_model_1mu1p"]=="ensemble":
+                self.bdt_model_1mu1p = bdtutil.load_BDT_ensemble( "1m1p", self.bdt_1mu1p_weightfile, nbdts=10, runs=[self.DATARUN] )
             print "DLFilter: RERUN 1MU1P BDT"
         else:
             self.rerun_1mu1p_bdt = False
 
         if "rerun_1e1p_bdt" in self.filter_pars and bool(self.filter_pars["rerun_1e1p_bdt"]):
-            self.rerun_1e1p_bdt = True
+            self.rerun_1e1p_bdt = True            
             self.bdt_1e1p_weightfile = self.filter_pars["bdt_weights_1e1p"]
-            self.bdt_model_1e1p = bdtutil.load_BDT_model( self.bdt_1e1p_weightfile )
+            if self.filter_pars["bdt_model_1mu1p"]=="single":
+                self.bdt_model_1e1p = bdtutil.load_BDT_model( self.bdt_1e1p_weightfile )
+            else if self.filter_pars["bdt_model_1mu1p"]=="ensemble":                
+                self.bdt_model_1e1p = bdtutil.load_BDT_ensemble( "1e1p", self.bdt_1e1p_weightfile, nbdts=10, runs=[self.DATARUN] )
             print "DLFilter: RERUN 1e1P BDT"
         else:
             self.rerun_1e1p_bdt = False
@@ -316,7 +324,10 @@ class DLFilter(RootAnalyze):
         # we get back a dictionary indexed by (run,subrun,event,vertex)
         # which stores replacement values for the BDT variables and BDT score
         if self.rerun_1mu1p_bdt:
-            self.bdtoutput_1mu1p = bdtutil.rerun_1mu1p_models( self.bdt_model_1mu1p, finalvertextree )
+            if self.filter_pars["bdt_model_1mu1p"]=="single":            
+                self.bdtoutput_1mu1p = bdtutil.rerun_1mu1p_models( self.bdt_model_1mu1p, finalvertextree )
+            else:
+                self.bdtoutput_1mu1p = bdtutil.rerun_1mu1p_ensemble( self.bdt_model_1mu1p, finalvertextree, self.DATARUN, nbdts=10 )
         else:
             self.bdtoutput_1mu1p = {}
 
@@ -324,7 +335,10 @@ class DLFilter(RootAnalyze):
         # we get back a dictionary indexed by (run,subrun,event,vertex)
         # which stores replacement values for the BDT variables and BDT score
         if self.rerun_1e1p_bdt:
-            self.bdtoutput_1e1p = bdtutil.rerun_1e1p_models( self.bdt_model_1e1p, finalvertextree )
+            if self.filter_pars["bdt_model_1e1p"]=="single":                        
+                self.bdtoutput_1e1p = bdtutil.rerun_1e1p_models( self.bdt_model_1e1p, finalvertextree )
+            else:
+                self.bdtoutput_1e1p = bdtutil.rerun_1e1p_ensemble( self.bdt_model_1e1p, finalvertextree, self.DATARUN, nbdts=10 )
         else:
             self.bdtoutput_1e1p = {}
 
@@ -513,7 +527,8 @@ class DLFilter(RootAnalyze):
                  and dlanatree.OpenAng>0.5
                  and dlanatree.ChargeNearTrunk>0
                  and dlanatree.FailedBoost_1m1p!=1
-                 and bdtscore_1mu1p_nu<0.7 ):
+                 and bdtscore_1mu1p_nu>0.5 ):
+                # note this cut is not compatible with single bdt!!
                 passes = True
             
             # for debug: make something pass in order to check
@@ -536,7 +551,7 @@ class DLFilter(RootAnalyze):
             print "  opening angle: ",dlanatree.OpenAng>0.5," (",dlanatree.OpenAng,")"
             print "  chargeneartrunk: ",dlanatree.ChargeNearTrunk>0," (",dlanatree.ChargeNearTrunk,")"
             print "  failedboost_1m1p: ",dlanatree.FailedBoost_1m1p!=1," (",dlanatree.FailedBoost_1m1p,")"
-            print "  bdt score: ",bdtscore_1mu1p_nu<0.7," (",bdtscore_1mu1p_nu,")"
+            print "  bdt score: ",bdtscore_1mu1p_nu>0.5," (",bdtscore_1mu1p_nu,")"
 
         # for debug only
         #rsekeys = self.rsev_dict.keys()
