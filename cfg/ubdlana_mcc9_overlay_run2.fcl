@@ -11,7 +11,7 @@ modules : { sam_metadata : {}
 	    dlanalyze    : { another_tree : "DLAnaTree"
                              tracker_tree : "_recoTree"
                              precut_ophits: "ophitBeamCalib"
-			     data_run: 3,
+			     data_run: 2,
                              crtveto: { opflash_producer:"simpleFlashBeam"
                                         crthit_producer:"crthitcorr" }
                              sample_type: "Overlay"

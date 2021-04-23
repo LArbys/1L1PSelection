@@ -16,6 +16,27 @@ def load_BDT_model( weightfile_name ):
     print "[bdtutil::load_BDT_model] loaded ",weight_path
     return MyBDT
 
+def load_BDT_ensemble( model_type, bdt_dir, nbdts=10, nruns=[1,2,3] ):
+    """ used to load bdt ensembles used in v1_1_4 ubdlana code"""
+    MODELS=  ["1e1p","1m1p"]
+
+    if model_type not in ["1e1p", "1m1p"]:
+        raise ValueError("[ubdlana::bdtutil::load_BDT_ensemble] Did not recognize model, \"{}\". Choices: {}".format(model_type,MODELS))
+
+    bdt_dict = {}
+    for run in nruns:
+        bdt_dict[run] = {}
+        for b in range(nbdts):
+            if model_type == "1m1p":
+                bdt_dict[r][b] = pickle.load(open(bdt_dir+'BDTweights_R%i_%i.pickle'%(r,b),'rb'))
+            elif model_type=="1e1p":
+                bdt_dict[r][b] = pickle.load(open(bdt_dir+'BDTweights_R%i_%i.pickle'%(r,b),'rb'))
+            else:
+                raise ValueError("no model")
+    return bdt_dict
+
+    
+
 def apply_1e1p_model( model, dlvars ):
     """ apply the 1e1p BDT 
     
@@ -305,3 +326,53 @@ BjY_1e1p]
         bdtout_dict[rsev] = probs[0]
         
     return bdtout_dict
+
+def apply_1mu1p_ensemble_model( model, dlvars, DATARUN, nbdts=10 ):
+    """ apply the 1mu1p BDT ensemble
+    
+    inputs
+    ------
+    model: dictionary of xgboost model loaded from pickle file. See load_BDT_ensemble above.
+    dlvars: instance of DLanaTree (defined dlanatree.py module)
+
+    outputs
+    -------
+    score [float] 1m1p bkg score
+    """
+
+    # make input vars
+    input_vars = [[
+        dlvars._phis[0],          # Phis,
+        dlvars._charge_near_trunk[0], #ChargeNearTrunk_UniformityCalibrated,  #!!! calibrated?
+        dlvars._enu_1m1p[0],	  # reco nu energy
+        dlvars._phiT_1m1p[0],     # PhiT_1m1p
+        dlvars._alphaT_1m1p[0],   # AlphaT_1m1p,
+        dlvars._pT_1m1p[0],       # PT_1m1p,
+        dlvars._pTRat_1m1p[0],    # PTRat_1m1p,
+        dlvars._bjXB_1m1p[0],     # Bjorken X
+        dlvars._bjYB_1m1p[0],     # Byorken Y
+        dlvars._sphB_1m1p[0],     # Sph_1m1p,
+        dlvars._q0_1m1p[0],       # Q0_1m1p,
+        dlvars._q3_1m1p[0],       # Q3_1m1p,        
+        dlvars._lepton_phi[0],    # Lepton_PhiReco,
+        dlvars._lepton_length[0], # Lepton_TrackLength,
+        dlvars._proton_phi[0],    # Proton_PhiReco,
+        dlvars._proton_theta[0],  # Proton_ThetaReco,
+        ]]
+
+    
+    vars_np = np.asarray( input_vars )
+
+    scores = np.zeros((nbdts))
+    for b in range(nbdts):
+        sigprob = model[DATARUN][b].predict_proba(input_varbs)[:,1]
+        scores[b] = sigprob
+
+    sigavg = np.average(scores)
+    sigmedian = np.median(scores)
+    sigmax = np.max(scores)
+        
+    
+    #print vars_np
+    print "BDT[1mu1p]-ENSEMBLE output: ave=%.1f median=%.1f max=%.1f"%(sigavg,sigmedian,sigmax)
+    return {"ave":sigavg,"median":sigmedian,"max":sigmax}
