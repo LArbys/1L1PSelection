@@ -1,24 +1,26 @@
-# Selection Variables and Plotting
+# UBDLANA
 
-Hey there! Welcome to my (Davio's) selection.
-This should work pretty simply and I think I commented everything quite nicely, but here's some added help:
+This branch is a significant deviation from Davio's analysis scripts.
+This includes the code used by the MicroBooNE DL working group for the Gen-1 Low energy electron search.
+This repository contains the code used to run 'dlana' and 'dlfilter' jobs for production.
+One can run the code using the `lar.py` framework used by the MicroBooNE production group.
+You can also run it independly of the `lar.py` framework through the `bin/run_ubdlana_lar.py` script.
+The dlfilter jobs use the `run_ubdl_multifilter_lar.py` script.
+These scripts are used to run on MC files on the Tufts cluster.
+
+## Versions
+
+* v1_1_4: used in Gen-1 analysis. Ensemble BDT setup for 1m1p and 1e1p selection.
+* v1_1_3: used in Gen-1 analysis. single BDT setup for 1m1p and 1e1p selection.
 
 
-1) fist thing you're gonna want to run is the MakeFinalVertexFiles-prime script for each of your samples to combine all of the separate variable files into one very convenient package. This is also where I define and store all of the reco variables we use, so take a look in here if you want to play with variables.
-2) next, you'll want to use my PickleFiles notebook to take all of the constituent parts used for preselection (which should be outlined fairly clearly in the notebook) and line everything up in convenient dataframes!
-3) The BDTTraining notebooks load these pickles up and can train BDTs on whatever variables you'd like! It'll output the weights for you.
-4) The Selection notebooks load these pickles and your BDT weights and can perform selection for you!
-
-# FNAL Workflow
-
-Documentation by Taritree.
+## UBDLANA
 
 The DLMerged file (from wire-cell chain) is the assumed input.
 For each file, we need to run:
 * Shower Reco
 * MPID
 * Selection variable maker
-
 
 ## Example running the command
 
@@ -46,6 +48,7 @@ Steps:
 
 * build `dllee_unified` on FNAL or setup your existing copy.  Refer to the README in the `dllee_unified` folder. 
   But, as a reminder, there are scripts to setup and build `dllee_unified`. Also, you want the `mcc9_prod1_29e_rc` branch.
+  If you have access to CVMFS, you may also setup a copy of dllee_unified via UPS.
 * go into `configure.sh` in this repo and comment out 
 
       setup dllee_unified develop -q e17:prof
