@@ -1,22 +1,22 @@
 #include "sam_microboone.fcl"
 
-process_name : dlfilter
-services : { FileCatalogMetadata: @local::art_file_catalog_data }
-input_tree : "larlite_id_tree"
+process_name : dl_multi_filter
+services : { FileCatalogMetadata: @local::art_file_catalog_data }
+input_tree : "dlana/ubdlana_id_tree"
 loop_over_entries : True
 dump_every: 1
 modules : { sam_metadata: {}
-	    dlfilter: { filter_type:["numu-sideband","pi0-lowBDT-sideband","1e1p-lowBDT-sideband","1e1p-highE-sideband"]
-                        rerun_precuts: False
-                        precut_ophits: "ophitBeamCalib"
-                        sample_type: "BNB"
-			data_run: 1
-			rerun_1mu1p_bdt: True
-			rerun_1e1p_bdt: True
-			bdt_1mu1p_model: "ensemble"
-			bdt_weights_1mu1p: "/cvmfs/uboone.opensciencegrid.org/products/ubdlana/v1_1_4/Linux64bit+3.10-2.17_e17_prof/bdt_models/"
-			bdt_1e1p_model: "single"
-			bdt_weights_1e1p: "BDT_1e1p_Run1_6-2-20.pickle"
-			event_tree: "larlite_id_tree"			
-                      }
+	    dl_multi_filter: { filter_type:["numu-sideband","pi0-lowBDT-sideband","1e1p-lowBDT-sideband","1e1p-highE-sideband"]
+                               rerun_precuts: False
+                               precut_ophits: "ophitBeamCalib"
+                               sample_type: "BNB"
+                               data_run: 1
+                               rerun_1mu1p_bdt: True
+                               rerun_1e1p_bdt: True
+                               bdt_model_1mu1p: "ensemble"
+                               bdt_weights_1mu1p: "/uboone/data/users/tmw/dev_ubdlana_v1_1_4/pickle_conversion/"
+                               bdt_model_1e1p: "single"
+                               bdt_weights_1e1p: "BDT_1e1p_Run1_6-2-20.pickle"
+                               event_tree: "dlana/ubdlana_id_tree"
+                           }
           }
