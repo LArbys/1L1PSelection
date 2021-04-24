@@ -29,8 +29,10 @@ def load_BDT_ensemble( model_type, bdt_dir, nbdts=10, runs=[1,2,3] ):
         bdt_dict[run] = {}
         for b in range(nbdts):
             if model_type == "1m1p":
+                print "Load into ensemble: ",'BDTweights_R%i_%i_py2.pickle'%(run,b)
                 bdt_dict[run][b] = pickle.load(open(bdt_dir+'/BDTweights_R%i_%i_py2.pickle'%(run,b),'rb'))
             elif model_type=="1e1p":
+                print "Load into ensemble: ",'BDTweights_1e1p_R%i_%i_py2.pickle'%(run,b)
                 bdt_dict[run][b] = pickle.load(open(bdt_dir+'/BDTweights_1e1p_R%i_%i_py2.pickle'%(run,b),'rb'))
             else:
                 raise ValueError("no model")
@@ -473,7 +475,7 @@ def rerun_1e1p_ensemble( model, fvv, DATARUN, nbdts=20, maxentries=None ):
         sigavg = np.average(scores)
         sigmedian = np.median(scores)
         sigmax = np.max(scores)
-        print "[bdtutil::rerun_1e1p_ensemble] rsev=(",rsev,") Electron_Edep=",input_vars[1]
+        print "[bdtutil::rerun_1e1p_ensemble] rsev=(",rsev,") Electron_Edep=",input_vars[1]," SphB_1e1p=",input_vars[4]
         print "  BDT[1e1p]-ensemble ave=",sigavg," median=",sigmedian," max=",sigmax
         bdtout_dict[rsev] = sigavg
         electron_edep_dict[rsev] = input_vars[1]

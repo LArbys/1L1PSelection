@@ -84,8 +84,6 @@ def getNewShowerCalibTrainingVarbs(x,newCalib=True,
     EeCCQE              = ECCQE(Electron_Edep,x.Lepton_ThetaReco,pid="electron",B=BE)
     SphB_1e1p           = getSphB_boost(x,Electron_Edep) 
 
-
-
     #Standard varbs
     training_varbs = [Enu_1e1p, Electron_Edep, PT_1e1p, AlphaT_1e1p, SphB_1e1p, PzEnu_1e1p, x.ChargeNearTrunk, 
                       Q0_1e1p, Q3_1e1p, x.Thetas, x.Phis, pTRat_1e1p, x.Proton_TrackLength, x.Lepton_TrackLength, 
