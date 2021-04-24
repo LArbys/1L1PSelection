@@ -378,7 +378,7 @@ def apply_1mu1p_ensemble_model( model, dlvars, DATARUN, nbdts=10 ):
     print "BDT[1mu1p]-ENSEMBLE output: ave=%.1f median=%.1f max=%.1f"%(sigavg,sigmedian,sigmax)
     return {"ave":sigavg,"median":sigmedian,"max":sigmax}
 
-def rerun_1mu1p_ensemble( model, fvv, DATARUN, nbdts=10 ):
+def rerun_1mu1p_ensemble( model, fvv, DATARUN, nbdts=10, maxentries=None ):
     """ rerun the 1mu1p Ensemble BDT on a tree
     
     inputs
@@ -431,11 +431,15 @@ def rerun_1mu1p_ensemble( model, fvv, DATARUN, nbdts=10 ):
         print "[bdtutil::rerun_1m1p_bdt] rsev=(",rsev,")"
         print "  BDT[1mu1p]-ensemble ave=",sigavg," median=",sigmedian," max=",sigmax
         bdtout_dict[rsev] = sigavg
+
+        if maxentries is not None and ientry+1==maxentries:
+            break
+
         
     return bdtout_dict
 
 
-def rerun_1e1p_ensemble( model, fvv, DATARUN, nbdts=20 ):
+def rerun_1e1p_ensemble( model, fvv, DATARUN, nbdts=20, maxentries=None ):
     """ apply the 1e1p BDT
     
     inputs
@@ -449,6 +453,7 @@ def rerun_1e1p_ensemble( model, fvv, DATARUN, nbdts=20 ):
     """
 
     bdtout_dict = {}
+    electron_edep_dict = {}
     nentries = fvv.GetEntries()
     print "[bdtutil::rerun_1e1p_models] rerun on ",nentries
     for ientry in range(nentries):
@@ -468,8 +473,11 @@ def rerun_1e1p_ensemble( model, fvv, DATARUN, nbdts=20 ):
         sigavg = np.average(scores)
         sigmedian = np.median(scores)
         sigmax = np.max(scores)
-        print "[bdtutil::rerun_1e1p_ensemble] rsev=(",rsev,")"
+        print "[bdtutil::rerun_1e1p_ensemble] rsev=(",rsev,") Electron_Edep=",input_vars[1]
         print "  BDT[1e1p]-ensemble ave=",sigavg," median=",sigmedian," max=",sigmax
         bdtout_dict[rsev] = sigavg
+        electron_edep_dict[rsev] = input_vars[1]
+        if maxentries is not None and ientry+1==maxentries:
+            break
         
-    return bdtout_dict
+    return bdtout_dict, electron_edep_dict

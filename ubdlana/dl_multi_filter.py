@@ -40,6 +40,7 @@ from larlitecv import larlitecv
 from LEEPreCuts_Functions import makePMTpars,performPMTPrecuts,getPMTPrecutDict
 from event_indexed_trees_util import is_tree_event_indexed
 import bdtutil
+import bdt1e1p_helper
 
 def make(config):
     #----------------------------------------------------------------------
@@ -70,6 +71,10 @@ class DLMultiFilter(RootAnalyze):
         self.filter_pars = config['modules']['dl_multi_filter']
         self.filter_types = self.filter_pars['filter_type']
         self.DATARUN = self.filter_pars['data_run']
+        if "maxentries" in self.filter_pars:
+            self.MAXENTRIES = int(self.filter_pars["maxentries"])
+        else:
+            self.MAXENTRIES = None
 
         if type(self.filter_types) is str:
             self.filter_types = [self.filter_types]
@@ -303,7 +308,7 @@ class DLMultiFilter(RootAnalyze):
             if self.filter_pars["bdt_model_1mu1p"]=="single":            
                 self.bdtoutput_1mu1p = bdtutil.rerun_1mu1p_models( self.bdt_model_1mu1p, finalvertextree )
             else:
-                self.bdtoutput_1mu1p = bdtutil.rerun_1mu1p_ensemble( self.bdt_model_1mu1p, finalvertextree, self.DATARUN, nbdts=10 )                
+                self.bdtoutput_1mu1p = bdtutil.rerun_1mu1p_ensemble( self.bdt_model_1mu1p, finalvertextree, self.DATARUN, nbdts=10, maxentries=self.MAXENTRIES )                
         else:
             self.bdtoutput_1mu1p = {}
 
@@ -314,9 +319,11 @@ class DLMultiFilter(RootAnalyze):
             if self.filter_pars["bdt_model_1e1p"]=="single":                        
                 self.bdtoutput_1e1p = bdtutil.rerun_1e1p_models( self.bdt_model_1e1p, finalvertextree )
             else:
-                self.bdtoutput_1e1p = bdtutil.rerun_1e1p_ensemble( self.bdt_model_1e1p, finalvertextree, self.DATARUN, nbdts=10 )
+                self.bdtoutput_1e1p, self.bdtrerun_electron_edep = \
+                bdtutil.rerun_1e1p_ensemble( self.bdt_model_1e1p, finalvertextree, self.DATARUN, nbdts=10, maxentries=self.MAXENTRIES )
         else:
             self.bdtoutput_1e1p = {}
+            self.bdtrerun_electron_edep = {}
 
         # RUN THE FILTERS ON THE VERTICES, GET RESULTS, which is dictionary of RS and RSE that pass
         self.filters_results = {}
@@ -377,6 +384,10 @@ class DLMultiFilter(RootAnalyze):
             nverticesout = 0
             # loop over input event entries
             for ientry in xrange( nevent_entries ):
+                
+                if self.MAXENTRIES is not None and ientry+1>=self.MAXENTRIES:
+                    break
+
                 larlite_id_tree.GetEntry(ientry)
                 if not self._use_ubdlana_idtree:
                     rse = ( larlite_id_tree._run_id, larlite_id_tree._subrun_id, larlite_id_tree._event_id )
@@ -414,9 +425,18 @@ class DLMultiFilter(RootAnalyze):
             if self.rerun_1e1p_bdt:
                 rerun_1e1p = array.array('f',[0.0])
                 outfvv_tree.SetBranchAddress("BDTscore_1e1p",rerun_1e1p)
+                bdtvars_1e1p = {}
+                varnames = bdt1e1p_helper.get_bdt_var_names()
+                for varname in varnames:
+                    if varname is None:
+                        continue
+                    bdtvars_1e1p[varname] = array.array('f',[0.0])
+                    outfvv_tree.SetBranchAddress(varname, bdtvars_1e1p[varname] )
 
             # FINAL VERTEX TREE LOOP
             for ientry in xrange( finalvertextree.GetEntries() ):
+                if self.MAXENTRIES is not None and ientry+1>=self.MAXENTRIES:
+                    break
                 finalvertextree.GetEntry(ientry)
                 rse  = ( finalvertextree.run, finalvertextree.subrun, finalvertextree.event)
                 rsev = ( finalvertextree.run, finalvertextree.subrun, finalvertextree.event, finalvertextree.vtxid)
@@ -442,6 +462,11 @@ class DLMultiFilter(RootAnalyze):
                     if self.rerun_1e1p_bdt:
                         print '[',filtertype,': replacing 1e1p results from rerun of rsev[',rsev,']'
                         rerun_1e1p[0] = self.bdtoutput_1e1p[rsev]
+                        varnames = bdt1e1p_helper.get_bdt_var_names()
+                        input_vars = bdt1e1p_helper.getNewShowerCalibTrainingVarbs( self.fvv_tree, newCalib=True )
+                        for n,varname in enumerate(varnames):
+                            if varname in bdtvars_1e1p:
+                                bdtvars_1e1p[varname][0] = input_vars[n]
 
                     for tree in out_vertex_indexed_trees:
                         tree.Fill()
@@ -489,6 +514,10 @@ class DLMultiFilter(RootAnalyze):
         rsev_dict = {}
 
         for ientry in xrange(dlanatree.GetEntries()):
+
+            if self.MAXENTRIES is not None and ientry+1>=self.MAXENTRIES:
+                break
+
             dlanatree.GetEntry(ientry)
 
             passes = False
@@ -553,6 +582,10 @@ class DLMultiFilter(RootAnalyze):
         rse_vtxid = {}
 
         for ientry in xrange(dlanatree.GetEntries()):
+
+            if self.MAXENTRIES is not None and ientry+1>=self.MAXENTRIES:
+                break
+
             dlanatree.GetEntry(ientry)
 
             passes = False
@@ -607,6 +640,10 @@ class DLMultiFilter(RootAnalyze):
         rsev_dict = {}
 
         for ientry in xrange(dlanatree.GetEntries()):
+
+            if self.MAXENTRIES is not None and ientry+1>=self.MAXENTRIES:
+                break
+
             dlanatree.GetEntry(ientry)
 
             passes = False
@@ -651,6 +688,10 @@ class DLMultiFilter(RootAnalyze):
         rse_vtxid = {}
 
         for ientry in xrange(dlanatree.GetEntries()):
+
+            if self.MAXENTRIES is not None and ientry+1>=self.MAXENTRIES:
+                break
+
             dlanatree.GetEntry(ientry)
 
             rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
@@ -696,6 +737,10 @@ class DLMultiFilter(RootAnalyze):
         rsev_dict = {}
 
         for ientry in xrange(dlanatree.GetEntries()):
+
+            if self.MAXENTRIES is not None and ientry+1>=self.MAXENTRIES:
+                break
+
             dlanatree.GetEntry(ientry)
 
             passes = False
@@ -735,6 +780,10 @@ class DLMultiFilter(RootAnalyze):
         max_rse = {}
 
         for ientry in xrange(dlanatree.GetEntries()):
+
+            if self.MAXENTRIES is not None and ientry+1>=self.MAXENTRIES:
+                break
+
             dlanatree.GetEntry(ientry)
 
             rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
@@ -788,6 +837,10 @@ class DLMultiFilter(RootAnalyze):
         rsev_dict = {}
 
         for ientry in xrange(dlanatree.GetEntries()):
+
+            if self.MAXENTRIES is not None and ientry+1>=self.MAXENTRIES:
+                break
+
             dlanatree.GetEntry(ientry)
 
             passes = False
@@ -836,6 +889,10 @@ class DLMultiFilter(RootAnalyze):
         rse_vtxid = {}
 
         for ientry in xrange(dlanatree.GetEntries()):
+
+            if self.MAXENTRIES is not None and ientry+1>=self.MAXENTRIES:
+                break
+
             dlanatree.GetEntry(ientry)
 
             rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
@@ -881,6 +938,10 @@ class DLMultiFilter(RootAnalyze):
         rsev_dict = {}
 
         for ientry in xrange(dlanatree.GetEntries()):
+
+            if self.MAXENTRIES is not None and ientry+1>=self.MAXENTRIES:
+                break
+
             dlanatree.GetEntry(ientry)
 
             passes = False
@@ -931,6 +992,10 @@ class DLMultiFilter(RootAnalyze):
         rse_vtxid = {}
 
         for ientry in xrange(dlanatree.GetEntries()):
+
+            if self.MAXENTRIES is not None and ientry+1>=self.MAXENTRIES:
+                break
+
             dlanatree.GetEntry(ientry)
 
             rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
@@ -946,8 +1011,11 @@ class DLMultiFilter(RootAnalyze):
 
             if self.rerun_1e1p_bdt:
                 print "[pi0 filter] replacing 1e1p bdt scores with recalculated ones"
-                print "  nu: old=",dlanatree.BDTscore_1e1p," new=",self.bdtoutput_1e1p[rsev]
-                bdtscore_1e1p = self.bdtoutput_1e1p[rsev]
+                if rsev in self.bdtoutput_1e1p:
+                    print "  nu: old=",dlanatree.BDTscore_1e1p," new=",self.bdtoutput_1e1p[rsev]
+                    bdtscore_1e1p = self.bdtoutput_1e1p[rsev]
+                else:
+                    bdtscore_1e1p = 0.0
             else:
                 bdtscore_1e1p = dlanatree.BDTscore_1e1p
 
@@ -988,6 +1056,10 @@ class DLMultiFilter(RootAnalyze):
         rsev_dict = {}
 
         for ientry in xrange(dlanatree.GetEntries()):
+
+            if self.MAXENTRIES is not None and ientry+1>=self.MAXENTRIES:
+                break
+
             dlanatree.GetEntry(ientry)
 
             passes = False
@@ -1034,6 +1106,10 @@ class DLMultiFilter(RootAnalyze):
         rse_vtxid = {}
 
         for ientry in xrange(dlanatree.GetEntries()):
+
+            if self.MAXENTRIES is not None and ientry+1>=self.MAXENTRIES:
+                break
+
             dlanatree.GetEntry(ientry)
 
             passes = False
@@ -1091,6 +1167,10 @@ class DLMultiFilter(RootAnalyze):
         rsev_dict = {}
 
         for ientry in xrange(dlanatree.GetEntries()):
+
+            if self.MAXENTRIES is not None and ientry+1>=self.MAXENTRIES:
+                break
+
             dlanatree.GetEntry(ientry)
 
             passes = False
@@ -1141,6 +1221,10 @@ class DLMultiFilter(RootAnalyze):
         print "[ dl_multi_filter::RSE filter ] number of (rse) in list: ",len(rse_list)
 
         for ientry in xrange(dlanatree.GetEntries()):
+
+            if self.MAXENTRIES is not None and ientry+1>=self.MAXENTRIES:
+                break
+
             dlanatree.GetEntry(ientry)
 
             passes = False
