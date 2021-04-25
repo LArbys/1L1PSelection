@@ -16,6 +16,7 @@ Qualifiers = "e17:prof"
     setupRequired( scikit_learn  v0_20_0 -q e17:p2714b:openblas:prof )
     #setupRequired( ubutil   v08_00_00_27 -q e17:prof )
     setupRequired( ubutil   v08_00_00_47 -q e17:prof )
+    setupRequired( ubevt v08_00_00_40 -q e17:prof )
 
 Common:
   Action = setup
