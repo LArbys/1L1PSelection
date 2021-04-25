@@ -40,6 +40,8 @@ from larlitecv import larlitecv
 from LEEPreCuts_Functions import makePMTpars,performPMTPrecuts,getPMTPrecutDict
 from event_indexed_trees_util import is_tree_event_indexed
 import bdtutil
+import mpidutil
+from lib_mpid_torch.rootdata_pid import ROOTData
 import bdt1e1p_helper
 
 def make(config):
@@ -130,6 +132,13 @@ class DLMultiFilter(RootAnalyze):
             print "DLMultiFilter: RERUN 1e1P BDT"
         else:
             self.rerun_1e1p_bdt = False            
+
+        if "rerun_mpid" in self.filter_pars and self.filter_pars["rerun_mpid"]==True:
+            self.mpid_cfg_path = os.environ["UBMPIDNET_DIR"]+"/production_cfg/inference_config_tufts_WC.cfg"
+            self.RUN_MPID = True
+        else:
+            self.mpid_cfg_path = False
+            self.RUN_MPID = False
 
         self._DEBUG_MODE_ = False
             
@@ -325,6 +334,57 @@ class DLMultiFilter(RootAnalyze):
             self.bdtoutput_1e1p = {}
             self.bdtrerun_electron_edep = {}
 
+        # setup the MPID CNN
+        if self.RUN_MPID:
+            # we'll need (1) to load the MPID model and (2) load the larcv data IOManager to read in wire images
+            self.mpid, self.mpid_cfg = mpidutil.load_mpid_model( self.mpid_cfg_path )
+            # larcv data
+            self.iolcv = larcv.IOManager(larcv.IOManager.kREAD,"larcv")
+            self.iolcv.specify_data_read( larcv.kProductImage2D, "wire" )
+            self.iolcv.specify_data_read(larcv.kProductPGraph,"inter_par")
+            self.iolcv.specify_data_read(larcv.kProductPixel2D,"inter_par_pixel")
+            self.iolcv.specify_data_read(larcv.kProductPixel2D,"inter_img_pixel")
+            self.iolcv.specify_data_read(larcv.kProductPixel2D,"inter_int_pixel")
+            self.iolcv.add_in_file( input_file.GetName() )
+            self.iolcv.initialize()
+
+            # MAKE THE MPID DATACLASS AND TREE
+            self.mpid_dir = self.output_file.mkdir("mpid_all")
+            self.mpid_dir.cd()
+            self.mpid_data = ROOTData()
+            self.mpid_tree  = ROOT.TTree("multipid_tree","UB MPID score tree")
+            self.mpid_data.init_tree(self.mpid_tree)
+            self.mpid_data.reset()
+
+            tot_mpid_vertices = 0
+            self.mpid_results = {}
+            for ientry in xrange( self.iolcv.get_n_entries() ):
+                # Get the LARCV ENTRY
+                self.iolcv.read_entry(ientry)
+                
+                # run mpid on entry
+                nmpid_vertices, mpid_entry_results = mpidutil.run_mpid_on_larcv_entry( self.mpid_cfg, self.mpid, self.iolcv, self.mpid_data, self.mpid_tree,return_result_dict=True)
+                for entry_data_key in mpid_entry_results:
+                    self.mpid_results[entry_data_key] = mpid_entry_results[entry_data_key]
+                tot_mpid_vertices += nmpid_vertices
+            
+            # Get MPID results for cuts
+            print "==================================="
+            print "MPID RESULT DUMP"
+            for rsev in self.mpid_results:
+                print rsev
+                print self.mpid_results[rsev]
+            print "==================================="
+            
+        else:
+            self.mpid = None
+            self.mpid_cfg = None
+            self.iolcv = None
+            self.mpid_results = {}
+            self.mpid_data = None
+            self.mpid_tree = None
+        
+
         # RUN THE FILTERS ON THE VERTICES, GET RESULTS, which is dictionary of RS and RSE that pass
         self.filters_results = {}
         self.filters_results = self.run_all_filters( finalvertextree, self.filter_types )
@@ -440,6 +500,7 @@ class DLMultiFilter(RootAnalyze):
                 finalvertextree.GetEntry(ientry)
                 rse  = ( finalvertextree.run, finalvertextree.subrun, finalvertextree.event)
                 rsev = ( finalvertextree.run, finalvertextree.subrun, finalvertextree.event, finalvertextree.vtxid)
+
                 if rse in rse_dict and rse_dict[rse]:
                     nverticesout+=1
                     print "[",filtertype,": Vertex passes]",rse," vtxid=",finalvertextree.vtxid
@@ -470,6 +531,8 @@ class DLMultiFilter(RootAnalyze):
 
                     for tree in out_vertex_indexed_trees:
                         tree.Fill()
+
+
 
             print "=====[SUMMARY: ",filtertype,"]=================================="
             print "Num of output event-indexed trees: ",len(out_event_indexed_trees)

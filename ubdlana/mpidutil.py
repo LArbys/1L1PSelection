@@ -57,7 +57,7 @@ def load_mpid_model(CFG):
     mpid.eval()
     return mpid,cfg
 
-def run_mpid_on_larcv_entry( cfg, mpid, iom, rd, outtree ):
+def run_mpid_on_larcv_entry( cfg, mpid, iom, rd, outtree, return_result_dict=False ):
     """ run the network on current enetry in larcv iomanager 
     inputs
     ------
@@ -89,12 +89,17 @@ def run_mpid_on_larcv_entry( cfg, mpid, iom, rd, outtree ):
     print 'num of vertices, ',rd.num_vertex[0]
     print 'pgrapgh size, ',int(ev_pgr.PGraphArray().size())
     nfilled = 0
+
+    result_dict = {}
         
     for ix,pgraph in enumerate(ev_pgr.PGraphArray()):
         print "@pgid=%d" % ix
         #if (ix != 2): continue
         rd.vtxid[0] = int(ix)
    
+        rsev = (rd.run[0], rd.subrun[0], rd.event[0], rd.vtxid[0])
+        result_dict[rsev] = {}
+
         pgr = ev_pgr.PGraphArray().at(ix)
         cluster_array = pgr.ClusterIndexArray()
         if cluster_array.size()==0:
@@ -186,6 +191,9 @@ def run_mpid_on_larcv_entry( cfg, mpid, iom, rd, outtree ):
             rd.muon_int_score_torch[plane]   = score_int_v[2]
             rd.pion_int_score_torch[plane]   = score_int_v[3]
             rd.proton_int_score_torch[plane] = score_int_v[4]
+
+            result_dict[rsev][(plane,"pix")] = score_pix_v
+            result_dict[rsev][(plane,"int")] = score_int_v
             
             continue
         nfilled += 1
@@ -194,6 +202,9 @@ def run_mpid_on_larcv_entry( cfg, mpid, iom, rd, outtree ):
 
     print "number of entries filled: ",nfilled
     print "-------------------------------------------"
+    if return_result_dict:
+        return nfilled,result_dict
+
     return nfilled
         
 
