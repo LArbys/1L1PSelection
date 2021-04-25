@@ -368,17 +368,79 @@ def apply_1mu1p_ensemble_model( model, dlvars, DATARUN, nbdts=10 ):
 
     scores = np.zeros((nbdts))
     for b in range(nbdts):
-        sigprob = model[DATARUN][b].predict_proba(input_varbs)[:,1]
+        sigprob = model[DATARUN][b].predict_proba(vars_np)[:,1]
         scores[b] = sigprob
 
     sigavg = np.average(scores)
     sigmedian = np.median(scores)
     sigmax = np.max(scores)
-        
     
     #print vars_np
     print "BDT[1mu1p]-ENSEMBLE output: ave=%.1f median=%.1f max=%.1f"%(sigavg,sigmedian,sigmax)
     return {"ave":sigavg,"median":sigmedian,"max":sigmax}
+
+class BDT1e1pVariables:
+    def __init__(self, dlvars):
+
+        self.Enu_1e1p = dlvars._enu_1e1p[0]         # Enu_1e1p
+        self.Electron_Edep = dlvars._electron_E[0]  # Electron_Edep,
+        self.Proton_Edep   = dlvars._proton_E[0]    # Proton_Edep,
+        self.PT_1e1p = dlvars._pT_1e1p[0]           # PT_1e1p,
+        self.AlphaT_1e1p = dlvars._alphaT_1e1p[0]   # AlphaT_1e1p,
+        self.SphB_1e1p   = dlvars._sphB_1e1p[0]     # SphB_1e1p,
+        self.PzEnu_1e1p  = dlvars._pzEnu_1e1p[0]    # PzEnu_1e1p,
+        self.ChargeNearTrunk = dlvars._charge_near_trunk[0] #ChargeNearTrunk_UniformityCalibrated,  #!!! calibrated?
+        self.Q0_1e1p = dlvars._q0_1e1p[0]           # Q0_1e1p,
+        self.Q3_1e1p = dlvars._q3_1e1p[0]           # Q3_1e1p,
+        self.Thetas  = dlvars._thetas[0]            # Thetas,
+        self.Phis    = dlvars._phis[0]              # Phis,
+        self.PTRat_1e1p = dlvars._pTRat_1e1p[0]     # PTRat_1e1p,
+        self.BjX_1e1p = dlvars._bjX_1e1p[0]         #BjX_1e1p
+        self.BhY_1e1p = dlvars._bjY_1e1p[0]         #BjY_1e1p ]
+        self.Proton_TrackLength = dlvars._proton_length[0] # Proton_TrackLength,
+        self.Lepton_TrackLength = dlvars._lepton_length[0] # Lepton_TrackLength,
+        self.Proton_ThetaReco   = dlvars._proton_theta[0]  # Proton_ThetaReco,
+        self.Proton_PhiReco     = dlvars._proton_phi[0]    # Proton_PhiReco,
+        self.Lepton_ThetaReco   = dlvars._lepton_theta[0]  # Lepton_ThetaReco,
+        self.Lepton_PhiReco     = dlvars._lepton_phi[0]    # Lepton_PhiReco,
+        self.MinShrFrac         = max(dlvars._minshrFrac[0],-1) # MinShrFrac
+        self.MaxShrFrac         = max(dlvars._maxshrFrac[0],-1) # MaxShrFrac
+        self.shower1_sumQ_Y     = dlvars._shower1_sumq_Y[0] # shower1_sumQ_Y
+        self.shower1_smallQ_Y   = dlvars._shower1_smallq_Y[0] # shower1_smallQ_Y
+        
+
+def apply_1e1p_ensemble_model( model, dlvars, DATARUN, nbdts=20, maxentries=None ):
+    """ apply the 1e1p BDT
+    
+    inputs
+    ------
+    1e1p:      xgboost model loaded from pickle file
+    fvv:    finalvertexvariable tree (the DL ana tree)
+
+    outputs
+    -------
+    1e1p bdt score dictionary
+    """
+    rsev = (dlvars._run[0],dlvars._subrun[0],dlvars._event[0],dlvars._vtxid[0])
+    fvv = BDT1e1pVariables(dlvars)
+    
+    # make input vars
+    input_vars = bdt1e1p_helper.getNewShowerCalibTrainingVarbs( fvv, newCalib=True )
+    vars_np = np.asarray( [input_vars] )
+
+    scores = np.zeros((nbdts))
+    for b in range(nbdts):
+        sigprob = model[DATARUN][b].predict_proba(vars_np)[:,1]
+        scores[b] = sigprob
+
+    sigavg = np.average(scores)
+    sigmedian = np.median(scores)
+    sigmax = np.max(scores)
+    print "[bdtutil::apply_1e1p_ensemble_model] rsev=(",rsev,") Electron_Edep=",input_vars[1]," SphB_1e1p=",input_vars[4]
+    print "  BDT[1e1p]-ensemble ave=",sigavg," median=",sigmedian," max=",sigmax
+        
+    return {"ave":sigavg,"median":sigmedian,"max":sigmax}
+
 
 def rerun_1mu1p_ensemble( model, fvv, DATARUN, nbdts=10, maxentries=None ):
     """ rerun the 1mu1p Ensemble BDT on a tree

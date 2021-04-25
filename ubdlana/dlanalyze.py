@@ -186,6 +186,17 @@ class DLAnalyze(RootAnalyze):
         # lazy load the model. We'll load it if we run it.
         self.bdt_model_1e1p = None
         self.bdt_model_1mu1p = None 
+        if self.weights_1e1p_model in ["1e1p-ensemble"]:
+            self.isensemble_1e1p = True
+        else:
+            self.isensemble_1e1p = False
+
+        if self.weights_1m1p_model in ["1m1p-ensemble","1mu1p-ensemble"]:
+            self.isensemble_1m1p = True
+        else:
+            self.isensemble_1m1p = False
+
+
         #self.bdt_model_1e1p = bdtutil.load_1e1p_model( self.weights_1e1p_nu )
         #self.bdt_model_1mu1p_cosmic, self.bdt_model_1mu1p_nu = bdtutil.load_1mu1p_models( self.weights_1mu1p_cosmic )
         #print "Loaded BDT models"
@@ -336,16 +347,15 @@ class DLAnalyze(RootAnalyze):
         """ this is a loop over vertex entries """
 
         # lazy load bdts
-        isensemble_1e1p = False
-        isensemble_1m1p = False
         if self.bdt_model_1e1p is None and self.weights_1e1p_model != "DoNotRun":
-            if self.weights_1e1p_nu in ["1e1p-ensemble"]:            
-                self.bdt_model_1e1p = bdtutil.load_BDT_model( "1e1p", self.weights_1e1p_nu, runs=[self.DATARUN] )
-                isensemble_1e1p = True
+            if self.weights_1e1p_model in ["1e1p-ensemble"]:            
+                self.bdt_model_1e1p = bdtutil.load_BDT_ensemble( "1e1p", self.weights_1e1p_nu, runs=[self.DATARUN], nbdts=20 )
+            else:
+                self.bdt_model_1e1p = bdtutil.load_BDT_model( self.weights_1e1p_nu )
+
         if self.bdt_model_1mu1p is None and self.weights_1m1p_model != "DoNotRun":
-            if self.weights_1m1p in ["1m1p-ensemble"]:
+            if self.weights_1m1p_model in ["1m1p-ensemble"]:
                 self.bdt_model_1mu1p = bdtutil.load_BDT_ensemble( "1m1p", self.weights_1mu1p, runs=[self.DATARUN] )
-                isensemble_1m1p = True                
             else:
                 self.bdt_model_1mu1p = bdtutil.load_BDT_model( self.weights_1mu1p )
 
@@ -364,27 +374,27 @@ class DLAnalyze(RootAnalyze):
 
 
         if self.bdt_model_1e1p:
-            if not isensemble_1e1p:
+            if not self.isensemble_1e1p:
                 print "Apply Single 1e1p BDT"                
                 probs_1e1p         = bdtutil.apply_1e1p_model( self.bdt_model_1e1p, self.anatreeclass )
                 self.anatreeclass._bdtscore_1e1p[0]         = probs_1e1p[0]
             else:
                 print "Apply 1e1p BDT Ensemble"
-                probs_1e1p         = bdtutil.apply_1e1p_ensemble_model( self.bdt_model_1e1p, self.anatreeclass, self.DATARUN, nbdts=10 )
+                probs_1e1p         = bdtutil.apply_1e1p_ensemble_model( self.bdt_model_1e1p, self.anatreeclass, self.DATARUN, nbdts=20 )
                 self.anatreeclass._bdtscore_1e1p[0]         = probs_1e1p["ave"]
         else:
             print "Do not run 1e1p BDT"
             self.anatreeclass._bdtscore_1e1p[0] = 0
         
         if self.bdt_model_1mu1p:
-            if not isensemble_1m1p:
+            if not self.isensemble_1m1p:
                 print "Apply Single 1m1p BDT"
                 probs_1mu1p = bdtutil.apply_1mu1p_model( self.bdt_model_1mu1p, self.anatreeclass )                
                 self.anatreeclass._bdtscore_1mu1p_cosmic[0] = 0.0
                 self.anatreeclass._bdtscore_1mu1p_nu[0]     = probs_1mu1p[0]
             else:
                 print "Apply 1m1p BDT Ensemble"
-                probs_1mu1p  = bdtutil.apply_1m1p_ensemble_model( self.bdt_model_1mu1p, self.anatreeclass, self.DATARUN, nbdts=10)
+                probs_1mu1p  = bdtutil.apply_1mu1p_ensemble_model( self.bdt_model_1mu1p, self.anatreeclass, self.DATARUN, nbdts=10)
                 self.anatreeclass._bdtscore_1mu1p_cosmic[0] = 0.0 
                 self.anatreeclass._bdtscore_1mu1p_nu[0]     = probs_1mu1p["ave"]                
         else:
