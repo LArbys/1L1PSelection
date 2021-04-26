@@ -395,8 +395,8 @@ class BDT1e1pVariables:
         self.Thetas  = dlvars._thetas[0]            # Thetas,
         self.Phis    = dlvars._phis[0]              # Phis,
         self.PTRat_1e1p = dlvars._pTRat_1e1p[0]     # PTRat_1e1p,
-        self.BjX_1e1p = dlvars._bjX_1e1p[0]         #BjX_1e1p
-        self.BhY_1e1p = dlvars._bjY_1e1p[0]         #BjY_1e1p ]
+        self.BjXB_1e1p = dlvars._bjXB_1e1p[0]       # BjXB_1e1p,
+        self.BjYB_1e1p = dlvars._bjYB_1e1p[0]       # BjYB_1e1p ]
         self.Proton_TrackLength = dlvars._proton_length[0] # Proton_TrackLength,
         self.Lepton_TrackLength = dlvars._lepton_length[0] # Lepton_TrackLength,
         self.Proton_ThetaReco   = dlvars._proton_theta[0]  # Proton_ThetaReco,
@@ -407,6 +407,63 @@ class BDT1e1pVariables:
         self.MaxShrFrac         = max(dlvars._maxshrFrac[0],-1) # MaxShrFrac
         self.shower1_sumQ_Y     = dlvars._shower1_sumq_Y[0] # shower1_sumQ_Y
         self.shower1_smallQ_Y   = dlvars._shower1_smallq_Y[0] # shower1_smallQ_Y
+
+    def xfer_bdtvars_to_dlvars(self,bdtvars,dlvars):
+        """
+        training_varbs = [
+        0:Enu_1e1p, 
+        1:Electron_Edep, 
+        2:PT_1e1p, 
+        3:AlphaT_1e1p, 
+        4:SphB_1e1p, 
+        5:PzEnu_1e1p, 
+        6:x.ChargeNearTrunk, 
+        7:Q0_1e1p, 
+        8:Q3_1e1p, 
+        9:x.Thetas, 
+        10:x.Phis, 
+        11:pTRat_1e1p, 
+        12:x.Proton_TrackLength, 
+        13:x.Lepton_TrackLength, 
+        14:x.Proton_ThetaReco, 
+        15:x.Proton_PhiReco, 
+        16:x.Lepton_ThetaReco, 
+        17:x.Lepton_PhiReco, 
+        18:max(x.MinShrFrac,-1),
+        19:max(x.MaxShrFrac,-1), 
+        20:x.shower1_smallQ_Y/(x.shower1_sumQ_Y+1e-6), 
+        21:BjXB_1e1p, 
+        22:BjYB_1e1p]
+        """
+        # recalculated
+        dlvars._enu_1e1p[0]    = bdtvars[0]         # Enu_1e1p
+        dlvars._electron_E[0]  = bdtvars[1]         # Electron_Edep,
+        dlvars._pT_1e1p[0]     = bdtvars[2]         # PT_1e1p,
+        dlvars._alphaT_1e1p[0] = bdtvars[3]         # AlphaT_1e1p,
+        dlvars._sphB_1e1p[0]   = bdtvars[4]         # SphB_1e1p,
+        dlvars._pzEnu_1e1p[0]  = bdtvars[5]         # PzEnu_1e1p,
+        dlvars._q0_1e1p[0]     = bdtvars[7]         # Q0_1e1p,
+        dlvars._q3_1e1p[0]     = bdtvars[8]         # Q3_1e1p,
+        dlvars._pTRat_1e1p[0]  = bdtvars[11]        # PTRat_1e1p,
+        dlvars._bjXB_1e1p[0]   = bdtvars[21]        # BjX_1e1p
+        dlvars._bjYB_1e1p[0]   = bdtvars[22]        # BjX_1e1p
+
+        # uses dlvars/tree value
+        dlvars._charge_near_trunk[0] = bdtvars[6]   # x.ChargeNearTrunk
+        dlvars._thetas[0]        = bdtvars[9]       # x.Thetas,
+        dlvars._phis[0]          = bdtvars[10]      # x.Phis,
+        dlvars._proton_length[0] = bdtvars[12]      # x.Proton_TrackLength,
+        dlvars._lepton_length[0] = bdtvars[13]      # x.Lepton_TrackLength,
+        dlvars._proton_theta[0]  = bdtvars[14]      # x.Proton_ThetaReco,
+        dlvars._proton_phi[0]    = bdtvars[15]      # x.Proton_PhiReco,
+        dlvars._lepton_theta[0]  = bdtvars[16]      # x.Lepton_ThetaReco,
+        dlvars._lepton_phi[0]    = bdtvars[17]      # x.Lepton_PhiReco,
+        dlvars._minshrFrac[0]  = bdtvars[18]        # max(x.MinShrFrac,-1)
+        dlvars._maxshrFrac[0]  = bdtvars[19]        # max(x.MaxShrFrac,-1)
+
+
+        #self.shower1_sumQ_Y     = dlvars._shower1_sumq_Y[0] # shower1_sumQ_Y
+        #self.shower1_smallQ_Y   = dlvars._shower1_smallq_Y[0] # shower1_smallQ_Y
         
 
 def apply_1e1p_ensemble_model( model, dlvars, DATARUN, nbdts=20, maxentries=None ):
@@ -438,6 +495,11 @@ def apply_1e1p_ensemble_model( model, dlvars, DATARUN, nbdts=20, maxentries=None
     sigmax = np.max(scores)
     print "[bdtutil::apply_1e1p_ensemble_model] rsev=(",rsev,") Electron_Edep=",input_vars[1]," SphB_1e1p=",input_vars[4]
     print "  BDT[1e1p]-ensemble ave=",sigavg," median=",sigmedian," max=",sigmax
+
+    # make sure we update the dlvars class members with the values we calculated and passed to BDT
+    print "  original enu_1e1p: ",dlvars._enu_1e1p[0]," ",type(dlvars._enu_1e1p)
+    fvv.xfer_bdtvars_to_dlvars( input_vars, dlvars )
+    print "  updated enu_1e1p: ",dlvars._enu_1e1p[0]," ",type(dlvars._enu_1e1p)
         
     return {"ave":sigavg,"median":sigmedian,"max":sigmax}
 

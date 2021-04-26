@@ -36,7 +36,7 @@ def getSphB_boost(x,Electron_Edep):
         dEp_1e1p            = EpCCQEB_1e1p - EcalB_1e1p
         dEe_1e1p            = EeCCQEB_1e1p - EcalB_1e1p
         dEep_1e1p           = EpCCQEB_1e1p - EeCCQEB_1e1p
-        #print("sphB: ",sphB_1e1p," vs ",sqrt(dEp_1e1p**2+dEe_1e1p**2+dEep_1e1p**2))
+        print("sphB: ",sphB_1e1p," vs ",sqrt(dEp_1e1p**2+dEe_1e1p**2+dEep_1e1p**2))
         
         return sqrt(dEp_1e1p**2+dEe_1e1p**2+dEep_1e1p**2)
     except:

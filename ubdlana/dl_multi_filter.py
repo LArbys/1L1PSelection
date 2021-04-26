@@ -17,7 +17,7 @@ except:
     class RootAnalyze:
         def __init__(self):
             pass
-from ROOT import TFile
+from ROOT import TFile, std
 
 # Prevent root from printing garbage on initialization.
 if os.environ.has_key('TERM'):
@@ -492,6 +492,14 @@ class DLMultiFilter(RootAnalyze):
                         continue
                     bdtvars_1e1p[varname] = array.array('f',[0.0])
                     outfvv_tree.SetBranchAddress(varname, bdtvars_1e1p[varname] )
+            if self.RUN_MPID:
+                """MuonPID_int_v:ProtonPID_int_v:EminusPID_int_v"""
+                varnames = mpidutil.get_fvv_var_names()
+                mpidvars_1e1p = {}
+                for varname in varnames:
+                    mpidvars_1e1p[varname] = std.vector("float")(3,0)
+                    outfvv_tree.SetBranchAddress(varname, mpidvars_1e1p[varname])
+                
 
             # FINAL VERTEX TREE LOOP
             for ientry in xrange( finalvertextree.GetEntries() ):
@@ -528,6 +536,18 @@ class DLMultiFilter(RootAnalyze):
                         for n,varname in enumerate(varnames):
                             if varname in bdtvars_1e1p:
                                 bdtvars_1e1p[varname][0] = input_vars[n]
+
+                    if self.RUN_MPID:
+                        print '[',filtertype,': replacing mpid results of rsev[',rsev,']'
+                        mpid_vtx_results = self.mpid_results[rsev]
+                        for iplane in range(3):
+                            mpidvars_1e1p["EminusPID_int_v"][iplane]   = mpid_vtx_results[(iplane,"int")][0]
+                            mpidvars_1e1p["MuonPID_int_v"][iplane]     = mpid_vtx_results[(iplane,"int")][2]
+                            mpidvars_1e1p["ProtonPID_int_v"][iplane]   = mpid_vtx_results[(iplane,"int")][4]
+                            mpidvars_1e1p["EminusPID_pix_v"][iplane]   = mpid_vtx_results[(iplane,"pix")][0]
+                            mpidvars_1e1p["MuonPID_pix_v"][iplane]     = mpid_vtx_results[(iplane,"pix")][2]
+                            mpidvars_1e1p["ProtonPID_pix_v"][iplane]   = mpid_vtx_results[(iplane,"pix")][4]
+
 
                     for tree in out_vertex_indexed_trees:
                         tree.Fill()
