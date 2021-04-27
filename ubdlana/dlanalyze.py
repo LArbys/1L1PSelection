@@ -360,17 +360,20 @@ class DLAnalyze(RootAnalyze):
                 self.bdt_model_1mu1p = bdtutil.load_BDT_model( self.weights_1mu1p )
 
         entry = tree.GetReadEntry()
-        self._recoTree.GetEntry(entry)
+        nbytes = self._recoTree.GetEntry(entry)
+
 
         print "----- ANALYZE ENTRY [%d] ---------------------------------"%(entry)
         #for branch in self._recoTree.GetListOfBranches():
         #    if self._recoTree.GetBranchStatus(branch.GetName()):
         #        print '  %s' % branch.GetName()
 
-        make_selection_vars( entry, self.ismc,
-                             self._recoTree, self.df_ShowerReco, self.PMTPrecut_Dict, self.MC_dict,
-                             self.anatreeclass, self.calibMap_v,
-                             sce = self.sce, showercnn_results=self.dict_showercnn_results )
+        goodentry = make_selection_vars( entry, self.ismc,
+                                         self._recoTree, self.df_ShowerReco, self.PMTPrecut_Dict, self.MC_dict,
+                                         self.anatreeclass, self.calibMap_v,
+                                         sce = self.sce, showercnn_results=self.dict_showercnn_results )
+        if not goodentry:
+            return
 
 
         if self.bdt_model_1e1p:
@@ -415,6 +418,7 @@ class DLAnalyze(RootAnalyze):
                 raise RuntimeError("Could not find {} in rse2entry dict".format(rse))
 
         self.anatreeclass.outTree.Fill()
+        return
 
     def analyze_larlite_and_larcv_entry(self, tree, entry):
         #----------------------------------------------------------------------
