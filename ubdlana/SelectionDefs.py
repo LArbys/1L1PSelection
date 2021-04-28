@@ -538,3 +538,11 @@ def CorrectionFactorPoint(x,y,z,calibMap_v):
     avgFac=(corrFac0+corrFac1+corrFac2)/3.0
 
     return avgFac
+
+def GetShCons(shower1_sumQ_U,shower1_sumQ_V,shower1_sumQ_Y):    
+    """ consistency between showers """
+    EU = shower1_sumQ_U*0.0155481
+    EV = shower1_sumQ_V*0.01586385
+    EY = shower1_sumQ_Y*0.01319672 # different from newCalib used for BDT
+    return sqrt((EU-EV)**2 + (EU-EY)**2 + (EY-EV)**2)/(EY+1.0e-6)
+

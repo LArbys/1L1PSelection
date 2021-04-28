@@ -413,7 +413,8 @@ def main(IMAGE_FILE,OUT_DIR,CFG,FILEID=0):
 
 def get_fvv_var_names():
     """ these are the variable names in the output FinalVertexVariable trees """
-    return ["MuonPID_int_v","ProtonPID_int_v","EminusPID_int_v","MuonPID_pix_v","ProtonPID_pix_v","EminusPID_pix_v"]
+    return ["MuonPID_int_v","ProtonPID_int_v","EminusPID_int_v","GammaPID_int_v",
+            "MuonPID_pix_v","ProtonPID_pix_v","EminusPID_pix_v","GammaPID_pix_v"]
 
 
 if __name__ == '__main__':

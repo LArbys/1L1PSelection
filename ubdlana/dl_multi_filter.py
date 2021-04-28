@@ -41,8 +41,11 @@ from LEEPreCuts_Functions import makePMTpars,performPMTPrecuts,getPMTPrecutDict
 from event_indexed_trees_util import is_tree_event_indexed
 import bdtutil
 import mpidutil
+import varutils
 from lib_mpid_torch.rootdata_pid import ROOTData
 import bdt1e1p_helper
+import cutdefinitions
+#from SelectionDefs import apply_precuts
 
 def make(config):
     #----------------------------------------------------------------------
@@ -73,6 +76,11 @@ class DLMultiFilter(RootAnalyze):
         self.filter_pars = config['modules']['dl_multi_filter']
         self.filter_types = self.filter_pars['filter_type']
         self.DATARUN = self.filter_pars['data_run']
+        if "remove_duplicate_vertices" in self.filter_pars:
+            self.REMOVE_DUP_VTX = self.filter_pars["remove_duplicate_vertices"]
+        else:
+            self.REMOVE_DUP_VTX = False
+
         if "maxentries" in self.filter_pars:
             self.MAXENTRIES = int(self.filter_pars["maxentries"])
         else:
@@ -306,11 +314,11 @@ class DLMultiFilter(RootAnalyze):
 
         # RERUN SOME VERTEX-VARIABLES
         
-        # rerun precuts
+        # rerun precuts (Event-Tree)
         if self.rerun_pmtprecuts and nevent_entries>0:
             self.PMTPrecut_Dict = performPMTPrecuts( input_file.GetName(), **self.precutpars )
 
-        # rerun the 1mu1p BDT
+        # rerun the 1mu1p BDT (Vertex-Tree)
         # we get back a dictionary indexed by (run,subrun,event,vertex)
         # which stores replacement values for the BDT variables and BDT score
         if self.rerun_1mu1p_bdt:
@@ -321,7 +329,7 @@ class DLMultiFilter(RootAnalyze):
         else:
             self.bdtoutput_1mu1p = {}
 
-        # rerun the 1e1p BDT
+        # rerun the 1e1p BDT (Vertex-Tree)
         # we get back a dictionary indexed by (run,subrun,event,vertex)
         # which stores replacement values for the BDT variables and BDT score
         if self.rerun_1e1p_bdt:
@@ -334,7 +342,7 @@ class DLMultiFilter(RootAnalyze):
             self.bdtoutput_1e1p = {}
             self.bdtrerun_electron_edep = {}
 
-        # setup the MPID CNN
+        # setup the MPID CNN (Event-Tree)
         if self.RUN_MPID:
             # we'll need (1) to load the MPID model and (2) load the larcv data IOManager to read in wire images
             self.mpid, self.mpid_cfg = mpidutil.load_mpid_model( self.mpid_cfg_path )
@@ -380,7 +388,7 @@ class DLMultiFilter(RootAnalyze):
             self.mpid = None
             self.mpid_cfg = None
             self.iolcv = None
-            self.mpid_results = {}
+            self.mpid_results = None
             self.mpid_data = None
             self.mpid_tree = None
         
@@ -403,6 +411,7 @@ class DLMultiFilter(RootAnalyze):
             filterdir.cd()
 
             # NOW WE MAKE OUTPUT TREES AND CLONE THEM FOR EACH
+            print "====================================================="
             print "Cloning output trees for filter[",filtertype,"]"
 
             out_event_indexed_trees  = []
@@ -510,7 +519,12 @@ class DLMultiFilter(RootAnalyze):
                 rsev = ( finalvertextree.run, finalvertextree.subrun, finalvertextree.event, finalvertextree.vtxid)
 
                 if rse in rse_dict and rse_dict[rse]:
-                    nverticesout+=1
+                    
+                    if self.REMOVE_DUP_VTX  and (rsev not in rsev_dict or not rsev_dict[rsev]):
+                        print "[",filtertype,": Vertex fails]",rse," vtxid=",finalvertextree.vtxid
+                        continue
+
+                    nverticesout+=1                    
                     print "[",filtertype,": Vertex passes]",rse," vtxid=",finalvertextree.vtxid
                     for tree in self.vertex_indexed_trees:
                         tree.GetEntry(ientry)
@@ -542,9 +556,11 @@ class DLMultiFilter(RootAnalyze):
                         mpid_vtx_results = self.mpid_results[rsev]
                         for iplane in range(3):
                             mpidvars_1e1p["EminusPID_int_v"][iplane]   = mpid_vtx_results[(iplane,"int")][0]
+                            mpidvars_1e1p["GammaPID_int_v"][iplane]    = mpid_vtx_results[(iplane,"int")][1]
                             mpidvars_1e1p["MuonPID_int_v"][iplane]     = mpid_vtx_results[(iplane,"int")][2]
                             mpidvars_1e1p["ProtonPID_int_v"][iplane]   = mpid_vtx_results[(iplane,"int")][4]
                             mpidvars_1e1p["EminusPID_pix_v"][iplane]   = mpid_vtx_results[(iplane,"pix")][0]
+                            mpidvars_1e1p["GammaPID_pix_v"][iplane]    = mpid_vtx_results[(iplane,"pix")][1]
                             mpidvars_1e1p["MuonPID_pix_v"][iplane]     = mpid_vtx_results[(iplane,"pix")][2]
                             mpidvars_1e1p["ProtonPID_pix_v"][iplane]   = mpid_vtx_results[(iplane,"pix")][4]
 
@@ -660,6 +676,7 @@ class DLMultiFilter(RootAnalyze):
         """ use the final vertex tree to make selection 
         we create an RSE and RSEV dict
         """
+        print "////////////////////////////////////////////////////////////"
         print "[ dl_multi_filter::run_1e1p_highE_filter ] first pass to get max 1e1p BDT score for passing vtx per event"
         max_rse = {}
         rse_vtxid = {}
@@ -675,36 +692,44 @@ class DLMultiFilter(RootAnalyze):
             rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
             rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
 
-            passprecuts = int(dlanatree.PassPMTPrecut)
+            # Collect selection variables from FVV tree
+            x = varutils.make_selection_vars_from_fvv( dlanatree )
+
+            # UPDATE VALUES IF WE'VE RERUN SOME PORTIONS
+            passprecuts = int(x.PassPMTPrecut)
             if self.rerun_pmtprecuts:
                 passrerun = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
-                print "[1e1p highE] replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
-                print self.PMTPrecut_Dict[rse]['_passpmtprecut']
-                passprecuts = passrerun
+                print "replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
+                varutils.update_pmt_precuts(x,rse,self.PMTPrecut_Dict)
+                passprecuts = int(x.PassPMTPrecut)
 
             if self.rerun_1e1p_bdt:
-                print "[1e1p highE filter] replacing 1e1p bdt scores with recalculated ones"
-                print "  nu: old=",dlanatree.BDTscore_1e1p," new=",self.bdtoutput_1e1p[rsev]
-                bdtscore_1e1p = self.bdtoutput_1e1p[rsev]
-            else:
-                bdtscore_1e1p = dlanatree.BDTscore_1e1p
+                print "[1e1p highE] replacing 1e1p bdt scores with recalculated ones"
+                print "  nu: old=",x.BDTscore_1e1p," new=",self.bdtoutput_1e1p[rsev]
+                varutils.update_bdt1e1p(x,rsev,self.bdtoutput_1e1p)
+            bdtscore_1e1p = x.BDTscore_1e1p
 
-            if ( dlanatree.PassSimpleCuts==1
-                 and dlanatree.PassShowerReco==1
-                 and dlanatree.Proton_Edep > 60
-                 and dlanatree.Electron_Edep > 35
-                 and max(dlanatree.MaxShrFrac,-1) > 0.2 ):
-                passes = True
-            
+            if self.RUN_MPID:
+                print "[1e1p highE] replacing MPID scores with recalculated ones"
+                if rsev in self.mpid_results:
+                    varutils.update_mpid(x,rsev,self.mpid_results)
+
+            # apply 1e1p cuts
+            passes = cutdefinitions.precuts(x,self.DATARUN) and cutdefinitions.postcuts(x,self.DATARUN)
+
+            # apply highE filter
+            if x.Enu_1e1p<700.0 or x.BDTscore_1e1p<0.95:
+                passes = False
+
             print "[1e1p highE first pass] RSE=",rse," RSEV=",rsev," Passes=",passes
-            #print "  precuts: ",passprecuts==1
-            print "  simplecuts: ",dlanatree.PassSimpleCuts==1
-            print "  showerreco: ",dlanatree.PassShowerReco==1
-            print "  maxshrfrac: ",max(dlanatree.MaxShrFrac,-1)>0.2," (",dlanatree.MaxShrFrac,")"
-            print "  electron edep: ",dlanatree.Electron_Edep>35.0," (",dlanatree.Electron_Edep,")"
-            print "  proton edep: ",dlanatree.Proton_Edep>60.0," (",dlanatree.Proton_Edep,")"
-            print "  enu: ",dlanatree.Enu_1e1p
-            print "  bdt 1e1p>0.7: ",bdtscore_1e1p>0.7," (",bdtscore_1e1p,")"
+            print "  precuts: ",x.PassPMTPrecut==1
+            print "  simplecuts: ",x.PassSimpleCuts==1
+            print "  showerreco: ",x.PassShowerReco==1
+            print "  maxshrfrac: ",max(x.MaxShrFrac,-1)>0.2," (",x.MaxShrFrac,")"
+            print "  electron edep: ",x.Electron_Edep>35.0," (",x.Electron_Edep,")"
+            print "  proton edep: ",x.Proton_Edep>60.0," (",x.Proton_Edep,")"
+            print "  enu: ",x.Enu_1e1p>700.0," (",x.Enu_1e1p,")"
+            print "  bdt 1e1p>0.95: ",bdtscore_1e1p>0.95," (",bdtscore_1e1p,")"
 
             if rse not in max_rse:
                 # provide default
@@ -713,8 +738,7 @@ class DLMultiFilter(RootAnalyze):
             if passes and max_rse[rse]["bdt"]<bdtscore_1e1p:
                 # update max bdt for vertex that passes
                 print "  new max bdt for passing vtx candidates"
-                max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":bdtscore_1e1p,"enu":dlanatree.Enu_1e1p,"passes":True}
-
+                max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":bdtscore_1e1p,"enu":x.Enu_1e1p,"passes":True}
                 
 
         print "[ dl_multi_filter::run_1e1p_highE_filter ] cutting pass"
@@ -780,38 +804,54 @@ class DLMultiFilter(RootAnalyze):
             rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
             rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
             
-            passes = False
-            passprecuts = int(dlanatree.PassPMTPrecut)
+            # Collect selection variables from FVV tree
+            x = varutils.make_selection_vars_from_fvv( dlanatree )
+
+            # UPDATE VALUES IF WE'VE RERUN SOME PORTIONS
+            passprecuts = int(x.PassPMTPrecut)
             if self.rerun_pmtprecuts:
                 passrerun = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
                 print "replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
-                print self.PMTPrecut_Dict[rse]['_passpmtprecut']
-                passprecuts = passrerun
+                varutils.update_pmt_precuts(x,rse,self.PMTPrecut_Dict)
+                passprecuts = int(x.PassPMTPrecut)
 
-            if ( passprecuts==1
-                 and dlanatree.PassSimpleCuts==1
-                 and dlanatree.PassShowerReco==1
-                 and dlanatree.Proton_Edep > 60 
-                 and dlanatree.Electron_Edep > 35
-                 and max(dlanatree.MaxShrFrac,-1) > 0.2 ):
-                passes = True
-                
-            print "RSE=",rse," RSEV=",rsev," Passes=",passes
+            if self.rerun_1e1p_bdt:
+                print "[1e1p nearE] replacing 1e1p bdt scores with recalculated ones"
+                print "  nu: old=",x.BDTscore_1e1p," new=",self.bdtoutput_1e1p[rsev]
+                varutils.update_bdt1e1p(x,rsev,self.bdtoutput_1e1p)
+            bdtscore_1e1p = x.BDTscore_1e1p
+
+            if self.RUN_MPID:
+                print "[1e1p nearE] replacing MPID scores with recalculated ones"
+                if rsev in self.mpid_results:
+                    varutils.update_mpid(x,rsev,self.mpid_results)
+
+            # apply 1e1p cuts
+            passes = cutdefinitions.precuts(x,self.DATARUN) and cutdefinitions.postcuts(x,self.DATARUN)
+
+            # apply highE filter
+            if x.Enu_1e1p<500.0 or x.BDTscore_1e1p<0.95:
+                passes = False
+
+            print "[1e1p nearE first pass] RSE=",rse," RSEV=",rsev," Passes=",passes
             print "  precuts: ",passprecuts==1
             print "  simplecuts: ",dlanatree.PassSimpleCuts==1
             print "  showerreco: ",dlanatree.PassShowerReco==1
             print "  maxshrfrac: ",max(dlanatree.MaxShrFrac,-1)>0.2," (",dlanatree.MaxShrFrac,")"
             print "  electron edep: ",dlanatree.Electron_Edep>35.0," (",dlanatree.Electron_Edep,")"
             print "  proton edep: ",dlanatree.Proton_Edep>60.0," (",dlanatree.Proton_Edep,")"
+            print "  enu: ",x.Enu_1e1p>500.0," (",x.Enu_1e1p,")"
+            print "  bdt 1e1p>0.95: ",bdtscore_1e1p>0.95," (",bdtscore_1e1p,")"
+
 
             print "[first pass] RSE=",rse," RSEV=",rsev
             if rse not in max_rse:
                 # provide default
                 max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":-1.0,"enu":0.0,"passes":False}
 
-            if passes and max_rse[rse]["enu"]<dlanatree.Enu_1e1p:
+            if passes and max_rse[rse]["enu"]<x.Enu_1e1p:
                 # update if energy is larger
-                max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":dlanatree.BDTscore_1e1p,"enu":dlanatree.Enu_1e1p,"passes":True}
+                max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":x.BDTscore_1e1p,"enu":x.Enu_1e1p,"passes":True}
 
 
 
@@ -873,36 +913,48 @@ class DLMultiFilter(RootAnalyze):
             rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
             
             passes = False
-            # no longer using precuts
-            #passprecuts = int(dlanatree.PassPMTPrecut)
-            #if self.rerun_pmtprecuts:
-            #    passrerun = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
-            #    print "replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
-            #    print self.PMTPrecut_Dict[rse]['_passpmtprecut']
-            #    passprecuts = passrerun
+            # Collect selection variables from FVV tree
+            x = varutils.make_selection_vars_from_fvv( dlanatree )
+
+            # UPDATE VALUES IF WE'VE RERUN SOME PORTIONS
+            passprecuts = int(x.PassPMTPrecut)
+            if self.rerun_pmtprecuts:
+                passrerun = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
+                print "replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
+                varutils.update_pmt_precuts(x,rse,self.PMTPrecut_Dict)
+                passprecuts = int(x.PassPMTPrecut)
 
             if self.rerun_1e1p_bdt:
-                print "[1e1p lowBDT] replacing 1e1p bdt scores with recalculated ones"
-                print "  nu: old=",dlanatree.BDTscore_1e1p," new=",self.bdtoutput_1e1p[rsev]
-                bdtscore_1e1p = self.bdtoutput_1e1p[rsev]
-            else:
-                bdtscore_1e1p = dlanatree.BDTscore_1e1p
+                print "[1e1p low-BDT] replacing 1e1p bdt scores with recalculated ones"
+                print "  nu: old=",x.BDTscore_1e1p," new=",self.bdtoutput_1e1p[rsev]
+                varutils.update_bdt1e1p(x,rsev,self.bdtoutput_1e1p)
+            bdtscore_1e1p = x.BDTscore_1e1p
 
-            if ( dlanatree.PassSimpleCuts==1
-                 and dlanatree.PassShowerReco==1
-                 and dlanatree.Proton_Edep > 60 
-                 and dlanatree.Electron_Edep > 35
-                 and max(dlanatree.MaxShrFrac,-1) > 0.2 ):
-                passes = True
+            if self.RUN_MPID:
+                print "[1e1p low-BDT] replacing MPID scores with recalculated ones"
+                if rsev in self.mpid_results:
+                    varutils.update_mpid(x,rsev,self.mpid_results)
+
+            # apply 1e1p cuts
+            passes = cutdefinitions.precuts(x,self.DATARUN) and cutdefinitions.postcuts(x,self.DATARUN)
+
+            # low BDT cut off
+            if x.BDTscore_1e1p>0.95:
+                passes = False
+
+            # signal blocker
+            if x.BDTscore_1e1p>0.95 and x.Enu_1e1p<500.0:
+                passes = False
                 
             print "[1e1p lowBDT] RSE=",rse," RSEV=",rsev," Passes=",passes
-            #print "  precuts: ",passprecuts==1
-            print "  simplecuts: ",dlanatree.PassSimpleCuts==1
-            print "  showerreco: ",dlanatree.PassShowerReco==1
-            print "  maxshrfrac: ",max(dlanatree.MaxShrFrac,-1)>0.2," (",dlanatree.MaxShrFrac,")"
-            print "  electron edep: ",dlanatree.Electron_Edep>35.0," (",dlanatree.Electron_Edep,")"
-            print "  proton edep: ",dlanatree.Proton_Edep>60.0," (",dlanatree.Proton_Edep,")"
-            print "  bdt 1e1p: ",bdtscore_1e1p<=0.7," (",bdtscore_1e1p,")"
+            print "  precuts: ",passprecuts==1
+            print "  simplecuts: ",x.PassSimpleCuts==1
+            print "  showerreco: ",x.PassShowerReco==1
+            print "  maxshrfrac: ",max(x.MaxShrFrac,-1)>0.2," (",x.MaxShrFrac,")"
+            print "  electron edep: ",x.Electron_Edep>35.0," (",x.Electron_Edep,")"
+            print "  proton edep: ",x.Proton_Edep>60.0," (",x.Proton_Edep,")"
+            print "  bdt 1e1p: ",bdtscore_1e1p<0.95," (",bdtscore_1e1p,")"
+            print "  bdt 1e1p AND low-E: ",x.BDTscore_1e1p>0.95 and x.Enu_1e1p<500.0
 
             print "[1e1p lowBDT first pass] RSE=",rse," RSEV=",rsev
             if rse not in max_rse:
@@ -981,30 +1033,38 @@ class DLMultiFilter(RootAnalyze):
             rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
             rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
             
-            passes = False
-            passprecuts = int(dlanatree.PassPMTPrecut)
+            # Collect selection variables from FVV tree
+            x = varutils.make_selection_vars_from_fvv( dlanatree )
+
+            # UPDATE VALUES IF WE'VE RERUN SOME PORTIONS
+            passprecuts = int(x.PassPMTPrecut)
             if self.rerun_pmtprecuts:
                 passrerun = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
                 print "replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
-                print self.PMTPrecut_Dict[rse]['_passpmtprecut']
-                passprecuts = passrerun
+                varutils.update_pmt_precuts(x,rse,self.PMTPrecut_Dict)
+                passprecuts = int(x.PassPMTPrecut)
 
-            if ( passprecuts==1
-                 and dlanatree.PassSimpleCuts==1
-                 and dlanatree.PassShowerReco==1
-                 and dlanatree.Proton_Edep > 60 
-                 and dlanatree.Electron_Edep > 35
-                 and max(dlanatree.MaxShrFrac,-1) > 0.2 ):
-                passes = True
-                
-            print "RSE=",rse," RSEV=",rsev," Passes=",passes
-            print "  precuts: ",passprecuts==1
-            print "  simplecuts: ",dlanatree.PassSimpleCuts==1
-            print "  showerreco: ",dlanatree.PassShowerReco==1
-            print "  maxshrfrac: ",max(dlanatree.MaxShrFrac,-1)>0.2," (",dlanatree.MaxShrFrac,")"
-            print "  electron edep: ",dlanatree.Electron_Edep>35.0," (",dlanatree.Electron_Edep,")"
-            print "  proton edep: ",dlanatree.Proton_Edep>60.0," (",dlanatree.Proton_Edep,")"
-            print "  bdt 1e1p: ",dlanatree.BDTscore_1e1p<=0.7," (",dlanatree.BDTscore_1e1p,")"
+            if self.rerun_1e1p_bdt:
+                print "[1e1p mid-BDT] replacing 1e1p bdt scores with recalculated ones"
+                print "  nu: old=",x.BDTscore_1e1p," new=",self.bdtoutput_1e1p[rsev]
+                varutils.update_bdt1e1p(x,rsev,self.bdtoutput_1e1p)
+            bdtscore_1e1p = x.BDTscore_1e1p
+
+            if self.RUN_MPID:
+                print "[1e1p mid-BDT] replacing MPID scores with recalculated ones"
+                if rsev in self.mpid_results:
+                    varutils.update_mpid(x,rsev,self.mpid_results)
+
+            # apply 1e1p cuts
+            passes = cutdefinitions.precuts(x,self.DATARUN) and cutdefinitions.postcuts(x,self.DATARUN)
+
+            # low BDT cut off
+            if x.BDTscore_1e1p>0.95 or x.BDTscore<0.4:
+                passes = False
+
+            # signal blocker
+            if x.BDTscore_1e1p>0.95 and x.Enu_1e1p<500.0:
+                passes = False
 
             print "[first pass] RSE=",rse," RSEV=",rsev
             if rse not in max_rse:
@@ -1040,7 +1100,7 @@ class DLMultiFilter(RootAnalyze):
                 print "RSE ",rse,": ",max_rse[rse]," -- is not max BDT vertex: this=",dlanatree.BDTscore_1e1p," max=",max_rse[rse]["bdt"]
                 continue
 
-            if not max_rse[rse]["passes"] or max_rse[rse]["bdt"]>0.7 or max_rse[rse]["bdt"]<0.4:
+            if not max_rse[rse]["passes"] or max_rse[rse]["bdt"]>0.95 or max_rse[rse]["bdt"]<0.4:
                 print "RSE ",rse,": score max=",max_rse[rse]["bdt"]," is above threshold or did not pass (",max_rse[rse]["passes"],")"
                 continue
             
@@ -1184,10 +1244,12 @@ class DLMultiFilter(RootAnalyze):
         """ use the final vertex tree to make selection 
         we create an RSE and RSEV dict
         """
+        print "////////////////////////////////////////////////////////////"
         print "[ dl_multi_filter::run_1e1p_signal_filter ] first pass to get max 1e1p BDT score for passing vtx per event"
         max_rse = {}
         rse_vtxid = {}
 
+        # FIRST LOOP COMPILES WHAT PASSES, FINDS MAX BDT-SCORE PER EVENT
         for ientry in xrange(dlanatree.GetEntries()):
 
             if self.MAXENTRIES is not None and ientry+1>=self.MAXENTRIES:
@@ -1195,56 +1257,65 @@ class DLMultiFilter(RootAnalyze):
 
             dlanatree.GetEntry(ientry)
 
-            passes = False
+            # Collect selection variables from FVV tree
+            x = varutils.make_selection_vars_from_fvv( dlanatree )
+
+            passes = True
             rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
             rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
 
-            passprecuts = int(dlanatree.PassPMTPrecut)
+            # PRECUTS
+            passprecuts = int(x.PassPMTPrecut)
             if self.rerun_pmtprecuts:
                 passrerun = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
                 print "replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
-                print self.PMTPrecut_Dict[rse]['_passpmtprecut']
-                passprecuts = passrerun
+                varutils.update_pmt_precuts(x,rse,self.PMTPrecut_Dict)
+                passprecuts = int(x.PassPMTPrecut)
 
             if self.rerun_1e1p_bdt:
                 print "[signal filter] replacing 1e1p bdt scores with recalculated ones"
-                print "  nu: old=",dlanatree.BDTscore_1e1p," new=",self.bdtoutput_1e1p[rsev]
-                bdtscore_1e1p = self.bdtoutput_1e1p[rsev]
-            else:
-                bdtscore_1e1p = dlanatree.BDTscore_1e1p            
+                print "  nu: old=",x.BDTscore_1e1p," new=",self.bdtoutput_1e1p[rsev]
+                varutils.update_bdt1e1p(x,rsev,self.bdtoutput_1e1p)
+            bdtscore_1e1p = x.BDTscore_1e1p
 
+            if self.RUN_MPID:
+                print "[signal filter] replacing MPID scores with recalculated ones"
+                if rsev in self.mpid_results:
+                    varutils.update_mpid(x,rsev,self.mpid_results)
 
-            if ( dlanatree.PassSimpleCuts==1
-                 and dlanatree.PassShowerReco==1
-                 and dlanatree.Proton_Edep > 60
-                 and dlanatree.Electron_Edep > 35
-                 and max(dlanatree.MaxShrFrac,-1) > 0.2):
-                passes = True
-            
+            # apply 1e1p cuts
+            passes = cutdefinitions.precuts(x,self.DATARUN) and cutdefinitions.postcuts(x,self.DATARUN)
+
+            # apply BDT score
+            if x.BDTscore_1e1p<0.95:
+                passes = False
+
             # for debug: make something pass in order to check
             if self._DEBUG_MODE_:
                 passes = True # for debug
 
             print "[first pass signal] RSE=",rse," RSEV=",rsev," Passes=",passes
-            #print "  precuts: ",passprecuts==1
-            print "  simplecuts: ",dlanatree.PassSimpleCuts==1
-            print "  showerreco: ",dlanatree.PassShowerReco==1
-            print "  maxshrfrac: ",max(dlanatree.MaxShrFrac,-1)>0.2," (",dlanatree.MaxShrFrac,")"
-            print "  electron edep: ",dlanatree.Electron_Edep>35.0," (",dlanatree.Electron_Edep,")"
-            print "  proton edep: ",dlanatree.Proton_Edep>60.0," (",dlanatree.Proton_Edep,")"
-            print "  enu: ",dlanatree.Enu_1e1p
-            print "  bdt 1e1p>0.7: ",bdtscore_1e1p>0.7," (",bdtscore_1e1p,")"
+            print "  precuts: ",passprecuts==1
+            print "  simplecuts: ",x.PassSimpleCuts==1
+            print "  showerreco: ",x.PassShowerReco==1
+            print "  electron edep: ",x.Electron_Edep>35.0," (",x.Electron_Edep,")"
+            print "  proton edep: ",x.Proton_Edep>60.0," (",x.Proton_Edep,")"
+            print "  maxshrfrac: ",max(x.MaxShrFrac,-1)>0.2," (",x.MaxShrFrac,")"
+            print "  pi0mass: ",x.Pi0Mass<=50.0," (",x.Pi0Mass,")"
+            print "  enu: ",x.Enu_1e1p
+            print "  bdt 1e1p>0.95: ",bdtscore_1e1p>0.95," (",bdtscore_1e1p,") [rerun=",self.rerun_1e1p_bdt,"]"
 
             if rse not in max_rse:
                 # provide default
+                print "  [[ first passing vtx candidates for RSE ]]"
                 max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":-1.0,"enu":bdtscore_1e1p,"passes":False}
 
             if passes and max_rse[rse]["bdt"]<bdtscore_1e1p:
                 # update max bdt for vertex that passes
-                print "  new max bdt for passing vtx candidates"
+                print "  [[ new max bdt score for passing vtx candidates ]]"
                 max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":bdtscore_1e1p,"enu":dlanatree.Enu_1e1p,"passes":True}
 
-        print "[ dl_multi_filter::run_1e1p_signal_filter ] cutting pass"
+        print "[ dl_multi_filter::run_1e1p_signal_filter ] cutting pass. entries in max_rse=",len(max_rse)
         # next, save only those events, whose highest bdt score pass threshold
         rse_dict = {}
         rsev_dict = {}
@@ -1269,13 +1340,13 @@ class DLMultiFilter(RootAnalyze):
                 print "[signal] RSE ",rse," vtxid=",dlanatree.vtxid,": ",max_rse[rse]," -- is not max BDT vertex: ",max_rse[rse]["vtxid"]
                 continue
 
-            if not max_rse[rse]["passes"] or max_rse[rse]["bdt"]<0.7:
+            if not max_rse[rse]["passes"] or max_rse[rse]["bdt"]<0.2:
                 print "[signal] RSE ",rse,": below bdt=",max_rse[rse]["bdt"]," or did not pass (",max_rse[rse]["passes"],")"
                 continue
 
-            print "[signal] RSE ",rse,": enu=",max_rse[rse]["enu"]," bdt=",max_rse[rse]["bdt"]," passes signal selection (",max_rse[rse]["passes"],")"
+            print "[signal] RSE ",rse,": enu=",max_rse[rse]["enu"]," bdt=",max_rse[rse]["bdt"]," PASSES signal selection (",max_rse[rse]["passes"],")"
             passes = True
-            
+
             # update event flag
             if rse not in rse_dict:
                 rse_dict[rse]   = passes
@@ -1284,7 +1355,8 @@ class DLMultiFilter(RootAnalyze):
 
             # update vertex flag
             rsev_dict[rsev] = passes
-
+            
+        print "[signal] number of passing RSEV: ",len(rsev_dict)
         return rse_dict, rsev_dict
 
     def run_rse_filter(self, dlanatree ):
@@ -1388,7 +1460,7 @@ class DLMultiFilter(RootAnalyze):
 
         return vertex_indexed_trees,event_indexed_trees,other_trees,fvv_tree,pot_sum_tree,dirdict
         
-    def run_all_filters( self, finalvertextree, filter_list ):        
+    def run_all_filters( self, finalvertextree, filter_list ):
         """
         run the filters, collection dictionary of results
         return dict: keys=filter name, value=result dictionary list
@@ -1422,3 +1494,4 @@ class DLMultiFilter(RootAnalyze):
             filters_results[filtertype] = {"rse":rse,"rsev":rsev}
 
         return filters_results
+
