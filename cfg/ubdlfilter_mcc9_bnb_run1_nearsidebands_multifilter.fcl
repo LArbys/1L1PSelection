@@ -6,7 +6,7 @@ input_tree : "dlana/ubdlana_id_tree"
 loop_over_entries : True
 dump_every: 1
 modules : { sam_metadata: {}
-	    dl_multi_filter: { filter_type: ["1e1p-nearE-sideband"]
+	    dl_multi_filter: { filter_type: ["1e1p-nearE-sideband","1e1p-near-sideband"]
                                rerun_precuts: False
                                precut_ophits: "ophitBeamCalib"
                                sample_type: "BNB"

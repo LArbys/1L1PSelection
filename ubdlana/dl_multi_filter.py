@@ -104,6 +104,7 @@ class DLMultiFilter(RootAnalyze):
                            "pi0-lowBDT-sideband",
                            "1e1p-highE-sideband",
                            "1e1p-nearE-sideband",
+                           "1e1p-near-sideband",
                            "1e1p-far-sideband",
                            "1e1p-midBDT-sideband",
                            "1e1p-signal",
@@ -942,8 +943,8 @@ class DLMultiFilter(RootAnalyze):
             # apply 1e1p cuts
             passes = cutdefinitions.precuts(x,self.DATARUN) and cutdefinitions.postcuts(x,self.DATARUN)
 
-            # signal+nearbox blocker
-            if x.BDTscore_1e1p>0.95 and x.Enu_1e1p<700.0:
+            # far box definition: exclude near box + signal region
+            if x.BDTscore_1e1p>0.7 and x.Enu_1e1p<700.0:
                 passes = False
                 
             print "[1e1p far-sideband] RSE=",rse," RSEV=",rsev," Passes=",passes
@@ -953,17 +954,17 @@ class DLMultiFilter(RootAnalyze):
             print "  maxshrfrac: ",max(x.MaxShrFrac,-1)>0.2," (",x.MaxShrFrac,")"
             print "  electron edep: ",x.Electron_Edep>35.0," (",x.Electron_Edep,")"
             print "  proton edep: ",x.Proton_Edep>60.0," (",x.Proton_Edep,")"
-            print "  low bdt 1e1p: ",bdtscore_1e1p<0.95," (",bdtscore_1e1p,")"
-            print "  low bdt 1e1p or high-E: ",x.BDTscore_1e1p<0.95 or x.Enu_1e1p>700.0
+            print "  low bdt 1e1p: ",x.BDTscore_1e1p<0.7," (",x.BDTscore_1e1p,")"
+            print "  low bdt 1e1p or high-E: ",x.BDTscore_1e1p<0.7 or x.Enu_1e1p>700.0
 
-            print "[1e1p far-sideband first pass] RSE=",rse," RSEV=",rsev
             if rse not in max_rse:
                 # provide default
-                max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":-1.0,"enu":bdtscore_1e1p,"passes":False}
+                max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":-1.0,"enu":x.BDTscore_1e1p,"passes":False}
 
-            if passes and max_rse[rse]["bdt"]<bdtscore_1e1p:
+            if passes and (rse not in max_rse or max_rse[rse]["bdt"]<x.BDTscore_1e1p):
                 # update max bdt for vertex that passes
-                max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":bdtscore_1e1p,"enu":dlanatree.Enu_1e1p,"passes":True}
+                print "[1e1p far-sideband first pass or update to max bdtscore] RSE=",rse," RSEV=",rsev
+                max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":x.BDTscore_1e1p,"enu":x.Enu_1e1p,"passes":True}
 
 
 
@@ -991,11 +992,133 @@ class DLMultiFilter(RootAnalyze):
                 print "[1e1p far-sideband] RSE ",rse," vtxid=",dlanatree.vtxid,": ",max_rse[rse]," -- is not max BDT vertex: ",max_rse[rse]["vtxid"]
                 continue
 
-            if not max_rse[rse]["passes"] or max_rse[rse]["bdt"]>0.7:
-                print "[1e1p far-sideband] RSE ",rse,": score max=",max_rse[rse]["bdt"]," is above threshold or did not pass (",max_rse[rse]["passes"],")"
+            if not max_rse[rse]["passes"]:
+                print "[1e1p far-sideband] RSE ",rse,": did not pass (",max_rse[rse]["passes"],")"
                 continue
 
-            print "[1e1p far-sideband] RSE ",rse,": score max=",max_rse[rse]["bdt"]," passes low-BDT selection (",max_rse[rse]["passes"],")"
+            print "[1e1p far-sideband] RSE ",rse,": score max=",max_rse[rse]["bdt"]," passes far selection (",max_rse[rse]["passes"],")"
+            
+            # for debug: make something pass in order to check
+            if self._DEBUG_MODE_:
+                passes = True # for debug
+                
+            rse_dict[rse]   = True
+            rsev_dict[rsev] = True
+
+
+        # for debug only
+        #rsekeys = rsev_dict.keys()
+        #rsekeys.sort()
+        #for k in rsekeys:
+        #    print k,": ",rsev_dict[k]
+
+        return rse_dict, rsev_dict
+
+    def run_1e1p_nearsideband_filter(self, dlanatree ):
+        """ use the final vertex tree to make selection 
+        we create an RSE and RSEV dict
+        """
+        print "///////////////////////////////////////////////////////////"
+        print "[ dl_multi_filter::run_1e1p_nearsideband_filter ]"
+        #we first collect the highest bdtscore per RSE
+
+        max_rse = {}
+
+        for ientry in xrange(dlanatree.GetEntries()):
+
+            if self.MAXENTRIES is not None and ientry+1>=self.MAXENTRIES:
+                break
+
+            dlanatree.GetEntry(ientry)
+
+            rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
+            rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
+            
+            passes = False
+            # Collect selection variables from FVV tree
+            x = varutils.make_selection_vars_from_fvv( dlanatree )
+
+            # UPDATE VALUES IF WE'VE RERUN SOME PORTIONS
+            passprecuts = int(x.PassPMTPrecut)
+            if self.rerun_pmtprecuts:
+                passrerun = 1 if self.PMTPrecut_Dict[rse]['_passpmtprecut'] else 0
+                print "replaced precut evaluation with rerun result. old=",passprecuts," new=",passrerun,
+                varutils.update_pmt_precuts(x,rse,self.PMTPrecut_Dict)
+                passprecuts = int(x.PassPMTPrecut)
+
+            if self.rerun_1e1p_bdt:
+                print "[1e1p near-sideband] replacing 1e1p bdt scores with recalculated ones"
+                print "  nu: old=",x.BDTscore_1e1p," new=",self.bdtoutput_1e1p[rsev]
+                varutils.update_bdt1e1p(x,rsev,self.bdtoutput_1e1p)
+            bdtscore_1e1p = x.BDTscore_1e1p
+
+            if self.RUN_MPID:
+                print "[1e1p near-sideband] replacing MPID scores with recalculated ones"
+                if rsev in self.mpid_results:
+                    varutils.update_mpid(x,rsev,self.mpid_results)
+
+            # apply 1e1p cuts
+            passes = cutdefinitions.precuts(x,self.DATARUN) and cutdefinitions.postcuts(x,self.DATARUN)
+
+            # exclude the signal box
+            inbox = True
+            if x.BDTscore_1e1p>0.95 and x.Enu_1e1p<500.0:
+                passes = False
+                inbox = False
+            # exclude the far box
+            if x.BDTscore_1e1p<0.7 or x.Enu_1e1p>700.0:
+                passes = False
+                inbox = False
+                
+            print "[1e1p near-sideband] RSE=",rse," RSEV=",rsev," Passes=",passes
+            print "  precuts: ",passprecuts==1
+            print "  simplecuts: ",x.PassSimpleCuts==1
+            print "  showerreco: ",x.PassShowerReco==1
+            print "  maxshrfrac: ",max(x.MaxShrFrac,-1)>0.2," (",x.MaxShrFrac,")"
+            print "  electron edep: ",x.Electron_Edep>35.0," (",x.Electron_Edep,")"
+            print "  proton edep: ",x.Proton_Edep>60.0," (",x.Proton_Edep,")"
+            print "  in near-box: ",inbox," BDTscore=",x.BDTscore_1e1p," Enu=",x.Enu_1e1p
+
+            print "[1e1p near-sideband first pass] RSE=",rse," RSEV=",rsev
+            if rse not in max_rse:
+                # provide default
+                max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":-1.0,"enu":bdtscore_1e1p,"passes":False}
+
+            if passes and max_rse[rse]["bdt"]<bdtscore_1e1p:
+                # update max bdt for vertex that passes
+                max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":bdtscore_1e1p,"enu":dlanatree.Enu_1e1p,"passes":True}
+
+
+
+        # next, save only those events, whose highest bdt score pass threshold
+        rse_dict = {}
+        rsev_dict = {}
+
+        for ientry in xrange(dlanatree.GetEntries()):
+
+            if self.MAXENTRIES is not None and ientry+1>=self.MAXENTRIES:
+                break
+
+            dlanatree.GetEntry(ientry)
+
+            passes = False
+            rse  = (dlanatree.run,dlanatree.subrun,dlanatree.event)
+            rsev = (dlanatree.run,dlanatree.subrun,dlanatree.event,dlanatree.vtxid)
+
+            if rse not in max_rse:
+                # surprising
+                print "[1e1p near-sideband] RSE ",rse," not in max_rse dict"
+                continue
+            if max_rse[rse]["vtxid"]!=dlanatree.vtxid:
+                # ignore non-max  BDT vertex
+                print "[1e1p near-sideband] RSE ",rse," vtxid=",dlanatree.vtxid,": ",max_rse[rse]," -- is not max BDT vertex: ",max_rse[rse]["vtxid"]
+                continue
+
+            if not max_rse[rse]["passes"] or max_rse[rse]["bdt"]>0.7:
+                print "[1e1p near-sideband] RSE ",rse,": score max=",max_rse[rse]["bdt"]," is above threshold or did not pass (",max_rse[rse]["passes"],")"
+                continue
+
+            print "[1e1p near-sideband] RSE ",rse,": score max=",max_rse[rse]["bdt"]," passes filter (",max_rse[rse]["passes"],")"
             
             # for debug: make something pass in order to check
             if self._DEBUG_MODE_:
@@ -1308,7 +1431,6 @@ class DLMultiFilter(RootAnalyze):
 
             if rse not in max_rse:
                 # provide default
-                print "  [[ first passing vtx candidates for RSE ]]"
                 max_rse[rse] = {"vtxid":dlanatree.vtxid,"bdt":-1.0,"enu":bdtscore_1e1p,"passes":False}
 
             if passes and max_rse[rse]["bdt"]<bdtscore_1e1p:
@@ -1480,6 +1602,8 @@ class DLMultiFilter(RootAnalyze):
                 rse,rsev = self.run_1e1p_highE_filter(finalvertextree)
             elif filtertype=="1e1p-nearE-sideband":
                 rse,rsev = self.run_1e1p_nearE_filter(finalvertextree)
+            elif filtertype=="1e1p-near-sideband":
+                rse,rsev = self.run_1e1p_nearsideband_filter(finalvertextree)
             elif filtertype=="1e1p-far-sideband":
                 rse,rsev = self.run_1e1p_farsideband_filter(finalvertextree)
             elif filtertype=="1e1p-midBDT-sideband":
