@@ -11,6 +11,7 @@ modules : { sam_metadata: {}
                                precut_ophits: "ophitBeamCalib"
                                sample_type: "BNB"
                                data_run: 1
+			       is_mc: False
                                rerun_1mu1p_bdt: False
                                rerun_1e1p_bdt: False
                                bdt_model_1mu1p: "ensemble"

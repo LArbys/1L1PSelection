@@ -76,6 +76,7 @@ class DLMultiFilter(RootAnalyze):
         self.filter_pars = config['modules']['dl_multi_filter']
         self.filter_types = self.filter_pars['filter_type']
         self.DATARUN = self.filter_pars['data_run']
+        self.IS_MC   = self.filter_pars["is_mc"]
         if "remove_duplicate_vertices" in self.filter_pars:
             self.REMOVE_DUP_VTX = self.filter_pars["remove_duplicate_vertices"]
         else:
@@ -1440,7 +1441,7 @@ class DLMultiFilter(RootAnalyze):
                         pot_sum_tree = atree
                         continue
 
-                    if is_tree_event_indexed( basetreename ):
+                    if is_tree_event_indexed( basetreename, is_mc=self.IS_MC ):
                         event_indexed_trees.append(atree)
                         if nevent_entries>0 and nentries!=nevent_entries and basetreename!="ubdlana_id_tree":
                             raise RuntimeError("Event-indexed tree({}) nentries ({}) does not seem to match known event-indexed tree entries ({})".format(basetreename,nentries,nevent_entries))
