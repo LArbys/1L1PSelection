@@ -114,8 +114,19 @@ def make_event_indexed_trees_list():
 
 STANDARD_EVENT_INDEXED_TREES_LIST = make_event_indexed_trees_list()
 
-def is_tree_event_indexed( treename ):
+def is_tree_event_indexed( treename, is_mc=False ):
     strtreename = str(treename)
+
+    if treename == "PGraphTruthMatch":
+        # This tree behaves weirdly. 
+        # for data, it tracks event trees for some reason
+        # for MC, it tracks  vertex trees -- which is what it should
+        if is_mc:
+            # MC: is vertex tree
+            return False
+        else:
+            # data: is event tree
+            return True
 
     if strtreename in STANDARD_EVENT_INDEXED_TREES_LIST:
         return True
