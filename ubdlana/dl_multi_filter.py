@@ -842,7 +842,7 @@ class DLMultiFilter(RootAnalyze):
             print "  maxshrfrac: ",max(dlanatree.MaxShrFrac,-1)>0.2," (",dlanatree.MaxShrFrac,")"
             print "  electron edep: ",dlanatree.Electron_Edep>35.0," (",dlanatree.Electron_Edep,")"
             print "  proton edep: ",dlanatree.Proton_Edep>60.0," (",dlanatree.Proton_Edep,")"
-            print "  enu: ",(x.Enu_1e1p>500.0 and x.Enud_1e1p<700.0)," (",x.Enu_1e1p,")"
+            print "  enu: ",(x.Enu_1e1p>500.0 and x.Enu_1e1p<700.0)," (",x.Enu_1e1p,")"
             print "  bdt 1e1p>0.95: ",bdtscore_1e1p>0.95," (",bdtscore_1e1p,")"
 
 
@@ -952,8 +952,8 @@ class DLMultiFilter(RootAnalyze):
             print "  maxshrfrac: ",max(x.MaxShrFrac,-1)>0.2," (",x.MaxShrFrac,")"
             print "  electron edep: ",x.Electron_Edep>35.0," (",x.Electron_Edep,")"
             print "  proton edep: ",x.Proton_Edep>60.0," (",x.Proton_Edep,")"
-            print "  bdt 1e1p: ",bdtscore_1e1p<0.95," (",bdtscore_1e1p,")"
-            print "  bdt 1e1p AND low-E: ",x.BDTscore_1e1p>0.95 and x.Enu_1e1p<500.0
+            print "  low bdt 1e1p: ",bdtscore_1e1p<0.95," (",bdtscore_1e1p,")"
+            print "  low bdt 1e1p or high-E: ",x.BDTscore_1e1p<0.95 or x.Enu_1e1p>700.0
 
             print "[1e1p far-sideband first pass] RSE=",rse," RSEV=",rsev
             if rse not in max_rse:
@@ -1169,14 +1169,15 @@ class DLMultiFilter(RootAnalyze):
                  and dlanatree.ChargeNearTrunk>250.0
                  and dlanatree.Electron_ThetaRecoB_e1ep<1.5
                  and dlanatree._shower_alpha<2.5
-                 and dlanatree._pi0mass>0 ):
+                 and dlanatree._pi0mass>0
+                 and bdtscore_1e1p<0.95):
                 passes = True
                 
             print "[pi0 filter first pass] RSE=",rse," RSEV=",rsev," Passes=",passes
             print "  simplecuts: ",dlanatree.PassSimpleCuts==1
             print "  showerreco: ",dlanatree.PassShowerReco==1
             print "  proton edep: ",dlanatree.Proton_Edep>60.0," (",dlanatree.Proton_Edep,")"
-            print "  bdt 1e1p<0.7: ",bdtscore_1e1p<=0.7," (",bdtscore_1e1p,")"
+            print "  bdt 1e1p<0.95: ",bdtscore_1e1p<=0.95," (",bdtscore_1e1p,")"
             print "  shower1_E_Y: ",dlanatree.shower1_E_Y>80.0,"(",dlanatree.shower1_E_Y,")"
             print "  Qtrunk: ",dlanatree.ChargeNearTrunk>250.0,"(",dlanatree.ChargeNearTrunk,")"
             print "  Electron ThetaRecoB_1e1p: ",dlanatree.Electron_ThetaRecoB_e1ep<1.5,"(",dlanatree.Electron_ThetaRecoB_e1ep,")"
@@ -1217,7 +1218,7 @@ class DLMultiFilter(RootAnalyze):
                 print "[pi0 filter]] RSE ",rse,": ",max_rse[rse]," -- is not max BDT vertex: this=",dlanatree.BDTscore_1e1p," max=",max_rse[rse]["bdt"]
                 continue
 
-            if not max_rse[rse]["passes"] or max_rse[rse]["bdt"]>0.7:
+            if not max_rse[rse]["passes"] or max_rse[rse]["bdt"]>0.95:
                 print "[pi0 filter] RSE ",rse,": score max=",max_rse[rse]["bdt"]," is above threshold or did not pass (",max_rse[rse]["passes"],")"
                 continue
 
@@ -1483,9 +1484,9 @@ class DLMultiFilter(RootAnalyze):
             elif filtertype=="1e1p-midBDT-sideband":
                 rse,rsev = self.run_1e1p_midBDT_filter(finalvertextree)
             elif filtertype=="1e1p-signal":
-                rse,rsev = self.run_1e1p_signal_filter(finalvertextree, bdtcut=0.95)
+                rse,rsev = self.run_1e1p_signal_filter(finalvertextree, BDTCUT=0.95)
             elif filtertype=="1e1p-loose-signal":
-                rse,rsev = self.run_1e1p_signal_filter(finalvertextree, bdtcut=0.7)
+                rse,rsev = self.run_1e1p_signal_filter(finalvertextree, BDTCUT=0.7)
             elif filtertype=="pi0-lowBDT-sideband":
                 rse,rsev = self.run_lowBDT_pi0_filter(finalvertextree)
             elif filtertype=="rse-list":
