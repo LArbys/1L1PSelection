@@ -1,0 +1,23 @@
+#include "sam_microboone.fcl"
+
+process_name : dl_multi_filter
+services : { FileCatalogMetadata: @local::art_file_catalog_data }
+input_tree : "dlana/ubdlana_id_tree"
+loop_over_entries : True
+dump_every: 1
+modules : { sam_metadata: {}
+	    dl_multi_filter: { filter_type: ["numu-sideband","pi0-lowBDT-sideband","1e1p-far-sideband","1e1p-highE-sideband","1e1p-nearE-sideband","1e1p-near-sideband","1e1p-loose-signal","1e1p-signal"]
+                               rerun_precuts: False
+                               precut_ophits: "ophitBeamCalib"
+                               sample_type: "BNB"
+                               data_run: 2
+			       is_mc: False
+                               rerun_1mu1p_bdt: False
+                               rerun_1e1p_bdt: False
+                               bdt_model_1mu1p: "ensemble"
+                               bdt_model_1e1p: "ensemble"
+                               bdt_weights_1mu1p: "/cvmfs/uboone.opensciencegrid.org/products/ubdlana/v1_1_4/Linux64bit+3.10-2.17_e17_prof/bdt_models/ensemble_1m1p/"
+                               bdt_weights_1e1p: "/cvmfs/uboone.opensciencegrid.org/products/ubdlana/v1_1_4/Linux64bit+3.10-2.17_e17_prof/bdt_models/ensemble_1e1p/"
+                               event_tree: "dlana/ubdlana_id_tree"
+                           }
+          }
