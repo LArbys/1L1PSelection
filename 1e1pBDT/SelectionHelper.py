@@ -30,6 +30,10 @@ dpf_varb_names = ['Enu_1e1p','Eta','PT_1e1p','AlphaT_1e1p',
                   'POTweight','GenieWeight','LEEweight','label',
                   'newpi0flag','datarun','filetag','cutLevel']
 
+efficiency_names = ['EnuTrue','ccnc','scedr',
+                    'POTweight','GenieWeight','LEEweight','label',
+                    'newpi0flag','datarun','filetag','cutLevel']
+
 sys_varb_names = ['Enu_1e1p','Eta','PT_1e1p','AlphaT_1e1p',
                   'SphB_1e1p','PzEnu_1e1p','ChargeNearTrunk',
                   'Q0_1e1p','Q3_1e1p','Thetas','Phis','PTRat_1e1p',
@@ -118,7 +122,7 @@ goodruns = np.concatenate((goodruns1,goodruns2,goodruns3))
 goodruns_dict = {1:goodruns1,2:goodruns2,3:goodruns3}
 
 newflag = {}
-newflag[1]=np.loadtxt(weightdir+'pi0weights/2021Jan26_newhaspi0_run1.txt',delimiter=',')[:,:3].astype(int)
+newflag[1]=np.loadtxt(weightdir+'pi0weights/2021Feb4_newhaspi0_run1_1mil.txt',delimiter=',')[:,:3].astype(int)
 newflag[2]=np.loadtxt(weightdir+'pi0weights/2021Jan26_newhaspi0_run2.txt',delimiter=',')[:,:4]
 newflag[3]=np.loadtxt(weightdir+'pi0weights/2021Jan26_newhaspi0_run3.txt',delimiter=',')[:,:3].astype(int)
 newflag_low = {}
@@ -172,14 +176,14 @@ def GetShCons(evt):
 def precuts(x,run,cutMode):
     if x.PassSimpleCuts == 0: return False
     if x.PassShowerReco ==0: return False
-    if (x.TotPE < 20 or x.PorchTotPE > 20): return False
+    #if (x.TotPE < 20 or x.PorchTotPE > 20): return False
     if x.Proton_Edep < 50 or x.Electron_Edep < 35: return False
     if max(x.MaxShrFrac,-1) < 0.2: return False
     if GetShCons(x) > 2: return False
     if x.OpenAng < 0.5: return False
     if x.FailedBoost_1e1p: return False
     if x.Proton_ThetaReco > np.pi/2: return False
-    if not x.run in goodruns: return False
+    #if not x.run in goodruns: return False
         
     if cutMode==1:
         if x.Enu_1e1p < 200 or x.Enu_1e1p > 1200: return False
@@ -198,11 +202,10 @@ def precuts(x,run,cutMode):
         
     return True
 
-def postcuts(x,cutMode):
+def postcuts(x):
     if x.GammaPID_pix_v[2]/(x.EminusPID_pix_v[2]+0.0001) > 2: return False
     if x.Electron_Edep > 100 and x.MuonPID_int_v[2] > 0.2: return False
     if x._pi0mass > 50: return False
-    #if cutMode in [0,2] and x.ProtonPID_pix_v[2] < 0.2: return False
     return True
 
 
@@ -229,6 +232,32 @@ def getLabel(x,filetag):
         label += 'pipm'
     elif mode in [1004,1006,1008,1011,1013,1015,1080,1086,1090]:
         label += 'pi0'
+    else:
+        label += 'other'
+    
+    return label
+
+def getTopLabel(x,filetag):
+    
+    if 'ext' in filetag: return 'EXTBNB'
+    if 'data' in filetag: return 'data'
+    
+    nuType = x.MC_parentPDG
+    mode = x.interactionType
+    
+    if abs(nuType)==12: 
+        label = 'nue_'
+        if x.nlepton==1 and x.nproton==1: label += 'ccqe'
+        else: label += 'other'
+        return label
+    else: label = 'numu_'
+    
+    if x.nlepton==1 and x.npi0>=1:
+        label += 'pi0'
+    elif x.nlepton==1 and x.nproton==1:
+        label += 'ccqe'
+    elif x.nlepton==1 and x.nproton>1:
+        label += 'mec'
     else:
         label += 'other'
     
@@ -298,6 +327,7 @@ class BDTensemble:
 
         dpfdf['nBDTs'] = int(self.nBDTs)*np.ones(len(rse))
         
+        
         for b in self.BDTnumlist:
             tvweight = np.ones(len(rse))
             intrain = np.array([np.equal(x,self.trainrse[run][b][filetag]).all(1).any() for x in rse])
@@ -312,56 +342,56 @@ class BDTensemble:
 
     def MakeBDTcut(self,idf,sigcut,mode,r2overlay=False):
 
-				# Conglemerate BDT scores and weights based on strategy
-				# To be run after inference
-			
-				bdtweight = np.zeros(idf.shape[0])
-				sigprobmax = np.zeros(idf.shape[0]) 
-				sigprobavg = np.zeros(idf.shape[0])
-				sigprobmedian = np.zeros(idf.shape[0])
-				sigproblist = np.zeros((idf.shape[0],self.nBDTs))
-				notintrain = np.zeros((idf.shape[0],self.nBDTs),dtype=bool)
-				numnottrain = np.zeros(idf.shape[0])
-				for b in self.BDTnumlist:
-						sp = idf['sigprob%i'%b]
-						tvw = idf['tvweight%i'%b]
-						sigprobmax = np.where(np.logical_and(tvw>0,sp>sigprobmax),sp,sigprobmax) # cut on the maximum non-train score in ensemble
-						if mode == 'fracweight': 
-								#bdtweight += np.where(sp>sigcut,tvw/float(self.nBDTs),0)
-								bdtweight += np.where((tvw>0.1) & (sp>sigcut),1.0,0.0)
-						sigprobavg += np.where(tvw>0.1,sp,0)
-						numnottrain += np.where(tvw>0.1,1,0)
-						sigproblist[:,b] = sp
-						notintrain[:,b] = tvw > 0.1
-				sigprobavg /= np.where(numnottrain>0,numnottrain,1)
-				for i,(tlist,siglist) in enumerate(zip(notintrain,sigproblist)):
-						splist = siglist[tlist]
-						if splist.size!=0: sigprobmedian[i] = np.median(splist)
-						else: sigprobmedian[i] = 0
-						
-				idf['sigprobavg'] = sigprobavg
-				idf['sigprobmedian'] = sigprobmedian
-				idf['sigprobmax'] = sigprobmax
-				
-				if mode == 'avgscore':
-						idf['sigprob'] = idf['sigprobavg']
-						bdtweight = np.where(sigprobavg>sigcut,1,0)
-				elif mode == 'medianscore':
-						idf['sigprob'] = idf['sigprobmedian']
-						bdtweight = np.where(sigprobmedian>sigcut,1,0)
-				elif mode == 'fracweight':
-						idf['sigprob'] = idf['sigprobmax']
-						bdtweight /= np.where(numnottrain>0,numnottrain,1)
-				
-				idf['bdtweight'] = bdtweight
-				
-				# Drop duplicates
-				
-				idf.sort_values(by=['run','subrun','event','sigprob'],ascending=False,inplace=True)
-				if r2overlay:
-						idf.drop_duplicates(subset=['run','subrun','event','EnuTrue'],inplace=True)
-				else:
-						idf.drop_duplicates(subset=['run','subrun','event'],inplace=True)
+        # Conglemerate BDT scores and weights based on strategy
+        # To be run after inference
+      
+        bdtweight = np.zeros(idf.shape[0])
+        sigprobmax = np.zeros(idf.shape[0]) 
+        sigprobavg = np.zeros(idf.shape[0])
+        sigprobmedian = np.zeros(idf.shape[0])
+        sigproblist = np.zeros((idf.shape[0],self.nBDTs))
+        notintrain = np.zeros((idf.shape[0],self.nBDTs),dtype=bool)
+        numnottrain = np.zeros(idf.shape[0])
+        for b in self.BDTnumlist:
+            sp = idf['sigprob%i'%b]
+            tvw = idf['tvweight%i'%b]
+            sigprobmax = np.where(np.logical_and(tvw>0,sp>sigprobmax),sp,sigprobmax) # cut on the maximum non-train score in ensemble
+            if mode == 'fracweight': 
+                #bdtweight += np.where(sp>sigcut,tvw/float(self.nBDTs),0)
+                bdtweight += np.where((tvw>0.1) & (sp>sigcut),1.0,0.0)
+            sigprobavg += np.where(tvw>0.1,sp,0)
+            numnottrain += np.where(tvw>0.1,1,0)
+            sigproblist[:,b] = sp
+            notintrain[:,b] = tvw > 0.1
+        sigprobavg /= np.where(numnottrain>0,numnottrain,1)
+        for i,(tlist,siglist) in enumerate(zip(notintrain,sigproblist)):
+            splist = siglist[tlist]
+            if splist.size!=0: sigprobmedian[i] = np.median(splist)
+            else: sigprobmedian[i] = 0
+            
+        idf['sigprobavg'] = sigprobavg
+        idf['sigprobmedian'] = sigprobmedian
+        idf['sigprobmax'] = sigprobmax
+        
+        if mode == 'avgscore':
+            idf['sigprob'] = idf['sigprobavg']
+            bdtweight = np.where(sigprobavg>sigcut,1,0)
+        elif mode == 'medianscore':
+            idf['sigprob'] = idf['sigprobmedian']
+            bdtweight = np.where(sigprobmedian>sigcut,1,0)
+        elif mode == 'fracweight':
+            idf['sigprob'] = idf['sigprobmax']
+            bdtweight /= np.where(numnottrain>0,numnottrain,1)
+        
+        idf['bdtweight'] = bdtweight
+        
+        # Drop duplicates
+        
+        idf.sort_values(by=['run','subrun','event','sigprob'],ascending=False,inplace=True)
+        if r2overlay:
+            idf.drop_duplicates(subset=['run','subrun','event','EnuTrue'],inplace=True)
+        else:
+            idf.drop_duplicates(subset=['run','subrun','event'],inplace=True)
 
 
 
@@ -376,12 +406,12 @@ def selection(t,cutMode,filetag,run,lowEpatch,ensemble,POT=0,genieDict=None,leeD
     cutLevel = 0
     if not truthCuts(x,filetag,lowEpatch): continue 
     if not precuts(x,run,cutMode): 
-			if cutMode != 0: continue
-			cutLevel = 1
-    if cutMode in [0,2]:
-      if not postcuts(x,cutMode):
-				if cutMode != 0: continue
-				if cutLevel==1: cutLevel=2
+      if cutMode!=5: continue
+    else: cutLevel = 1
+    if cutMode in [0,2,5] and cutLevel>=1:
+      if not postcuts(x):
+        if cutMode != 5: continue
+      else: cutLevel=2
     
 
     idx = tuple((x.run,x.subrun,x.event))
@@ -392,24 +422,33 @@ def selection(t,cutMode,filetag,run,lowEpatch,ensemble,POT=0,genieDict=None,leeD
     if leeDict is not None: lw = leeDict[idx]
     else: lw = 0.0
     
+    pi0flag = False
     if filetag=='data':
       POTweight = POT
-      pi0flag = False
     else:
       POTweight = POTDICT[run][filetag]
-      pi0flag = haspi0(x,run,filetag) if 'overlay' in filetag else False
+      if 'overlay' in filetag: pi0flag = haspi0(x,run,filetag)
 
     label = getLabel(x,filetag)
     
     if pi0flag:
-			if abs(x.MC_parentPDG) == 12: label = 'nue_other'
-			else: label = 'numu_pi0'
-			if run in [1,3]:
-				if x.ccnc: POTweight = POTDICT[run]['ncpi0']
-				else: POTweight = POTDICT[run]['ccpi0']
-
-    tvarb = pd.Series(getNewShowerCalibTrainingVarbs(x,newCalib=ensemble.newCalib),index=train_varb_names)
-    dpfvarb = pd.Series(getNewShowerCalibDPFvarbs(x,newCalib=ensemble.newCalib) + [x.MC_energyInit,x.ccnc,x.MC_scedr,POTweight,w,lw,label,pi0flag,run,filetag,cutLevel],index=dpf_varb_names)
+      if abs(x.MC_parentPDG) == 12: label = 'nue_other'
+      else: label = 'numu_pi0'
+      if run in [1,3]:
+        if x.ccnc: POTweight = POTDICT[run]['ncpi0']
+        else: POTweight = POTDICT[run]['ccpi0']
+ 
+    if cutMode==5:
+      if cutLevel>=2:
+        tvarb = pd.Series(getNewShowerCalibTrainingVarbs(x,newCalib=ensemble.newCalib),index=train_varb_names)
+      else: tvarb = pd.Series(np.zeros(len(train_varb_names)),index=train_varb_names) 
+        
+      dpfvarb = pd.Series([x.MC_energyInit,x.ccnc,x.MC_scedr,POTweight,w,lw,label,pi0flag,run,filetag,cutLevel],index=efficiency_names)
+    
+    else:
+      tvarb = pd.Series(getNewShowerCalibTrainingVarbs(x,newCalib=ensemble.newCalib),index=train_varb_names)
+      dpfvarb = pd.Series(getNewShowerCalibDPFvarbs(x,newCalib=ensemble.newCalib) + [x.MC_energyInit,x.ccnc,x.MC_scedr,POTweight,w,lw,label,pi0flag,run,filetag,cutLevel],index=dpf_varb_names)
+    
     rsev = pd.Series(idxv,index=rsev_names)
     
     tdf = tdf.append(tvarb,ignore_index=True)
@@ -431,7 +470,7 @@ def sysselection(t,cutMode,run,sample,ensemble,overlay=False,verbose=True):
     if overlay and not truthCuts(x,'overlay',False): continue 
     if not precuts(x,run,cutMode): continue
     if cutMode in [0,2]:
-			if not postcuts(x,cutMode): continue
+      if not postcuts(x): continue
     
     idx = tuple((x.run,x.subrun,x.event))
     idxv = [x.run,x.subrun,x.event,x.vtxid]
