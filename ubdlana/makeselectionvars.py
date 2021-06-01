@@ -35,7 +35,7 @@ def make_selection_vars( indo, ismc,
     vtxShowerData  = df_ShowerReco.get_vertex( run, subrun, event, vtxid )
     if vtxShowerData is None:
         print "[no shower data for this event]"
-        return False
+        #return False
 
     print "[make selection vars] ",run," ",subrun," ",event
     #print " shower data: "

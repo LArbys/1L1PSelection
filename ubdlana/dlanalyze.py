@@ -89,6 +89,7 @@ class DLAnalyze(RootAnalyze):
         self.sample_type      = config['modules']['dlanalyze']['sample_type']
         self.DATARUN          = int(config['modules']['dlanalyze']['data_run'])
         self.start_entry      = 0
+        self.IS_EMPTY         = False # Flag to indicate the input file is empty
 
         another_tree = config['modules']['dlanalyze']['another_tree']
         print 'DLAnalyze constructed with second tree = %s' % another_tree
@@ -373,7 +374,8 @@ class DLAnalyze(RootAnalyze):
                                          self.anatreeclass, self.calibMap_v,
                                          sce = self.sce, showercnn_results=self.dict_showercnn_results )
         if not goodentry:
-            return
+            raise RuntimeError("Make Selection Vars returned an error state")
+            return False
 
 
         if self.bdt_model_1e1p:
@@ -506,6 +508,34 @@ class DLAnalyze(RootAnalyze):
         print 'Input file: %s' % input_file.GetName()
         input_file.ls()
         self.input_file_list.append(input_file.GetName())
+
+        # get list of keys
+        keylist = input_file.GetListOfKeys()
+        nkeys = keylist.GetEntries()
+        if nkeys==0:
+            self.IS_EMPTY = True
+            print 'EMPTY FILE'
+            raise RuntimeError("THIS IS AN EMPTY FILE")
+            return False
+        critical_trees = {'larlite_id_tree':False,
+                          '_recoTree':False,
+                          'VertexTree':False}
+
+        for ikey in range(nkeys):
+            keyname = str(keylist.At(ikey).GetName())
+            print keyname
+            if keyname in critical_trees:
+                critical_trees[keyname] = True
+        
+        found_all_critical_trees = True
+        for treename,foundit in critical_trees.items():
+            if foundit==False:
+                found_all_critical_trees = False
+        if not found_all_critical_trees:
+            print 'did not find all critical trees!: ',critical_trees
+            self.IS_EMPTY = True
+            raise RuntimeError('did not find all critical trees!')
+            return False
 
         # we open the larcv and larlite iomanagers
         self.io_ll  = larlite.storage_manager(larlite.storage_manager.kBOTH)
@@ -645,7 +675,20 @@ class DLAnalyze(RootAnalyze):
 
     def close_input(self,input_file):
         """ called just before input is closed. close larcv and larlite files. larlite output file will write."""
-        print "[dlanalyze::close_input] Run Vertex-tree loop. num vertices: ",self._recoTree.GetEntries()
+
+        input_path = input_file.GetName()
+        cpcmd = "cp %s %s"%(input_path,os.path.basename(input_path))
+        print "[dlanalyze::close_input] copying input file: ",cpcmd
+        os.system(cpcmd)
+        fout = open('dlanalyze_input_list.txt','w')
+        for f in self.input_file_list:
+            print>>fout,os.path.basename(f.strip())
+        fout.close()
+
+        if self.IS_EMPTY:
+            return False
+        else:
+            print "[dlanalyze::close_input] Run Vertex-tree loop. num vertices: ",self._recoTree.GetEntries()
 
         # make shower reco data interface
         self.df_ShowerReco = ShowerRecoData( self.dict_ShowerReco )
@@ -664,14 +707,6 @@ class DLAnalyze(RootAnalyze):
 
         self.calibfile.Close()
         
-        input_path = input_file.GetName()
-        cpcmd = "cp %s %s"%(input_path,os.path.basename(input_path))
-        print "[dlanalyze::close_input] copying input file: ",cpcmd
-        os.system(cpcmd)
-        fout = open('dlanalyze_input_list.txt','w')
-        for f in self.input_file_list:
-            print>>fout,os.path.basename(f.strip())
-        fout.close()
 
 
     def extract_showerreco_entry_vars(self,data,showerreco):
