@@ -62,6 +62,7 @@ STANDARD_EVENT_INDEXED_TREES_STR = """
     track_dl_tree
     shower_showerreco_tree
     shower_ssnetshowerreco_tree
+    shower_ssnetshowerreco_sec_tree
     shower_dl_tree
     vertex_inter_vertex_tree
     vertex_trackReco_tree
