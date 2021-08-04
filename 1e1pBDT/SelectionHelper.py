@@ -26,9 +26,10 @@ dpf_varb_names = ['Enu_1e1p','Eta','PT_1e1p','AlphaT_1e1p',
                   'OpenAng','Xreco','Yreco','Zreco',
                   'MPIDY_muon','MPIDY_proton','MPIDY_eminus',
                   'shower_fraction','Shower_Consistency',
-                  'EnuQE_lepton','EnuQE_proton','EnuTrue','ccnc','scedr',
+                  'EnuQE_lepton','EnuQE_proton','Proton_TrackLength','Lepton_TrackLength',
+                  'EnuTrue','BDTscore_1e1p','ccnc','interactionType','nlepton','nproton','scedr',
                   'POTweight','GenieWeight','LEEweight','label',
-                  'newpi0flag','datarun','filetag','cutLevel']
+                  'newpi0flag','oldpi0flag','datarun','filetag','cutLevel']
 
 efficiency_names = ['EnuTrue','ccnc','scedr',
                     'POTweight','GenieWeight','LEEweight','label',
@@ -45,7 +46,8 @@ sys_varb_names = ['Enu_1e1p','Eta','PT_1e1p','AlphaT_1e1p',
                   'OpenAng','Xreco','Yreco','Zreco',
                   'MPIDY_muon','MPIDY_proton','MPIDY_eminus',
                   'shower_fraction','Shower_Consistency',
-                  'EnuQE_lepton','EnuQE_proton','Etrue','sample']
+                  'EnuQE_lepton','EnuQE_proton','Proton_TrackLength','Lepton_TrackLength',
+                  'Etrue','sample']
 
 train_varb_names = ['Enu_1e1p', 'Electron_Edep', 'PT_1e1p', 'AlphaT_1e1p', 'SphB_1e1p', 'PzEnu_1e1p', 'ChargeNearTrunk',
                     'Q0_1e1p', 'Q3_1e1p', 'Thetas', 'Phis', 'pTRat_1e1p', 'Proton_TrackLength', 'Lepton_TrackLength',
@@ -129,11 +131,15 @@ newflag_low = {}
 newflag_low[1]=np.loadtxt(weightdir+'pi0weights/2021Feb05_newhaspi0_run1_lowE.txt',delimiter=',')[:,:3].astype(int)
 newflag_low[2]=np.loadtxt(weightdir+'pi0weights/2021Feb05_newhaspi0_run2_lowE.txt',delimiter=',')[:,:4]
 newflag_low[3]=np.loadtxt(weightdir+'pi0weights/2021Feb05_newhaspi0_run3_lowE.txt',delimiter=',')[:,:3].astype(int)
+newflag_nue = {}
+newflag_nue[1]=np.loadtxt(weightdir+'pi0weights/2021June02_newhaspi0_run1_nue.txt',delimiter=',')[:,:3].astype(int)
+newflag_nue[2]=np.loadtxt(weightdir+'pi0weights/2021June02_newhaspi0_run2_nue.txt',delimiter=',')[:,:3].astype(int)
+newflag_nue[3]=np.loadtxt(weightdir+'pi0weights/2021June02_newhaspi0_run3_nue.txt',delimiter=',')[:,:3].astype(int)
 
 # Helpful functions
     
 def newhaspi0flag(test_r, test_s, test_e, test_enu, run, lowE=False):
-    
+
     if run==2:
         if lowE:
             return np.any((np.abs(newflag_low[2]-np.array([float(test_r),float(test_s),float(test_e),test_enu]))<1e-1).all(1))
@@ -176,14 +182,17 @@ def GetShCons(evt):
 def precuts(x,run,cutMode):
     if x.PassSimpleCuts == 0: return False
     if x.PassShowerReco ==0: return False
-    #if (x.TotPE < 20 or x.PorchTotPE > 20): return False
+    if (x.TotPE < 20 or x.PorchTotPE > 20): return False
     if x.Proton_Edep < 50 or x.Electron_Edep < 35: return False
     if max(x.MaxShrFrac,-1) < 0.2: return False
     if GetShCons(x) > 2: return False
     if x.OpenAng < 0.5: return False
     if x.FailedBoost_1e1p: return False
     if x.Proton_ThetaReco > np.pi/2: return False
-    #if not x.run in goodruns: return False
+    if not x.run in goodruns: return False
+
+    # High Energy cut, turn on/off as necessary
+    #if x.Enu_1e1p > 1200: return False
         
     if cutMode==1:
         if x.Enu_1e1p < 200 or x.Enu_1e1p > 1200: return False
@@ -194,9 +203,9 @@ def precuts(x,run,cutMode):
         if x.ProtonPID_int_v[2]<0.1: return False  
     if cutMode==2:
         if x.Enu_1e1p < 700: return False
-        if x.Enu_1e1p > 1200: return False
+        #if x.Enu_1e1p > 1200: return False
     if cutMode==3:
-        if x.BDTscore_1e1p > 0.7 or x.BDTscore_1e1p < 0.01: return False
+        #if x.BDTscore_1e1p > 0.7 or x.BDTscore_1e1p < 0.01: return False
         if x.ProtonPID_int_v[2] < 0.0: return False
         if abs(x.Lepton_PhiReco-np.pi/2) < 0.25: return False
         
@@ -244,22 +253,24 @@ def getTopLabel(x,filetag):
     
     nuType = x.MC_parentPDG
     mode = x.interactionType
+
+    label = '%i'%(x.nlepton)
     
     if abs(nuType)==12: 
-        label = 'nue_'
-        if x.nlepton==1 and x.nproton==1: label += 'ccqe'
-        else: label += 'other'
+        label += 'e'
+        if x.nproton==1: label += '1p'
+        else: label += 'X'
         return label
-    else: label = 'numu_'
+    else: label += 'm'
     
-    if x.nlepton==1 and x.npi0>=1:
-        label += 'pi0'
-    elif x.nlepton==1 and x.nproton==1:
-        label += 'ccqe'
-    elif x.nlepton==1 and x.nproton>1:
-        label += 'mec'
+    if x.npi0>=1:
+        label += 'Npi0'
+    elif x.nproton==1:
+        label += '1p'
+    elif x.nproton>1:
+        label += 'Np'
     else:
-        label += 'other'
+        label += 'X'
     
     return label
 
@@ -273,9 +284,10 @@ class BDTensemble:
 
         self.tag = tag
         self.newCalib = 'newShowerCalib' in tag
+        self.useEnu = not 'noEnu' in tag
         self.BDTnumlist = BDTnumlist
         self.nBDTs = len(BDTnumlist)
-        bdtsavedir = '/home/nwkamp/Research/MicroBooNE/1e1pSelectionPrime/BDT/BDTWeights/new/'+tag+'/'
+        bdtsavedir = '/home/nwkamp/Research/MicroBooNE/1L1PSelection/1e1pBDT/BDTWeights/new/'+tag+'/'
         
         self.bdt = {1:{},2:{},3:{}}
         self.trainrse = {1:{},2:{},3:{}}
@@ -326,7 +338,7 @@ class BDTensemble:
         rse = dpfdf[['run','subrun','event']].values
 
         dpfdf['nBDTs'] = int(self.nBDTs)*np.ones(len(rse))
-        
+       
         
         for b in self.BDTnumlist:
             tvweight = np.ones(len(rse))
@@ -397,7 +409,9 @@ class BDTensemble:
 
 def selection(t,cutMode,filetag,run,lowEpatch,ensemble,POT=0,genieDict=None,leeDict=None,verbose=True):
 
-  tdf = pd.DataFrame(columns=train_varb_names)
+  
+  if ensemble.useEnu: tdf = pd.DataFrame(columns=train_varb_names)
+  else: tdf = pd.DataFrame(columns=train_varb_names[1:])
   dpfdf = pd.DataFrame(columns=dpf_varb_names)
   rsevdf = pd.DataFrame(columns=rsev_names)
 
@@ -414,40 +428,57 @@ def selection(t,cutMode,filetag,run,lowEpatch,ensemble,POT=0,genieDict=None,leeD
       else: cutLevel=2
     
 
-    idx = tuple((x.run,x.subrun,x.event))
     idxv = [x.run,x.subrun,x.event,x.vtxid]
-    
-    if genieDict is not None: w = genieDict[idx]
-    else: w = 1.0
-    if leeDict is not None: lw = leeDict[idx]
-    else: lw = 0.0
-    
+    w = 1.0
+    lw = 0.0
+    if genieDict is not None: 
+      for idx in [tuple((x.run,x.subrun,x.event,round(x.MC_energyInit,0))),
+                  tuple((x.run,x.subrun,x.event,round(x.MC_energyInit,0)-1)),
+                  tuple((x.run,x.subrun,x.event,round(x.MC_energyInit,0)+1))]:
+        if idx in genieDict:
+          gotIdx = True
+          w = genieDict[idx]
+          if leeDict is not None: lw = leeDict[idx]
+          continue
+          
+   
     pi0flag = False
+    intType = -9999
+    nlepton = 0
+    nproton = 0
     if filetag=='data':
       POTweight = POT
     else:
       POTweight = POTDICT[run][filetag]
       if 'overlay' in filetag: pi0flag = haspi0(x,run,filetag)
+      if filetag!='ext': 
+				nlepton = x.nlepton
+				nproton = x.nproton
+				intType = x.interactionType
 
     label = getLabel(x,filetag)
     
     if pi0flag:
-      if abs(x.MC_parentPDG) == 12: label = 'nue_other'
-      else: label = 'numu_pi0'
+      #label = '%i'%(1-x.ccnc)
+      #if abs(x.MC_parentPDG) == 12: label += 'eX'
+      #else: label += 'mNpi0'
+      #if abs(x.MC_parentPDG) == 12: label = 'nue_other'
+      #else: label = 'numu_pi0'
       if run in [1,3]:
         if x.ccnc: POTweight = POTDICT[run]['ncpi0']
         else: POTweight = POTDICT[run]['ccpi0']
  
     if cutMode==5:
       if cutLevel>=2:
-        tvarb = pd.Series(getNewShowerCalibTrainingVarbs(x,newCalib=ensemble.newCalib),index=train_varb_names)
+        tvarb = pd.Series(getNewShowerCalibTrainingVarbs(x,newCalib=ensemble.newCalib,useEnu=ensemble.useEnu),index=train_varb_names)
       else: tvarb = pd.Series(np.zeros(len(train_varb_names)),index=train_varb_names) 
         
       dpfvarb = pd.Series([x.MC_energyInit,x.ccnc,x.MC_scedr,POTweight,w,lw,label,pi0flag,run,filetag,cutLevel],index=efficiency_names)
     
     else:
-      tvarb = pd.Series(getNewShowerCalibTrainingVarbs(x,newCalib=ensemble.newCalib),index=train_varb_names)
-      dpfvarb = pd.Series(getNewShowerCalibDPFvarbs(x,newCalib=ensemble.newCalib) + [x.MC_energyInit,x.ccnc,x.MC_scedr,POTweight,w,lw,label,pi0flag,run,filetag,cutLevel],index=dpf_varb_names)
+      if ensemble.useEnu: tvarb = pd.Series(getNewShowerCalibTrainingVarbs(x,newCalib=ensemble.newCalib),index=train_varb_names)
+      else: tvarb = pd.Series(getNewShowerCalibTrainingVarbs(x,newCalib=ensemble.newCalib)[1:],index=train_varb_names[1:])
+      dpfvarb = pd.Series(getNewShowerCalibDPFvarbs(x,newCalib=ensemble.newCalib) + [x.MC_energyInit,x.BDTscore_1e1p,x.ccnc,intType,nlepton,nproton,x.MC_scedr,POTweight,w,lw,label,pi0flag,x.haspi0,run,filetag,cutLevel],index=dpf_varb_names)
     
     rsev = pd.Series(idxv,index=rsev_names)
     

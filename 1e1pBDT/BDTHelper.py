@@ -153,10 +153,7 @@ def getNewShowerCalibDPFvarbs(x,newCalib=True):
     
     EpCCQE              = ECCQE(x.Proton_Edep,x.Proton_ThetaReco,pid="proton",B=BE)
     EeCCQE              = ECCQE(Electron_Edep,x.Lepton_ThetaReco,pid="electron",B=BE)
-    dEp_1e1p            = EpCCQE - Enu_1e1p
-    dEe_1e1p            = EeCCQE - Enu_1e1p
-    dEep_1e1p           = EpCCQE - EeCCQE
-    SphB_1e1p           = sqrt(dEp_1e1p**2+dEe_1e1p**2+dEep_1e1p**2)
+    SphB_1e1p           = getSphB_boost(x,Electron_Edep) 
     
     
     
@@ -170,7 +167,7 @@ def getNewShowerCalibDPFvarbs(x,newCalib=True):
                  x.Xreco,x.Yreco,x.Zreco,x.MuonPID_int_v[2],
                  x.ProtonPID_int_v[2],x.EminusPID_int_v[2],
                  (x.shower1_smallQ_Y/(x.shower1_sumQ_Y+1e-6) if x.shower1_sumQ_Y != 0 else -1),
-                 GetShCons(x),EeCCQE,EpCCQE]
+                 GetShCons(x),EeCCQE,EpCCQE,x.Proton_TrackLength, x.Lepton_TrackLength]
     
     return DPFvarbs
 
@@ -203,7 +200,8 @@ def signal(x,addPostcuts):
 
 def getDataFromFVV(filename,traintestsplit,
                    newCalib=False,addPostcuts=False,Ecut=None,
-                   applyGoodReco=True,shuffle=True,trainAgainstNues=False,treestr=None):
+                   applyGoodReco=True,shuffle=True,trainAgainstNues=False,
+                   treestr=None,useEnu=True):
 
   f = ROOT.TFile(filename,'READ')
   if treestr is not None: t = f.Get(treestr)
@@ -225,7 +223,8 @@ def getDataFromFVV(filename,traintestsplit,
       if x.MC_scedr > 5: continue 
       if applyGoodReco and abs(varbs[0]-tE)/tE > 0.2: continue
     if Ecut is not None and varbs[0]> Ecut: continue
-    xv.append(varbs) 
+    if useEnu: xv.append(varbs) 
+    else: xv.append(varbs[1:]) 
     yv.append(y)
     rsev.append(tuple((x.run,x.subrun,x.event)))
   
