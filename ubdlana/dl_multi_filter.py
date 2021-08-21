@@ -639,10 +639,10 @@ class DLMultiFilter(RootAnalyze):
 
             if ( dlanatree.PassSimpleCuts==1
                  and dlanatree.MaxShrFrac<0.2
-                 and dlanatree.OpenAng>0.5
+                 #and dlanatree.OpenAng>0.5
                  and dlanatree.ChargeNearTrunk>0
                  and dlanatree.FailedBoost_1m1p!=1
-                 and bdtscore_1mu1p_nu>=0.5 ):
+                 and bdtscore_1mu1p_nu>=0.0 ):
                 passes = True
             
             # for debug: make something pass in order to check
@@ -1058,7 +1058,7 @@ class DLMultiFilter(RootAnalyze):
                     varutils.update_mpid(x,rsev,self.mpid_results)
 
             # apply 1e1p cuts
-            passes = cutdefinitions.precuts(x,self.DATARUN) and cutdefinitions.postcuts(x,self.DATARUN)
+            passes = cutdefinitions.precuts(x,self.DATARUN)# and cutdefinitions.postcuts(x,self.DATARUN)
 
             # exclude the signal box
             inbox = True
@@ -1066,9 +1066,9 @@ class DLMultiFilter(RootAnalyze):
                 passes = False
                 inbox = False
             # exclude the far box
-            if x.BDTscore_1e1p<0.7 or x.Enu_1e1p>700.0:
-                passes = False
-                inbox = False
+            #if x.BDTscore_1e1p<0.7 or x.Enu_1e1p>700.0:
+            #    passes = False
+            #    inbox = False
                 
             print "[1e1p near-sideband] RSE=",rse," RSEV=",rsev," Passes=",passes
             print "  precuts: ",passprecuts==1
@@ -1114,8 +1114,8 @@ class DLMultiFilter(RootAnalyze):
                 print "[1e1p near-sideband] RSE ",rse," vtxid=",dlanatree.vtxid,": ",max_rse[rse]," -- is not max BDT vertex: ",max_rse[rse]["vtxid"]
                 continue
 
-            if not max_rse[rse]["passes"] or max_rse[rse]["bdt"]>0.7:
-                print "[1e1p near-sideband] RSE ",rse,": score max=",max_rse[rse]["bdt"]," is above threshold or did not pass (",max_rse[rse]["passes"],")"
+            if not max_rse[rse]["passes"]:
+                print "[1e1p near-sideband] RSE ",rse,": score max=",max_rse[rse]["bdt"]," did not pass (",max_rse[rse]["passes"],")"
                 continue
 
             print "[1e1p near-sideband] RSE ",rse,": score max=",max_rse[rse]["bdt"]," passes filter (",max_rse[rse]["passes"],")"
