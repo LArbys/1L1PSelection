@@ -45,7 +45,7 @@ import varutils
 from lib_mpid_torch.rootdata_pid import ROOTData
 import bdt1e1p_helper
 import cutdefinitions
-#from SelectionDefs import apply_precuts
+from SelectionDefs import GetShCons
 
 def make(config):
     #----------------------------------------------------------------------
@@ -191,6 +191,16 @@ class DLMultiFilter(RootAnalyze):
         # Make output directory.
         print "open_output"
         self.output_file = output_file
+        self.output_file.cd()
+        self.shcons_tree = ROOT.TTree("shcons","shower consistency tree")
+        self.x_shower_consist = array.array('f',[0.0])
+        self.x_shower_consist_bug = array.array('f',[0.0])
+        self.x_bdt = array.array('f',[0.0])
+        self.x_enu = array.array('f',[0.0])
+        self.shcons_tree.Branch("shcons",self.x_shower_consist,"shcons/F")
+        self.shcons_tree.Branch("shcons_bug",self.x_shower_consist_bug,"shcons_bug/F")
+        self.shcons_tree.Branch("bdt",self.x_bdt,"bdt/F")
+        self.shcons_tree.Branch("enu",self.x_enu,"enu/F")
 
         return
 
@@ -1428,6 +1438,13 @@ class DLMultiFilter(RootAnalyze):
             print "  pi0mass: ",x.Pi0Mass<=50.0," (",x.Pi0Mass,")"
             print "  enu: ",x.Enu_1e1p
             print "  bdt 1e1p>",BDTCUT,": ",bdtscore_1e1p>BDTCUT," (",bdtscore_1e1p,") [rerun=",self.rerun_1e1p_bdt,"]"
+            print "  shower-consistency: ",x.ShowerConsistency
+            self.x_enu[0] = x.Enu_1e1p
+            self.x_bdt[0] = bdtscore_1e1p
+            self.x_shower_consist[0] = x.ShowerConsistency
+            self.x_shower_consist_bug[0] = GetShCons( dlanatree.shower1_sumQ_V, dlanatree.shower1_sumQ_U, dlanatree.shower1_sumQ_Y )
+            self.shcons_tree.Fill()
+            print "  shower-consistency (bug): ",self.x_shower_consist_bug[0]
 
             if rse not in max_rse:
                 # provide default

@@ -57,7 +57,8 @@ def make_selection_vars_from_fvv( fvv ):
     selvars.Proton_Edep = fvv.Proton_Edep
     selvars.Electron_Edep = fvv.Electron_Edep
     selvars.MaxShrFrac = fvv.MaxShrFrac
-    selvars.ShowerConsistency = GetShCons( fvv.shower1_sumQ_V, fvv.shower1_sumQ_U, fvv.shower1_sumQ_Y )
+    #selvars.ShowerConsistency = GetShCons( fvv.shower1_sumQ_V, fvv.shower1_sumQ_U, fvv.shower1_sumQ_Y )
+    selvars.ShowerConsistency = GetShCons( fvv.shower1_sumQ_U, fvv.shower1_sumQ_V, fvv.shower1_sumQ_Y )
     selvars.OpenAng = fvv.OpenAng
     selvars.FailedBoost_1e1p = fvv.FailedBoost_1e1p
     selvars.Proton_ThetaReco = fvv.Proton_ThetaReco
