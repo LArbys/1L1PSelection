@@ -27,7 +27,11 @@ dpf_varb_names = ['Enu_1e1p','Eta','PT_1e1p','AlphaT_1e1p',
                   'MPIDY_muon','MPIDY_proton','MPIDY_eminus',
                   'shower_fraction','Shower_Consistency',
                   'EnuQE_lepton','EnuQE_proton','Proton_TrackLength','Lepton_TrackLength',
-                  'EnuTrue','BDTscore_1e1p','ccnc','interactionType','nlepton','nproton','scedr',
+                  'shower1_sumQ_U','shower1_sumQ_V','shower1_sumQ_Y',
+                  'PassSimpleCuts','PassShowerReco','TotPE','PorchTotPE','FailedBoost_1e1p',
+                  'MPIDY_gamma_pix','MPIDY_eminus_pix','_pi0mass',
+                  'EnuTrue','BDTscore_1e1p','ccnc','interactionType',
+                  'nlepton','nproton','npi0','parentPDG','scedr',
                   'POTweight','GenieWeight','LEEweight','label',
                   'newpi0flag','oldpi0flag','datarun','filetag','cutLevel']
 
@@ -80,9 +84,9 @@ OVR_POT3  = 8.98773223801e+20
 NUE_POT3  = 4.70704675581e+22
 LOWE_POT3 = 5.97440749241e+23
 LOWM_POT3 = 1.51234621011e+21
-DIRT_POT3 = 1.0
 OPEN_POT3 = 8.786e+18
 EXT_POT3  = 39566274.0 / 2263559.0 * OPEN_POT3
+DIRT_POT3  = 1.88246613377e+20
 NCPi0_POT3 = 2.22482E+21 + 2.64479e+20
 CCPi0_POT3 = 5.91343E+20
 
@@ -109,6 +113,7 @@ POTDICT[2]['intrinsics'] = NUE_POT2
 POTDICT[2]['intrinsics_lowE'] = LOWE_POT2
 POTDICT[3]['open'] = OPEN_POT3
 POTDICT[3]['ext'] = EXT_POT3
+POTDICT[3]['dirt'] = DIRT_POT3
 POTDICT[3]['overlay'] = OVR_POT3
 POTDICT[3]['overlay_lowE'] = LOWM_POT3
 POTDICT[3]['intrinsics'] = NUE_POT3
@@ -173,9 +178,10 @@ def GetShCons(evt):
     EV = evt.shower1_sumQ_V*0.01586385
     EY = evt.shower1_sumQ_Y*0.01319672
     
-    #EU = evt.shower1_sumQ_U*0.0139 + 31.5
-    #EV = evt.shower1_sumQ_V*0.0143 + 35.7
-    #EY = evt.shower1_sumQ_Y*0.0125 + 13.8
+    #EU = evt.shower1_sumQ_V*0.0155481
+    #EV = evt.shower1_sumQ_U*0.01586385
+    #EY = evt.shower1_sumQ_Y*0.01319672
+    
     
     return sqrt((EU-EV)**2 + (EU-EY)**2 + (EY-EV)**2)/(EY+1e-6)
 
@@ -191,9 +197,6 @@ def precuts(x,run,cutMode):
     if x.Proton_ThetaReco > np.pi/2: return False
     if not x.run in goodruns: return False
 
-    # High Energy cut, turn on/off as necessary
-    #if x.Enu_1e1p > 1200: return False
-        
     if cutMode==1:
         if x.Enu_1e1p < 200 or x.Enu_1e1p > 1200: return False
         if x.Lepton_PhiReco < np.pi/2 + 0.25 and x.Lepton_PhiReco > np.pi/2 - 0.25: return False
@@ -221,6 +224,7 @@ def postcuts(x):
 def getLabel(x,filetag):
     
     if 'ext' in filetag: return 'EXTBNB'
+    if 'dirt' in filetag: return 'DIRT'
     if 'data' in filetag: return 'data'
     
     nuType = x.MC_parentPDG
@@ -249,6 +253,7 @@ def getLabel(x,filetag):
 def getTopLabel(x,filetag):
     
     if 'ext' in filetag: return 'EXTBNB'
+    if 'dirt' in filetag: return 'DIRT'
     if 'data' in filetag: return 'data'
     
     nuType = x.MC_parentPDG
@@ -334,6 +339,7 @@ class BDTensemble:
     def inference(self,tvdf,dpfdf,run,filetag):
         
         if filetag=='data': filetag='moot'
+        if filetag=='dirt': filetag='moot'
         training_varbs = tvdf.values
         rse = dpfdf[['run','subrun','event']].values
 
@@ -426,7 +432,8 @@ def selection(t,cutMode,filetag,run,lowEpatch,ensemble,POT=0,genieDict=None,leeD
       if not postcuts(x):
         if cutMode != 5: continue
       else: cutLevel=2
-    
+
+    if filetag=='data' and x.BDTscore_1e1p>0.95: print(x.run,x.subrun,x.event,GetShCons(x))
 
     idxv = [x.run,x.subrun,x.event,x.vtxid]
     w = 1.0
@@ -446,15 +453,19 @@ def selection(t,cutMode,filetag,run,lowEpatch,ensemble,POT=0,genieDict=None,leeD
     intType = -9999
     nlepton = 0
     nproton = 0
+    npi0 = 0
+    parentPDG = 0
     if filetag=='data':
       POTweight = POT
     else:
       POTweight = POTDICT[run][filetag]
       if 'overlay' in filetag: pi0flag = haspi0(x,run,filetag)
-      if filetag!='ext': 
-				nlepton = x.nlepton
-				nproton = x.nproton
-				intType = x.interactionType
+      if filetag not in ['ext','dirt']: 
+        nlepton = x.nlepton
+        nproton = x.nproton
+        npi0 = x.npi0
+        parentPDG = x.MC_parentPDG
+        intType = x.interactionType
 
     label = getLabel(x,filetag)
     
@@ -478,8 +489,8 @@ def selection(t,cutMode,filetag,run,lowEpatch,ensemble,POT=0,genieDict=None,leeD
     else:
       if ensemble.useEnu: tvarb = pd.Series(getNewShowerCalibTrainingVarbs(x,newCalib=ensemble.newCalib),index=train_varb_names)
       else: tvarb = pd.Series(getNewShowerCalibTrainingVarbs(x,newCalib=ensemble.newCalib)[1:],index=train_varb_names[1:])
-      dpfvarb = pd.Series(getNewShowerCalibDPFvarbs(x,newCalib=ensemble.newCalib) + [x.MC_energyInit,x.BDTscore_1e1p,x.ccnc,intType,nlepton,nproton,x.MC_scedr,POTweight,w,lw,label,pi0flag,x.haspi0,run,filetag,cutLevel],index=dpf_varb_names)
-    
+      dpfvarb = pd.Series(getNewShowerCalibDPFvarbs(x,newCalib=ensemble.newCalib) + [x.shower1_sumQ_U,x.shower1_sumQ_V,x.shower1_sumQ_Y,x.PassSimpleCuts,x.PassShowerReco,x.TotPE,x.PorchTotPE,x.FailedBoost_1e1p,x.GammaPID_pix_v[2],x.EminusPID_pix_v[2],x._pi0mass,x.MC_energyInit,x.BDTscore_1e1p,x.ccnc,intType,nlepton,nproton,npi0,parentPDG,x.MC_scedr,POTweight,w,lw,label,pi0flag,x.haspi0,run,filetag,cutLevel],index=dpf_varb_names)
+                  
     rsev = pd.Series(idxv,index=rsev_names)
     
     tdf = tdf.append(tvarb,ignore_index=True)
@@ -518,4 +529,35 @@ def sysselection(t,cutMode,run,sample,ensemble,overlay=False,verbose=True):
   ensemble.inference(tdf,dpfdf,run,'moot')
   return dpfdf
 
+def MakeAvgBDTcut(idf,sigcut,nBDTs,r2overlay=False,ttc=0.1):
+
+    # Conglemerate BDT scores and weights based on strategy
+
+    bdtweight = np.zeros(idf.shape[0])
+    sigprobavg = np.zeros(idf.shape[0])
+    sigproblist = np.zeros((idf.shape[0],nBDTs))
+    notintrain = np.zeros((idf.shape[0],nBDTs),dtype=bool)
+    numnottrain = np.zeros(idf.shape[0])
+    for b in range(nBDTs):
+        sp = idf['sigprob%i'%b]
+        tvw = idf['tvweight%i'%b]
+        sigprobavg += np.where(tvw>ttc,sp,0)
+        numnottrain += np.where(tvw>ttc,1,0)
+        sigproblist[:,b] = sp
+        notintrain[:,b] = tvw > ttc
+    sigprobavg /= np.where(numnottrain>0,numnottrain,1)
+
+    idf['sigprobavg'] = sigprobavg
+    idf['sigprobmedian'] = -1
+    idf['sigprobmax'] = -1
+    idf['sigprob'] = sigprobavg
+    idf['bdtweight'] = np.where(sigprobavg>sigcut,1,0)
+
+    # Drop duplicates
+
+    idf.sort_values(by=['run','subrun','event','sigprob'],ascending=False,inplace=True)
+    if r2overlay:
+        idf.drop_duplicates(subset=['run','subrun','event','EnuTrue'],inplace=True)
+    else:
+        idf.drop_duplicates(subset=['run','subrun','event'],inplace=True)
 

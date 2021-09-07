@@ -117,6 +117,17 @@ def GetErrorsData(xobs,CL=0.6827):
     xobs_high = float(PPF1(1-(1-CL)/2))
     return xobs_low,xobs_high
 
+def poisson_errors(k, CL = 0.6827):
+    
+    # 1 Sig = 0.6827
+    # 2 Sig = 0.9545
+    # 3 Sig = 0.9973
+    
+    a = 1.0 - CL
+    low, high = (stats.chi2.ppf(a/2, 2*k) / 2, stats.chi2.ppf(1-a/2, 2*k + 2) / 2)
+    low = np.where(k==0,0,low)
+    return low, high
+
 class StackedHisto:
 
     def  __init__ (self,a_df_mc,a_df_scale):
@@ -233,10 +244,13 @@ def PmuGivenX(mu,x):
         return 1/np.sqrt(2*pi)*np.exp(x+x*np.log(mu/x)-mu)*poly
 
 
-def distplot_wratio_davio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_cov,legpos=0,ymax=-1,normshift=1,fs=(16,11),consFac=0.0):
+def distplot_wratio_davio(myvar,bins,stackedhists,datahist,stxcoord,m_cov,legpos=0,ymax=-1,normshift=1,fs=(16,11),consFac=0.0,addMCstat=True):
 
     #consFac is new and consolidates all MC strata whose contribution is less than a given percent threshold.
     # (my legend was too full of useless stuff)
+
+    nbins = len(bins)-1
+    myrange=(bins[0],bins[-1])
 
     vals_mc = np.zeros(nbins)
     vals_mc_raw = np.zeros(nbins)
@@ -257,14 +271,14 @@ def distplot_wratio_davio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_c
     data_vals,data_wgt,data_scale,_,data_label = datahist.GetHist(myvar)
     #print("hstack gh_weights",np.hstack(gh_wgts))
     #print("hstack gh_scale",np.hstack(gh_scale))
-    vals_mc_total,binedges = np.histogram(np.hstack(gh_vals),nbins,range=myrange,weights=np.hstack(gh_wgts)*np.hstack(gh_scale))
+    vals_mc_total,binedges = np.histogram(np.hstack(gh_vals),bins,weights=np.hstack(gh_wgts)*np.hstack(gh_scale))
     mctot = vals_mc_total.sum()
     mcthresh = consFac * mctot
 
 
     for i in range(len(gh_vals)):
-        h1_raw,_ = np.histogram(gh_vals[i],nbins,range=myrange,weights=gh_wgts[i])     # hist of raw event weights
-        h1,_ = np.histogram(gh_vals[i],nbins,range=myrange,weights=gh_wgts[i]*gh_scale[i])
+        h1_raw,_ = np.histogram(gh_vals[i],bins,weights=gh_wgts[i])     # hist of raw event weights
+        h1,_ = np.histogram(gh_vals[i],bins,weights=gh_wgts[i]*gh_scale[i])
 
         vals_mc_raw += h1_raw
         vals_mc += h1
@@ -276,7 +290,7 @@ def distplot_wratio_davio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_c
         for sc in np.unique(sorted_scale):
             subvals = sorted_vals[sorted_scale==sc]
             subwgts = sorted_wgt[sorted_scale==sc]
-            subh1,_ = np.histogram(subvals,nbins,range=myrange,weights=subwgts**2)
+            subh1,_ = np.histogram(subvals,bins,weights=subwgts**2)
             #yerrsq_mc += np.power(np.sqrt(subh1)*sc,2)
             yerrsq_mc += subh1
        
@@ -286,15 +300,15 @@ def distplot_wratio_davio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_c
         a_cols_draw.append(gh_cols[i])
 
 
-    vals_data_raw,_ = np.histogram(data_vals,nbins,range=myrange,weights=data_wgt)
-    vals_data,_ = np.histogram(data_vals,nbins,range=myrange,weights=np.multiply(data_wgt,data_scale))
+    vals_data_raw,_ = np.histogram(data_vals,bins,weights=data_wgt)
+    vals_data,_ = np.histogram(data_vals,bins,weights=np.multiply(data_wgt,data_scale))
     bincenters = np.diff(binedges)/2 + binedges[:-1]
 
     #jarretbars
     a_obslo = []
     a_obshi = []
     for i in range(nbins):
-        obslo,obshi = GetErrorsData(vals_data[i])
+        obslo,obshi = poisson_errors(vals_data[i])
         a_obshi.append(obshi-vals_data[i])
         a_obslo.append(vals_data[i]-obslo)
 
@@ -321,7 +335,8 @@ def distplot_wratio_davio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_c
     print('Normalization Uncertainty:',np.sqrt(fNorm_squared))
 
     yerr_mc_sys = np.sqrt(np.diag(m_cov))
-    yerr_mc_total = np.sqrt(np.diag(m_cov) + yerrsq_mc)
+    if addMCstat: yerr_mc_total = np.sqrt(np.diag(m_cov) + yerrsq_mc)
+    else: yerr_mc_total = yerr_mc_sys
     print("yerr_mc_total", yerr_mc_total)
 
     yerrsq_data = np.zeros(nbins)
@@ -374,13 +389,14 @@ def distplot_wratio_davio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_c
     ax0.set_xlim(myrange)
     ax1.set_ylim(0,2)
     ax1.set_xlim(myrange)
-    ax1.set_xlabel(stxcoord,fontsize=25)
-    ax0.set_ylabel('POT Normalized Count',fontsize=25)
-    ax1.set_ylabel('Data/MC',fontsize=25)
-    ax0.set_title('MCC9 Data/MC',fontsize=30)
+    ax1.set_xlabel(stxcoord,fontsize=30)
+    if 'MeV' in stxcoord: ax0.set_ylabel('Events / %i MeV'%(binedges[1]-binedges[0]),fontsize=30)
+    else: ax0.set_ylabel('Event Count',fontsize=30)
+    ax1.set_ylabel('Data/Pred',fontsize=30)
+    #ax0.set_title('MCC9 Data/MC',fontsize=30)
 
-    ax0.hist(a_vals_draw,nbins,range=myrange,weights=a_wgts_draw,color=a_cols_draw,stacked=True,linewidth=0,label=a_labels_evts_draw,edgecolor=None)
-    ax0.hist(np.hstack(a_vals_draw),nbins,range=myrange,weights=np.hstack(a_wgts_draw),histtype='step',zorder=20,color='black',linewidth=2)
+    ax0.hist(a_vals_draw,bins=bins,weights=a_wgts_draw,color=a_cols_draw,stacked=True,linewidth=0,label=a_labels_evts_draw,edgecolor=None)
+    ax0.hist(np.hstack(a_vals_draw),bins=bins,weights=np.hstack(a_wgts_draw),histtype='step',zorder=20,color='black',linewidth=2)
 
     ax0.errorbar(bincenters,vals_data,fmt='o',yerr=(a_obslo,a_obshi),color='black',capsize=5,label=data_label+' (%i)'%vals_data.sum(),markersize=8,zorder=20,elinewidth=2)
     ax0.errorbar(bincenters,vals_data,fmt='o',color='white',zorder=19,markersize=18)
@@ -393,15 +409,15 @@ def distplot_wratio_davio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_c
         errboxes_sys.append(rect0)
         rect1 = Rectangle((binedges[i],(vals_mc[i]-yerr_mc_total[i])),binedges[i+1]-binedges[i],yerr_mc_total[i]*2)
         errboxes_tot.append(rect1)
-    pc_sys = PatchCollection(errboxes_tot,facecolor='red', alpha=.3,hatch='X',edgecolor='white')
+    pc_sys = PatchCollection(errboxes_tot,facecolor='grey', alpha=.3,hatch='/',zorder=12)
     pc_sys_outline = PatchCollection(errboxes_tot,facecolor='none', alpha=.9,hatch='X',edgecolor='white',zorder=11)
     pc_tot = PatchCollection(errboxes_sys,facecolor=None,alpha=.1,hatch='/',zorder=12)
     ax0.add_collection(pc_sys)
-    ax0.add_collection(pc_sys_outline)
-    ax0.add_collection(pc_tot)
+    #ax0.add_collection(pc_sys_outline)
+    #ax0.add_collection(pc_tot)
     #ax0.hist(np.zeros(1),(1,2),facecolor=None,alpha=.1,hatch='//',zorder=0,label='MC Systematic Error')
-    ax0.hist(np.zeros(1),(1,2),facecolor='red', alpha=.3,hatch='X',edgecolor='white',label='MC Sysematic Error')
-    ax0.legend(loc='upper right',fontsize=20,frameon=False,ncol=2)
+    ax0.hist(np.zeros(1),(1,2),facecolor='grey', alpha=.3,hatch='/',label='Systematic Error')
+    ax0.legend(loc='upper center',fontsize=25,frameon=False,ncol=2)
 
     errboxes_rat_tot = []
     errboxes_rat_sys = []
@@ -411,22 +427,24 @@ def distplot_wratio_davio(myvar,nbins,myrange,stackedhists,datahist,stxcoord,m_c
         rect1 = Rectangle((binedges[i],1-er_rat_line_sys[i]),binedges[i+1]-binedges[i],er_rat_line_sys[i]*2)
         errboxes_rat_sys.append(rect1)
 
-    pc_rat_tot = PatchCollection(errboxes_rat_tot, facecolor='red', alpha=.3)
-    pc_rat_sys = PatchCollection(errboxes_rat_sys, facecolor=None, alpha=.1,hatch='/',zorder=12)
+    pc_rat_tot = PatchCollection(errboxes_rat_tot, facecolor='grey', alpha=.3,hatch='/')
+    #pc_rat_sys = PatchCollection(errboxes_rat_sys, facecolor=None, alpha=.1,hatch='/',zorder=12)
     ax1.add_collection(pc_rat_tot)
-    ax1.add_collection(pc_rat_sys)
+    #ax1.add_collection(pc_rat_sys)
     ax1.hist(np.zeros(1),(1,2),facecolor=None,alpha=.1,hatch='//',zorder=0)
 
     ax1.hist(np.zeros(1),(1,2),facecolor='red',alpha=.3,zorder=0)
-    ax1.errorbar(bincenters,np.true_divide(vals_data,vals_mc),yerr=(er_rat_dotslo,er_rat_dotshi),fmt='o',color='maroon',capsize=0,markersize=8,elinewidth=2)
+    ax1.errorbar(bincenters,np.true_divide(vals_data,vals_mc),yerr=(er_rat_dotslo,er_rat_dotshi),fmt='o',color='black',capsize=0,markersize=8,elinewidth=2)
 
     #ax1.legend(loc='lower right',fontsize=15,frameon=False)
 
     ax1.axhline(1,color='black',linestyle=':')
-    ax0.annotate(r'$\sum$data/$\sum$MC = %.2f $\pm$ %.2f'%(vals_data.sum()/float(vals_mc.sum()),np.sqrt(vals_data.sum())/float(vals_mc.sum())),xy=(.01,.92),xycoords='axes fraction',fontsize=20,bbox=dict(boxstyle="square", fc="ghostwhite",alpha=.8))
+    ax0.annotate(r'$\sum$data/$\sum$pred = %.2f $\pm$ %.2f (sys) $\pm$ %.2f (stat)'%(vals_data.sum()/float(vals_mc.sum()),np.sqrt(fNorm_squared),np.sqrt(vals_mc.sum())/float(vals_mc.sum())),xy=(.13,.65),xycoords='axes fraction',fontsize=25,bbox=dict(boxstyle="square", fc="ghostwhite",alpha=.8))
 
-    ax1.annotate('p-value: %.3f\n'%pval+r'$\chi^2_{CNP}/%i  (dof)$: %.3f'%(ndof,chisq/float(ndof)),xy=(.85,.7), xycoords='axes fraction',fontsize=15,bbox=dict(boxstyle="round4", fc="w",alpha=.9),zorder=30)
+    #ax1.annotate('p-value: %.3f\n'%pval+r'$\chi^2_{CNP}/%i  (dof)$: %.3f'%(ndof,chisq/float(ndof)),xy=(.85,.7), xycoords='axes fraction',fontsize=15,bbox=dict(boxstyle="round4", fc="w",alpha=.9),zorder=30)
 
+    plt.xticks(fontsize=20)
+    plt.yticks(fontsize=20)
     plt.tight_layout()
 
     return fig,ax0,ax1,pval
@@ -488,21 +506,20 @@ def distplot_mc(myvar,nbins,myrange,stackedhists,stxcoord,legpos=0,ymax=-1,norms
 
     fig,ax = plt.subplots(figsize=fs)
 
-    ymax = (vals_mc).max()*2.0
+    ymax = (vals_mc).max()*1.5
 
     ax.set_ylim(0,ymax)
     ax.set_xlim(myrange)
     plt.setp(ax.get_xticklabels(), fontsize=20)
     plt.setp(ax.get_yticklabels(), fontsize=20)
-    ax.set_xlabel(stxcoord,fontsize=25)
-    ax.set_ylabel('POT Normalized Count',fontsize=25)
-    ax.set_title('MCC9 MC',fontsize=30)
+    ax.set_xlabel(stxcoord,fontsize=30)
+    ax.set_ylabel('Events / %i MeV'%(binedges[1]-binedges[0]),fontsize=30)
+    #ax.set_title('MCC9 MC',fontsize=30)
 
     ax.hist(a_vals_draw,nbins,range=myrange,weights=a_wgts_draw,color=a_cols_draw,stacked=True,linewidth=0,label=a_labels_evts_draw,edgecolor=None)
     ax.hist(np.hstack(a_vals_draw),nbins,range=myrange,weights=np.hstack(a_wgts_draw),histtype='step',zorder=20,color='black',linewidth=2)
-
-    ax.legend(loc='upper right',fontsize=20,frameon=False,ncol=1)
-
+    
+    ax.legend(loc='upper center',fontsize=25,frameon=False,ncol=2)
     
     plt.tight_layout()
 
